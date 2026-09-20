@@ -1,0 +1,35 @@
+name: E01 H3 real-path test
+
+on:
+  push:
+    branches:
+      - h3-e01-real-test-3b3bc527
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e01-h3-real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact test branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify source commit ancestry
+        run: git merge-base --is-ancestor 3b3bc527197bad66ac0425094036ea86b0add7e8 HEAD
+
+      - name: Run H3 V6/V6.1 regression plus E01 real-path tests
+        run: |
+          uv run pytest             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_v6_director.py             tests/unit/test_h3_preview_runtime_lock.py             tests/integration/test_e01_h3_real_path.py             -vv
+
+      - name: Ruff E01 test
+        run: uv run ruff check tests/integration/test_e01_h3_real_path.py
