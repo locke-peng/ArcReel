@@ -171,7 +171,8 @@ def test_e01_u11_stops_at_connection_click_and_does_not_leak_e02_dialogue() -> N
     assert "接通轻响" in prompt
     assert "切黑" in prompt
     assert "我还有事" not in prompt
-    assert "今晚不回" not in prompt
+    assert prompt.count("<d>[Chinese]") == 1
+    assert "陆予深 (S" not in prompt
 
 
 def test_e01_u04_ref2va_switch_uses_only_actual_provider_references() -> None:
