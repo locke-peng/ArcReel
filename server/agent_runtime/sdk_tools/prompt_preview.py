@@ -24,7 +24,18 @@ def get_prompt_preview_tool(ctx: ToolContext):
             "type": "object",
             "properties": {
                 "script": {"type": "string", "description": "剧本文件名，如 episode_1.json"},
-                "item_id": {"type": "string", "description": "分镜条目 id，如 E1S01"},
+                "item_id": {"type": "string", "description": "分镜或 reference-video unit id"},
+                "prompt": {"type": "string", "description": "可选：仅预览用的未保存 reference-video 正文"},
+                "reference_image_labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "可选：按实际 provider 参考图顺序的一组标签",
+                },
+                "prompt_compiler": {
+                    "type": "string",
+                    "enum": ["auto", "h3_ref2va", "raw"],
+                    "description": "reference-video 最终 Prompt 编译模式",
+                },
             },
             "required": ["script", "item_id"],
         },

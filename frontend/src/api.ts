@@ -80,6 +80,7 @@ import type {
   ReferenceProjectionAdmission,
   NarratedVideoDurationAdmission,
   ReferenceGenerationRequestOptions,
+  ReferencePromptPreview,
   ReferenceBatchAdmission,
   ReferenceBatchGenerateRequest,
   ReferenceRequestOptions,
@@ -3670,6 +3671,20 @@ class API {
     return this.request(
       `/projects/${encodeURIComponent(projectName)}/reference-videos/episodes/${episode}/units/${encodeURIComponent(unitId)}/generate`,
       { method: "POST", body: JSON.stringify(options) },
+    );
+  }
+
+  /** Compile the exact provider prompt without enqueueing or calling a media provider. */
+  static async previewReferenceVideoProviderPrompt(
+    projectName: string,
+    episode: number,
+    unitId: string,
+    payload: ReferenceGenerationRequestOptions & { prompt?: string },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<ReferencePromptPreview> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/episodes/${episode}/units/${encodeURIComponent(unitId)}/prompt-preview`,
+      { method: "POST", body: JSON.stringify(payload), signal: options.signal },
     );
   }
 

@@ -41,6 +41,10 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media,
     stage_provider_media_for_task,
 )
+from lib.reference_video.h3_prompt_execution import (
+    compile_reference_video_provider_prompt,
+    should_compile_reference_video_h3,
+)
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
@@ -496,7 +500,13 @@ async def execute_reference_video_task(
     if duration_warning is not None:
         warnings.append(duration_warning)
 
-    if request_options.narration_delivery == USE_TTS:
+    h3_compilation_applies = should_compile_reference_video_h3(
+        payload=payload,
+        model_name=model_name,
+        has_references=bool(constrained_entries),
+    )
+
+    if request_options.narration_delivery == USE_TTS and not h3_compilation_applies:
         narration = options.narration_preparation
         if narration is None or narration.actual_duration_seconds is None:
             raise RuntimeError("allowed TTS reference request is missing actual narration duration")
@@ -539,6 +549,16 @@ async def execute_reference_video_task(
         request_references=[entry.reference for entry in constrained_entries],
     )
     rendered_prompt = rendered.prompt
+    prompt_compilation = compile_reference_video_provider_prompt(
+        source_prompt=str(unit.get("text") or ""),
+        fallback_prompt=rendered_prompt,
+        model_name=model_name,
+        duration_seconds=effective_duration,
+        request_assets=constrained_entries,
+        payload=payload,
+        max_prompt_chars=video.max_prompt_chars,
+    )
+    provider_prompt = prompt_compilation.provider_prompt
     reference_audio_files, reference_audio_targets = _build_reference_audio_wiring(
         rendered, audio_paths, reference_audio_per_image=voice_settings.requires_reference_image
     )
@@ -627,7 +647,7 @@ async def execute_reference_video_task(
             provider_audio = staged_audio_paths or None
             visual_basis_digest = await asyncio.to_thread(
                 materialized_reference_video_visual_basis_digest,
-                rendered_prompt=rendered_prompt,
+                rendered_prompt=provider_prompt,
                 aspect_ratio=aspect_ratio,
                 reference_images=provider_refs,
                 request_assets=constrained_entries,
@@ -684,7 +704,7 @@ async def execute_reference_video_task(
                     provider_model_id=video.provider_model.model_id,
                     backend_model_id=video.backend_model,
                     endpoint_guard=video.endpoint,
-                    prompt=rendered_prompt,
+                    prompt=provider_prompt,
                     duration_seconds=effective_duration,
                     aspect_ratio=aspect_ratio,
                     resolution=resolution,
@@ -729,7 +749,7 @@ async def execute_reference_video_task(
             versions=generator.versions,
             resource_type="reference_videos",
             resource_id=resource_id,
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
         )
         if task_id is not None
         else None
@@ -743,7 +763,7 @@ async def execute_reference_video_task(
         # MediaGenerator compresses only transient derivatives of the immutable staged images. A 413 retry keeps
         # the same high-level media identities and cannot rewrite the once-only checkpoint.
         output_path, version, _, video_uri = await generator.generate_video_async(
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
             resource_type="reference_videos",
             resource_id=resource_id,
             reference_images=provider_refs,
