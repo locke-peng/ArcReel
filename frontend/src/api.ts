@@ -3659,6 +3659,23 @@ class API {
       { method: "POST", body: JSON.stringify({ prompt }), signal: options?.signal },
     );
   }
+  /** Compile the exact provider prompt without enqueueing or calling a media provider. */
+  static async previewReferenceVideoProviderPrompt(
+    projectName: string,
+    episode: number,
+    unitId: string,
+    payload: ReferenceGenerationRequestOptions & { prompt?: string },
+    options?: { signal?: AbortSignal },
+  ): Promise<ReferencePromptPreview> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/episodes/${episode}/units/${encodeURIComponent(unitId)}/prompt-preview`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+        signal: options?.signal,
+      },
+    );
+  }
 
   /** Enqueue generation; returns 202 with task_id. */
   static async generateReferenceVideoUnit(

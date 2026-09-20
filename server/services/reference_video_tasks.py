@@ -41,6 +41,10 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media,
     stage_provider_media_for_task,
 )
+from lib.reference_video.h3_prompt_execution import (
+    compile_reference_video_provider_prompt,
+    should_compile_reference_video_h3,
+)
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
@@ -500,20 +504,28 @@ async def execute_reference_video_task(
         narration = options.narration_preparation
         if narration is None or narration.actual_duration_seconds is None:
             raise RuntimeError("allowed TTS reference request is missing actual narration duration")
-        reused = await reuse_current_video_for_tier(
-            project_path=project_path,
-            versions=generator.versions,
-            item=unit,
-            resource_type="reference_videos",
-            resource_id=resource_id,
-            request_duration_seconds=effective_duration,
-            minimum_actual_duration_seconds=narration.actual_duration_seconds,
-            visual_basis_digest=visual_basis_digest,
-            revalidate_visual_basis_digest=_current_visual_basis_digest,
-            warnings=warnings,
-        )
-        if reused is not None:
-            return reused
+        # H3 compilation changes the actual provider prompt, while the existing durable
+        # visual-basis helper still hashes ArcReel's normal rendered prompt. Until that
+        # helper is compiler-aware, never fast-reuse a visual when H3 compilation applies.
+        if not should_compile_reference_video_h3(
+            payload=payload,
+            model_name=model_name,
+            has_references=bool(constrained_entries),
+        ):
+            reused = await reuse_current_video_for_tier(
+                project_path=project_path,
+                versions=generator.versions,
+                item=unit,
+                resource_type="reference_videos",
+                resource_id=resource_id,
+                request_duration_seconds=effective_duration,
+                minimum_actual_duration_seconds=narration.actual_duration_seconds,
+                visual_basis_digest=visual_basis_digest,
+                revalidate_visual_basis_digest=_current_visual_basis_digest,
+                warnings=warnings,
+            )
+            if reused is not None:
+                return reused
 
     # 4. 所有创作类型共用三段论渲染。解析条目同时携带请求路径与逻辑主体；商品的一条逻辑
     #    引用可展开成多张图片，裁剪后直接按条目传给渲染，保证 `图片N` 的 1-based 索引与
@@ -539,6 +551,16 @@ async def execute_reference_video_task(
         request_references=[entry.reference for entry in constrained_entries],
     )
     rendered_prompt = rendered.prompt
+    # Compile at the execution boundary, after the actual provider model and clamped
+    # reference-image order are known, but before checkpoint/provenance persistence.
+    provider_prompt = compile_reference_video_provider_prompt(
+        source_prompt=str(unit.get("text") or ""),
+        fallback_prompt=rendered_prompt,
+        model_name=model_name,
+        duration_seconds=effective_duration,
+        request_assets=constrained_entries,
+        payload=payload,
+    )
     reference_audio_files, reference_audio_targets = _build_reference_audio_wiring(
         rendered, audio_paths, reference_audio_per_image=voice_settings.requires_reference_image
     )
@@ -627,7 +649,7 @@ async def execute_reference_video_task(
             provider_audio = staged_audio_paths or None
             visual_basis_digest = await asyncio.to_thread(
                 materialized_reference_video_visual_basis_digest,
-                rendered_prompt=rendered_prompt,
+                rendered_prompt=provider_prompt,
                 aspect_ratio=aspect_ratio,
                 reference_images=provider_refs,
                 request_assets=constrained_entries,
@@ -684,7 +706,7 @@ async def execute_reference_video_task(
                     provider_model_id=video.provider_model.model_id,
                     backend_model_id=video.backend_model,
                     endpoint_guard=video.endpoint,
-                    prompt=rendered_prompt,
+                    prompt=provider_prompt,
                     duration_seconds=effective_duration,
                     aspect_ratio=aspect_ratio,
                     resolution=resolution,
@@ -729,7 +751,7 @@ async def execute_reference_video_task(
             versions=generator.versions,
             resource_type="reference_videos",
             resource_id=resource_id,
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
         )
         if task_id is not None
         else None
@@ -743,7 +765,7 @@ async def execute_reference_video_task(
         # MediaGenerator compresses only transient derivatives of the immutable staged images. A 413 retry keeps
         # the same high-level media identities and cannot rewrite the once-only checkpoint.
         output_path, version, _, video_uri = await generator.generate_video_async(
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
             resource_type="reference_videos",
             resource_id=resource_id,
             reference_images=provider_refs,

@@ -9,10 +9,10 @@ import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
 from lib.api_errors import ApiError, BadRequestError, NotFoundError
 from lib.artifact_activation import resolve_artifact_episode
@@ -51,6 +51,15 @@ from lib.reference_video.request_projection import (
     project_reference_unit_request,
 )
 from lib.reference_video.script_preview import build_script_preview
+from lib.reference_video.prompt_preview import build_reference_prompt_preview_payload
+from lib.reference_video.prompt_compiler_options import (
+    normalize_prompt_compiler,
+    resolve_reference_image_labels,
+)
+from lib.reference_video.h3_prompt_execution import (
+    compile_reference_video_provider_prompt,
+    should_compile_reference_video_h3,
+)
 from lib.reference_video.units import reference_video_bucket
 from lib.reference_video.voice_settings import VoiceRenderSettings
 from lib.resource_paths import resource_relative_path
@@ -68,6 +77,7 @@ from server.services.narration_delivery_tasks import (
     tts_task_in_progress,
 )
 from server.services.reference_video_tasks import (
+    _render_unit_prompt,
     apply_unit_video_assets,
     default_unit_duration,
     resolve_project_duration_context,
@@ -120,12 +130,32 @@ class GenerateUnitRequest(BaseModel):
     # 与时长基准的入口（``GenerateUnitsBatchRequest``）与由模型推断参数的 Agent 视频工具上。
     narration_delivery: NarrationDelivery = POST_PRODUCTION
     confirmed_request_duration_seconds: int | None = Field(default=None, gt=0)
+    reference_image_labels: list[str] | None = None
+    prompt_compiler: Literal["auto", "h3_ref2va", "raw"] = "auto"
+
+    @field_validator("reference_image_labels")
+    @classmethod
+    def _reference_image_labels_are_nonblank(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        labels = [item.strip() for item in value]
+        if not labels:
+            return None
+        if any(not item for item in labels):
+            raise ValueError("reference_image_labels must not contain blank labels")
+        return labels
+
 
     def projection_options(self) -> ReferenceRequestOptions:
         return ReferenceRequestOptions(
             narration_delivery=self.narration_delivery,
             confirmed_request_duration_seconds=self.confirmed_request_duration_seconds,
         )
+
+
+class ProviderPromptPreviewRequest(GenerateUnitRequest):
+    # The editor may have unsaved text. Preview must compile that draft without persisting it.
+    prompt: str | None = None
 
 
 class GenerateUnitsBatchRequest(BaseModel):
@@ -567,6 +597,124 @@ async def preview_script(
     }
 
 
+@router.post("/episodes/{episode}/units/{unit_id}/prompt-preview")
+async def preview_provider_prompt(
+    project_name: str,
+    episode: int,
+    unit_id: str,
+    req: ProviderPromptPreviewRequest,
+    user: CurrentUser,
+    _t: Translator,
+) -> dict[str, Any]:
+    """Read-only final provider-prompt preview. No queue row, provider call, or checkpoint."""
+    project, script, script_file = _load_episode_script(project_name, episode, _t)
+    saved_unit = _find_unit(script, unit_id, _t)
+    unit = dict(saved_unit)
+    if req.prompt is not None:
+        unit["text"] = req.prompt
+    _require_unit_ready(unit)
+
+    request_options = req.projection_options()
+    queue = get_generation_queue()
+    tts_in_progress = (
+        await tts_task_in_progress(
+            project_name=project_name,
+            resource_id=unit_id,
+            script_file=script_file,
+            user_id=user.id,
+            queue=queue,
+        )
+        if request_options.narration_delivery == USE_TTS
+        else False
+    )
+    project_path = get_project_manager().get_project_path(project_name)
+    current_options = await prepare_current_reference_video_request_options(
+        project=project,
+        script=script,
+        script_file=script_file,
+        unit=unit,
+        project_path=project_path,
+        options=request_options,
+        project_name=project_name,
+        user_id=user.id,
+        tts_in_progress=tts_in_progress,
+    )
+    projection = await project_reference_unit_request(
+        project=project,
+        script=script,
+        unit=unit,
+        project_path=project_path,
+        options=current_options,
+        tts_in_progress=tts_in_progress,
+        current_options_materialized=True,
+    )
+    # Preview may show a pending duration-confirmation result, but other blockers mean
+    # there is no meaningful "actual provider prompt" to promise.
+    _raise_projection_blocker(
+        projection,
+        _t,
+        allow_duration_confirmation=True,
+    )
+    candidate = projection.provider_candidate
+    request_duration = projection.request_duration
+    if candidate is None or request_duration is None:
+        raise BadRequestError("reference_supported_durations_missing")
+
+    request_assets = list(projection.request_assets)
+    caps = await project_video_caps(
+        project,
+        degraded_to="提示词预览按可解析的视频能力渲染",
+        generation_type=candidate.generation_type,
+    )
+    rendered = _render_unit_prompt(
+        unit,
+        project,
+        VoiceRenderSettings.from_caps(caps),
+        request_references=[entry.reference for entry in request_assets],
+    )
+
+    compiler_payload: dict[str, Any] = {
+        "prompt_compiler": req.prompt_compiler,
+    }
+    if req.reference_image_labels:
+        compiler_payload["reference_image_labels"] = req.reference_image_labels
+
+    labels = resolve_reference_image_labels(
+        req.reference_image_labels,
+        derived=[str(entry.reference.name) for entry in request_assets],
+    )
+    compiler_mode = normalize_prompt_compiler(req.prompt_compiler)
+    compiled = should_compile_reference_video_h3(
+        payload=compiler_payload,
+        model_name=candidate.model_id,
+        has_references=bool(request_assets),
+    )
+    provider_prompt = compile_reference_video_provider_prompt(
+        source_prompt=str(unit.get("text") or ""),
+        fallback_prompt=rendered.prompt,
+        model_name=candidate.model_id,
+        duration_seconds=request_duration.seconds,
+        request_assets=request_assets,
+        payload=compiler_payload,
+    )
+
+    max_prompt_chars = caps.get("max_prompt_chars")
+    return build_reference_prompt_preview_payload(
+        provider_prompt=provider_prompt,
+        rendered_prompt=rendered.prompt,
+        model_id=candidate.model_id,
+        prompt_compiler=compiler_mode,
+        compiler_applied=compiled,
+        duration_seconds=request_duration.seconds,
+        reference_labels=labels,
+        max_prompt_chars=(
+            int(max_prompt_chars)
+            if isinstance(max_prompt_chars, int) and not isinstance(max_prompt_chars, bool)
+            else None
+        ),
+    )
+
+
 @router.post(
     "/episodes/{episode}/units/{unit_id}/generate",
     status_code=status.HTTP_202_ACCEPTED,
@@ -583,7 +731,8 @@ async def generate_unit(
     unit = _find_unit(script, unit_id, _t)  # raises 404 if missing
     _require_unit_ready(unit)
     guard_prompt = str(unit.get("text") or "")
-    request_options = (req or GenerateUnitRequest()).projection_options()
+    request_body = req or GenerateUnitRequest()
+    request_options = request_body.projection_options()
     queue = get_generation_queue()
     tts_in_progress = (
         await tts_task_in_progress(
@@ -634,7 +783,19 @@ async def generate_unit(
             resource_id=unit_id,
             prompt=guard_prompt,
             script_file=script_file,
-            extra_payload={"reference_request_options": request_options.to_payload()},
+            extra_payload={
+                "reference_request_options": request_options.to_payload(),
+                **(
+                    {"reference_image_labels": request_body.reference_image_labels}
+                    if request_body.reference_image_labels
+                    else {}
+                ),
+                **(
+                    {"prompt_compiler": request_body.prompt_compiler}
+                    if request_body.prompt_compiler != "auto"
+                    else {}
+                ),
+            },
         )
     except TaskSpecValidationError as exc:
         raise HTTPException(status_code=400, detail=_t(exc.code, **exc.params)) from exc

@@ -76,10 +76,33 @@ export interface ReferenceVideoUnit {
 export interface ReferenceRequestOptions {
   narration_delivery?: "post_production" | "use_tts";
 }
+export type ReferencePromptCompiler = "auto" | "h3_ref2va" | "raw";
+
 
 export interface ReferenceGenerationRequestOptions extends ReferenceRequestOptions {
   /** Exact video tier accepted for this request; omitted when no cross-tier confirmation is needed. */
   confirmed_request_duration_seconds?: number | null;
+  /** One label per actual transmitted reference image; omitted = derive at execution time. */
+  reference_image_labels?: string[];
+  /** auto = detect H3; h3_ref2va = force compiler; raw = bypass compiler. */
+  prompt_compiler?: ReferencePromptCompiler;
+}
+
+export interface ReferencePromptPreview {
+  provider_prompt: string;
+  rendered_prompt: string;
+  model_id: string | null;
+  prompt_compiler: ReferencePromptCompiler;
+  compiler_applied: boolean;
+  duration_seconds: number;
+  prompt_chars: number;
+  max_prompt_chars: number | null;
+  reference_mapping: Array<{
+    index: number;
+    picture: string;
+    subject: string;
+    label: string;
+  }>;
 }
 
 export interface ReferenceProjectionLocation {

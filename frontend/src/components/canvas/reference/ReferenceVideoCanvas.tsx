@@ -13,6 +13,12 @@ import {
 import { UnitList } from "./UnitList";
 import { UnitRail } from "./UnitRail";
 import { UnitPreviewPanel } from "./UnitPreviewPanel";
+import { PromptPreviewDialog } from "./PromptPreviewDialog";
+import {
+  DEFAULT_REFERENCE_PROMPT_COMPILER,
+  parseReferenceImageLabels,
+  type ReferencePromptCompiler,
+} from "./h3-generation-options";
 import { ReferenceVideoCard } from "./ReferenceVideoCard";
 import { ScriptPreviewPanel } from "./ScriptPreviewPanel";
 import { deriveUnitStatus } from "./unit-status";
@@ -52,6 +58,8 @@ import {
 } from "@/utils/reference-mentions";
 import type {
   ReferenceBatchAdmission,
+  ReferenceGenerationRequestOptions,
+  ReferencePromptPreview,
   ReferenceRequestOptions,
   ReferenceVideoUnit,
   UnitStatus,
@@ -122,7 +130,7 @@ function draftKey(projectName: string, episode: number, unitId: string): string 
   return `${projectName}::${episode}::${unitId}`;
 }
 
-function withoutKey(record: Record<string, string>, key: string): Record<string, string> {
+function withoutKey<T>(record: Record<string, T>, key: string): Record<string, T> {
   if (!(key in record)) return record;
   const next = { ...record };
   delete next[key];
@@ -233,6 +241,13 @@ export function ReferenceVideoCanvas({
   // Drafts persist across unit switches; entry is dropped when text matches server value.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [durationDrafts, setDurationDrafts] = useState<Record<string, string>>({});
+  const [referenceImageLabelDrafts, setReferenceImageLabelDrafts] = useState<Record<string, string>>({});
+  const [promptCompilerDrafts, setPromptCompilerDrafts] =
+    useState<Record<string, ReferencePromptCompiler>>({});
+  const [promptPreviewOpen, setPromptPreviewOpen] = useState(false);
+  const [promptPreviewLoading, setPromptPreviewLoading] = useState(false);
+  const [promptPreview, setPromptPreview] = useState<ReferencePromptPreview | null>(null);
+  const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // resource（=unit）→ 最新任务行。「最新行胜出」下沉到 store selector：
@@ -253,6 +268,87 @@ export function ReferenceVideoCanvas({
     () => units.find((u) => u.unit_id === selectedUnitId) ?? null,
     [units, selectedUnitId],
   );
+  const selectedRequestKey = selected ? draftKey(projectName, episode, selected.unit_id) : null;
+  const selectedReferenceImageLabels = selectedRequestKey
+    ? (referenceImageLabelDrafts[selectedRequestKey] ?? "")
+    : "";
+  const selectedPromptCompiler = selectedRequestKey
+    ? (promptCompilerDrafts[selectedRequestKey] ?? DEFAULT_REFERENCE_PROMPT_COMPILER)
+    : DEFAULT_REFERENCE_PROMPT_COMPILER;
+
+  const handleReferenceImageLabelsChange = useCallback(
+    (value: string) => {
+      if (!selected) return;
+      const key = draftKey(projectName, episode, selected.unit_id);
+      setReferenceImageLabelDrafts((current) =>
+        value.trim() ? { ...current, [key]: value } : withoutKey(current, key),
+      );
+    },
+    [selected, projectName, episode],
+  );
+
+  const handlePromptCompilerChange = useCallback(
+    (value: ReferencePromptCompiler) => {
+      if (!selected) return;
+      const key = draftKey(projectName, episode, selected.unit_id);
+      setPromptCompilerDrafts((current) =>
+        value === DEFAULT_REFERENCE_PROMPT_COMPILER
+          ? withoutKey(current, key)
+          : { ...current, [key]: value },
+      );
+    },
+    [selected, projectName, episode],
+  );
+
+  const generationOverridesFor = useCallback(
+    (unitId: string): Pick<
+      ReferenceGenerationRequestOptions,
+      "reference_image_labels" | "prompt_compiler"
+    > => {
+      const key = draftKey(projectName, episode, unitId);
+      const labels = parseReferenceImageLabels(referenceImageLabelDrafts[key] ?? "");
+      const compiler = promptCompilerDrafts[key] ?? DEFAULT_REFERENCE_PROMPT_COMPILER;
+      return {
+        ...(labels ? { reference_image_labels: labels } : {}),
+        ...(compiler === DEFAULT_REFERENCE_PROMPT_COMPILER ? {} : { prompt_compiler: compiler }),
+      };
+    },
+    [projectName, episode, referenceImageLabelDrafts, promptCompilerDrafts],
+  );
+
+  const handlePreviewProviderPrompt = useCallback(async () => {
+    if (!selected) return;
+    const unitId = selected.unit_id;
+    setPromptPreviewOpen(true);
+    setPromptPreviewLoading(true);
+    setPromptPreviewError(null);
+    setPromptPreview(null);
+    try {
+      const preview = await API.previewReferenceVideoProviderPrompt(
+        projectName,
+        episode,
+        unitId,
+        {
+          ...effectiveRequestOptions,
+          ...generationOverridesFor(unitId),
+          // Preview the editor's current draft, even if it has not been saved yet.
+          prompt: currentText,
+        },
+      );
+      setPromptPreview(preview);
+    } catch (error) {
+      setPromptPreviewError(errMsg(error));
+    } finally {
+      setPromptPreviewLoading(false);
+    }
+  }, [
+    selected,
+    projectName,
+    episode,
+    effectiveRequestOptions,
+    generationOverridesFor,
+    currentText,
+  ]);
   const selectedDurationKey = selected
     ? draftKey(projectName, episode, selected.unit_id)
     : null;
@@ -368,6 +464,8 @@ export function ReferenceVideoCanvas({
       const key = draftKey(projectName, episode, removeUnitId);
       setDrafts((current) => withoutKey(current, key));
       setDurationDrafts((current) => withoutKey(current, key));
+      setReferenceImageLabelDrafts((current) => withoutKey(current, key));
+      setPromptCompilerDrafts((current) => withoutKey(current, key));
       setRemoveUnitId(null);
     } catch (e) {
       toastError(e);
@@ -453,6 +551,7 @@ export function ReferenceVideoCanvas({
         // 乐观打标（请求发出前）、失败回滚与 queued/deduped 提示都在动作层内完成
         await enqueueReferenceVideoUnit(projectName, episode, unitId, {
           ...options,
+          ...generationOverridesFor(unitId),
           ...(confirmedRequestDuration == null
             ? {}
             : { confirmed_request_duration_seconds: confirmedRequestDuration }),
@@ -461,7 +560,7 @@ export function ReferenceVideoCanvas({
         toastError(e, (msg) => t("reference_generate_request_failed", { error: msg }));
       }
     },
-    [projectName, episode, isUnitLocked, isUnitGenerationBlocked, t],
+    [projectName, episode, isUnitLocked, isUnitGenerationBlocked, generationOverridesFor, t],
   );
 
   /**
@@ -1359,6 +1458,12 @@ export function ReferenceVideoCanvas({
                           narrationEstimatedCost={narrationEstimatedCost}
                           onGenerateNarration={onGenerateNarrationVoid}
                           onGenerate={onGenerateVoid}
+                          referenceImageLabels={selectedReferenceImageLabels}
+                          promptCompiler={selectedPromptCompiler}
+                          onReferenceImageLabelsChange={handleReferenceImageLabelsChange}
+                          onPromptCompilerChange={handlePromptCompilerChange}
+                          promptPreviewing={promptPreviewLoading}
+                          onPreviewPrompt={() => void handlePreviewProviderPrompt()}
                           generationBlocked={Boolean(selected.needs_replan)}
                           onUploadVideo={handleUploadVideo}
                           uploadingVideo={uploading.ids.has(selected.unit_id)}
@@ -1395,6 +1500,12 @@ export function ReferenceVideoCanvas({
                   narrationEstimatedCost={narrationEstimatedCost}
                   onGenerateNarration={onGenerateNarrationVoid}
                   onGenerate={onGenerateVoid}
+                  referenceImageLabels={selectedReferenceImageLabels}
+                  promptCompiler={selectedPromptCompiler}
+                  onReferenceImageLabelsChange={handleReferenceImageLabelsChange}
+                  onPromptCompilerChange={handlePromptCompilerChange}
+                  promptPreviewing={promptPreviewLoading}
+                  onPreviewPrompt={() => void handlePreviewProviderPrompt()}
                   generationBlocked={Boolean(selected?.needs_replan)}
                   onUploadVideo={handleUploadVideo}
                   uploadingVideo={selected ? uploading.ids.has(selected.unit_id) : false}
@@ -1406,6 +1517,13 @@ export function ReferenceVideoCanvas({
               </div>
             )}
           </div>
+          <PromptPreviewDialog
+            open={promptPreviewOpen}
+            loading={promptPreviewLoading}
+            preview={promptPreview}
+            error={promptPreviewError}
+            onClose={() => setPromptPreviewOpen(false)}
+          />
 
           {/* 折叠态下的展开抽屉 */}
           {listFlyoutOpen && (

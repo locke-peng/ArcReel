@@ -1160,6 +1160,13 @@ class VideoGenerationRequest:
     start_image: Path | None = None
     end_image: Path | None = None  # For first_last mode
     reference_images: list[Path] | None = None  # For multi-reference mode
+    # 与 reference_images 等长同序的人类可读标签。仅 prompt 编译层读取；
+    # backend 不读取、不重排。压缩参考图只改字节/路径，不改顺序，因此标签仍有效。
+    reference_image_labels: list[str] | None = None
+    # None = 按 model 自动选择；"raw" = 明确禁用；"h3_ref2va" = 强制 H3 六段式。
+    prompt_compiler: str | None = None
+    # 编译器的纯数据参数；不得放 Path/客户端对象/回调等运行时资源。
+    prompt_compiler_options: Mapping[str, Any] | None = None
     # 参考音频（音色复刻）。列表顺序即 prompt 中「音频N」的指认契约：编排层按该顺序拼指认
     # 文本，后端按同一顺序下发，故任何一侧都不得重排或跳过。哪个角色对应哪段音频不进请求
     # ——绑定由 prompt 文本表达，供应商 API 均无结构化的「角色-音频」字段。

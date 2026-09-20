@@ -851,8 +851,11 @@ class MediaGenerator:
         start_image: str | Path | Image.Image | None = None,
         end_image: Path | None = None,
         reference_images: list[Path] | None = None,
+        reference_image_labels: list[str] | None = None,
         reference_audio_files: list[Path] | None = None,
         reference_audio_targets: list[int] | None = None,
+        prompt_compiler: str | None = None,
+        prompt_compiler_options: Mapping[str, Any] | None = None,
         aspect_ratio: str = "9:16",
         duration_seconds: str | int = "8",
         resolution: str | None = None,
@@ -889,8 +892,11 @@ class MediaGenerator:
                 start_image=start_image,
                 end_image=end_image,
                 reference_images=reference_images,
+                reference_image_labels=reference_image_labels,
                 reference_audio_files=reference_audio_files,
                 reference_audio_targets=reference_audio_targets,
+                prompt_compiler=prompt_compiler,
+                prompt_compiler_options=prompt_compiler_options,
                 aspect_ratio=aspect_ratio,
                 duration_seconds=duration_seconds,
                 resolution=resolution,
@@ -907,8 +913,11 @@ class MediaGenerator:
         start_image: str | Path | Image.Image | None = None,
         end_image: Path | None = None,
         reference_images: list[Path] | None = None,
+        reference_image_labels: list[str] | None = None,
         reference_audio_files: list[Path] | None = None,
         reference_audio_targets: list[int] | None = None,
+        prompt_compiler: str | None = None,
+        prompt_compiler_options: Mapping[str, Any] | None = None,
         aspect_ratio: str = "9:16",
         duration_seconds: str | int = "8",
         resolution: str | None = None,
@@ -1106,6 +1115,8 @@ class MediaGenerator:
                 provider_resubmit_unsafe = True
 
             def _call_video(compressed: "list[CompressedRef]"):
+                from lib.video_prompt_compilers import compile_video_request_prompt
+
                 start_arg = compressed[start_spec_idx].path if start_spec_idx is not None else None
                 end_arg = compressed[end_spec_idx].path if end_spec_idx is not None else None
                 # 数组参考图恒在 specs 末段（append start/end 之后），故 [ref_start_idx:] 精确取它们；
@@ -1113,8 +1124,7 @@ class MediaGenerator:
                 ref_arg = (
                     [c.path for c in compressed[ref_start_idx:]] if ref_start_idx is not None else reference_images
                 )
-                return video_backend.generate(
-                    VideoGenerationRequest(
+                request = VideoGenerationRequest(
                         prompt=prompt,
                         output_path=backend_output_path,
                         aspect_ratio=request_aspect_ratio,
@@ -1123,6 +1133,9 @@ class MediaGenerator:
                         start_image=start_arg,
                         end_image=end_arg,
                         reference_images=ref_arg,
+                        reference_image_labels=reference_image_labels,
+                        prompt_compiler=prompt_compiler,
+                        prompt_compiler_options=prompt_compiler_options,
                         # 音频不进压缩器（specs 只收图片），故直接透传原列表：顺序即 prompt
                         # 「音频N」的指认顺序，任何重排都会把 A 角色的音色安到 B 角色头上。
                         reference_audio_files=reference_audio_files,
@@ -1139,8 +1152,9 @@ class MediaGenerator:
                         ),
                         service_tier=version_metadata.get("service_tier", "default"),
                         seed=version_metadata.get("seed"),
-                    )
                 )
+                request = compile_video_request_prompt(request, model=model_name)
+                return video_backend.generate(request)
 
             async def _before_first_submit() -> None:
                 if before_submit is not None:
