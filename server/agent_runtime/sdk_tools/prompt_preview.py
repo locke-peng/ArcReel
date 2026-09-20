@@ -36,6 +36,10 @@ def get_prompt_preview_tool(ctx: ToolContext):
                     "enum": ["auto", "h3_ref2va", "raw"],
                     "description": "reference-video 最终 Prompt 编译模式",
                 },
+                "canonical_director": {
+                    "type": "object",
+                    "description": "可选：Canonical Director 结构化单元/整集载荷；仅用于编译与预览",
+                },
             },
             "required": ["script", "item_id"],
         },

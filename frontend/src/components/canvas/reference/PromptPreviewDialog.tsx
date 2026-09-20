@@ -10,6 +10,8 @@ export interface PromptPreviewDialogProps {
   preview: ReferencePromptPreview | null;
   error?: string | null;
   onClose: () => void;
+  onGenerate?: () => void;
+  generateDisabled?: boolean;
 }
 
 async function copyText(text: string): Promise<boolean> {
@@ -41,6 +43,8 @@ export function PromptPreviewDialog({
   preview,
   error,
   onClose,
+  onGenerate,
+  generateDisabled = false,
 }: PromptPreviewDialogProps) {
   const titleId = useId();
   const [copied, setCopied] = useState(false);
@@ -76,6 +80,17 @@ export function PromptPreviewDialog({
               只编译，不生成视频、不调用供应商、不产生生成费用。
             </p>
           </div>
+          {preview && onGenerate && (
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={loading || generateDisabled}
+              title={generateDisabled ? "请先保存当前编辑内容，再使用已预览 Prompt 生成" : undefined}
+              className="focus-ring inline-flex h-8 items-center justify-center rounded-md border border-[var(--color-accent)]/45 bg-[var(--color-accent-soft)] px-3 text-[11.5px] font-semibold text-[var(--color-accent-2)] hover:bg-[var(--color-accent-soft)]/80 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              使用此 Prompt 生成
+            </button>
+          )}
           <SecondaryButton size="sm" onClick={onClose} disabled={loading}>
             关闭
           </SecondaryButton>
@@ -95,7 +110,7 @@ export function PromptPreviewDialog({
             <div className="space-y-3">
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <Meta label="模型" value={preview.model_id || "—"} />
-                <Meta label="编译器" value={`${preview.prompt_compiler}${preview.compiler_applied ? " · applied" : ""}`} />
+                <Meta label="编译器" value={`${preview.prompt_compiler} · ${preview.generation_mode}${preview.compiler_applied ? " · applied" : ""}`} />
                 <Meta label="目标时长" value={`${preview.duration_seconds}s`} />
                 <Meta
                   label="字符数"

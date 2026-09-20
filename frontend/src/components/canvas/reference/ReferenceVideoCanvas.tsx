@@ -247,6 +247,7 @@ export function ReferenceVideoCanvas({
   const [promptPreviewOpen, setPromptPreviewOpen] = useState(false);
   const [promptPreviewLoading, setPromptPreviewLoading] = useState(false);
   const [promptPreview, setPromptPreview] = useState<ReferencePromptPreview | null>(null);
+  const [promptPreviewUnitId, setPromptPreviewUnitId] = useState<string | null>(null);
   const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -283,8 +284,12 @@ export function ReferenceVideoCanvas({
       setReferenceImageLabelDrafts((current) =>
         value.trim() ? { ...current, [key]: value } : withoutKey(current, key),
       );
+      if (promptPreviewUnitId === selected.unit_id) {
+        setPromptPreview(null);
+        setPromptPreviewUnitId(null);
+      }
     },
-    [selected, projectName, episode],
+    [selected, projectName, episode, promptPreviewUnitId],
   );
 
   const handlePromptCompilerChange = useCallback(
@@ -296,24 +301,40 @@ export function ReferenceVideoCanvas({
           ? withoutKey(current, key)
           : { ...current, [key]: value },
       );
+      if (promptPreviewUnitId === selected.unit_id) {
+        setPromptPreview(null);
+        setPromptPreviewUnitId(null);
+      }
     },
-    [selected, projectName, episode],
+    [selected, projectName, episode, promptPreviewUnitId],
   );
 
   const generationOverridesFor = useCallback(
     (unitId: string): Pick<
       ReferenceGenerationRequestOptions,
-      "reference_image_labels" | "prompt_compiler"
+      "reference_image_labels" | "prompt_compiler" | "expected_provider_prompt_sha256"
     > => {
       const key = draftKey(projectName, episode, unitId);
       const labels = parseReferenceImageLabels(referenceImageLabelDrafts[key] ?? "");
       const compiler = promptCompilerDrafts[key] ?? DEFAULT_REFERENCE_PROMPT_COMPILER;
+      const expectedHash =
+        promptPreview && promptPreviewUnitId === unitId
+          ? promptPreview.provider_prompt_sha256
+          : undefined;
       return {
         ...(labels ? { reference_image_labels: labels } : {}),
         ...(compiler === DEFAULT_REFERENCE_PROMPT_COMPILER ? {} : { prompt_compiler: compiler }),
+        ...(expectedHash ? { expected_provider_prompt_sha256: expectedHash } : {}),
       };
     },
-    [projectName, episode, referenceImageLabelDrafts, promptCompilerDrafts],
+    [
+      projectName,
+      episode,
+      referenceImageLabelDrafts,
+      promptCompilerDrafts,
+      promptPreview,
+      promptPreviewUnitId,
+    ],
   );
 
   const selectedDurationKey = selected
@@ -795,6 +816,10 @@ export function ReferenceVideoCanvas({
   const handlePromptChange = useCallback(
     (next: string) => {
       if (!selected) return;
+      if (promptPreviewUnitId === selected.unit_id) {
+        setPromptPreview(null);
+        setPromptPreviewUnitId(null);
+      }
       const key = draftKey(projectName, episode, selected.unit_id);
       const baseText = selected.text;
       setDrafts((d) => {
@@ -807,7 +832,7 @@ export function ReferenceVideoCanvas({
         return { ...d, [key]: next };
       });
     },
-    [selected, projectName, episode],
+    [selected, projectName, episode, promptPreviewUnitId],
   );
 
   const currentText = useMemo(() => {
@@ -822,6 +847,7 @@ export function ReferenceVideoCanvas({
     setPromptPreviewLoading(true);
     setPromptPreviewError(null);
     setPromptPreview(null);
+    setPromptPreviewUnitId(unitId);
     try {
       const preview = await API.previewReferenceVideoProviderPrompt(
         projectName,
@@ -1543,6 +1569,12 @@ export function ReferenceVideoCanvas({
         loading={promptPreviewLoading}
         preview={promptPreview}
         error={promptPreviewError}
+        generateDisabled={isDirty || !selected || promptPreviewUnitId !== selected?.unit_id}
+        onGenerate={() => {
+          if (!selected || !promptPreview) return;
+          setPromptPreviewOpen(false);
+          void handleGenerate(selected.unit_id);
+        }}
         onClose={() => setPromptPreviewOpen(false)}
       />
       <ConfirmDialog

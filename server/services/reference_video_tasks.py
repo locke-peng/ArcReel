@@ -42,6 +42,7 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media_for_task,
 )
 from lib.reference_video.h3_prompt_execution import (
+    assert_provider_prompt_matches_preview,
     compile_reference_video_provider_prompt,
     should_compile_reference_video_h3,
 )
@@ -557,8 +558,16 @@ async def execute_reference_video_task(
         request_assets=constrained_entries,
         payload=payload,
         max_prompt_chars=video.max_prompt_chars,
+        unit_id=resource_id,
     )
     provider_prompt = prompt_compilation.provider_prompt
+    # Hard pre-provider invariant: a preview-locked generation may never silently
+    # submit different text. Any script/asset/model/compiler drift becomes a free
+    # pre-submit failure instead of a paid generation with an unseen prompt.
+    assert_provider_prompt_matches_preview(
+        provider_prompt=provider_prompt,
+        expected_sha256=payload.get("expected_provider_prompt_sha256"),
+    )
     reference_audio_files, reference_audio_targets = _build_reference_audio_wiring(
         rendered, audio_paths, reference_audio_per_image=voice_settings.requires_reference_image
     )

@@ -856,6 +856,7 @@ def build_remote_mcp_server(
         prompt: str | None = None,
         reference_image_labels: list[str] | None = None,
         prompt_compiler: str | None = None,
+        canonical_director: dict[str, Any] | None = None,
     ) -> CallToolResult:  # pyright: ignore[reportUnusedFunction]
         """Return the final storyboard or reference-video provider prompt without generation."""
         try:
@@ -866,6 +867,7 @@ def build_remote_mcp_server(
                 prompt=prompt,
                 reference_image_labels=reference_image_labels,
                 prompt_compiler=prompt_compiler,
+                canonical_director=canonical_director,
             )
         except (FileNotFoundError, ValueError) as exc:
             return _to_mcp_result("prompt_preview", ToolOutcome(problem=ToolProblem("invalid_request", str(exc))))

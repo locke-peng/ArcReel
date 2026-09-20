@@ -881,6 +881,7 @@ class PromptPreviewRequest(BaseModel):
     prompt: str | None = None
     reference_image_labels: list[str] | None = None
     prompt_compiler: Literal["auto", "h3_ref2va", "raw"] | None = None
+    canonical_director: dict[str, Any] | None = None
 
     @field_validator("reference_image_labels")
     @classmethod
@@ -918,6 +919,7 @@ async def get_prompt_preview(
             request.value.prompt is not None
             or request.value.reference_image_labels is not None
             or request.value.prompt_compiler is not None
+            or request.value.canonical_director is not None
         )
         if force_reference_video:
             raise ScriptItemNotFound(request.value.item_id)
@@ -935,6 +937,7 @@ async def get_prompt_preview(
                 prompt_override=request.value.prompt,
                 reference_image_labels=request.value.reference_image_labels,
                 prompt_compiler=request.value.prompt_compiler or "auto",
+                canonical_director=request.value.canonical_director,
                 user_id=_caller.user_id,
                 projects=services.projects,
                 queue=services.queue,

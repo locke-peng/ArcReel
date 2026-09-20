@@ -38,6 +38,7 @@ async def preview_reference_video_provider_prompt(
     prompt_override: str | None = None,
     reference_image_labels: list[str] | None = None,
     prompt_compiler: PromptCompilerMode = "auto",
+    canonical_director: dict[str, Any] | None = None,
     narration_delivery: NarrationDelivery = POST_PRODUCTION,
     confirmed_request_duration_seconds: int | None = None,
     user_id: str = DEFAULT_USER_ID,
@@ -135,6 +136,8 @@ async def preview_reference_video_provider_prompt(
     compile_payload: dict[str, Any] = {"prompt_compiler": prompt_compiler}
     if reference_image_labels:
         compile_payload["reference_image_labels"] = reference_image_labels
+    if canonical_director is not None:
+        compile_payload["canonical_director"] = canonical_director
 
     compilation = compile_reference_video_provider_prompt(
         source_prompt=str(unit.get("text") or ""),
@@ -144,6 +147,7 @@ async def preview_reference_video_provider_prompt(
         request_assets=projection.request_assets,
         payload=compile_payload,
         max_prompt_chars=max_prompt_chars,
+        unit_id=unit_id,
     )
     return build_reference_prompt_preview_payload(compilation)
 

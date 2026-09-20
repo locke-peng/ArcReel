@@ -86,14 +86,20 @@ export interface ReferenceGenerationRequestOptions extends ReferenceRequestOptio
   reference_image_labels?: string[];
   /** auto = detect H3; h3_ref2va = force H3 compiler; raw = bypass compiler. */
   prompt_compiler?: ReferencePromptCompiler;
+  /** Request-scoped structured director data; not persisted to the script. */
+  canonical_director?: Record<string, unknown>;
+  /** Lock generation to the exact provider_prompt returned by Preview. */
+  expected_provider_prompt_sha256?: string;
 }
 
 export interface ReferencePromptPreview {
   provider_prompt: string;
+  provider_prompt_sha256: string;
   rendered_prompt: string;
   model_id: string | null;
   prompt_compiler: ReferencePromptCompiler;
   compiler_applied: boolean;
+  generation_mode: "raw" | "t2va" | "ref2va";
   duration_seconds: number;
   prompt_chars: number;
   max_prompt_chars: number | null;

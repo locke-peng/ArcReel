@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from lib.reference_video.h3_prompt_execution import ProviderPromptCompilation
+from lib.reference_video.h3_prompt_execution import (
+    ProviderPromptCompilation,
+    provider_prompt_sha256,
+)
 
 
 def build_reference_prompt_preview_payload(
@@ -13,10 +16,12 @@ def build_reference_prompt_preview_payload(
     prompt = compilation.provider_prompt
     return {
         "provider_prompt": prompt,
+        "provider_prompt_sha256": provider_prompt_sha256(prompt),
         "rendered_prompt": compilation.rendered_prompt,
         "model_id": compilation.model_id,
         "prompt_compiler": compilation.prompt_compiler,
         "compiler_applied": compilation.compiler_applied,
+        "generation_mode": compilation.generation_mode,
         "duration_seconds": compilation.duration_seconds,
         "prompt_chars": len(prompt),
         "max_prompt_chars": compilation.max_prompt_chars,

@@ -41,7 +41,24 @@ logger = logging.getLogger(__name__)
 
 
 _VIDEO_EXECUTION_IDENTITY_KEYS = frozenset({"video_provider_i2v", "video_provider_r2v"})
-_REFERENCE_VIDEO_ENQUEUE_PAYLOAD_KEYS = frozenset({"script_file", "reference_request_options"})
+_REFERENCE_VIDEO_ENQUEUE_PAYLOAD_KEYS = frozenset(
+    {
+        "script_file",
+        "reference_request_options",
+        "reference_image_labels",
+        "prompt_compiler",
+        "canonical_director",
+        "expected_provider_prompt_sha256",
+    }
+)
+_REFERENCE_PROMPT_REQUEST_KEYS = frozenset(
+    {
+        "reference_image_labels",
+        "prompt_compiler",
+        "canonical_director",
+        "expected_provider_prompt_sha256",
+    }
+)
 _NARRATION_REQUEST_KEY_BY_TASK_TYPE = {
     "video": "narration_delivery_options",
     "reference_video": "reference_request_options",
@@ -100,6 +117,19 @@ def _narration_request_facts(task_type: str, payload: dict[str, Any] | None) -> 
     from lib.narration_delivery import NarrationDeliveryRequestOptions
 
     return NarrationDeliveryRequestOptions.from_payload(payload or {}, key=key).to_payload()
+
+
+
+def _reference_prompt_request_facts(
+    task_type: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Request-scoped compiler facts that must match before reusing an active task."""
+    if task_type != "reference_video":
+        return None
+    source = payload or {}
+    facts = {key: source[key] for key in _REFERENCE_PROMPT_REQUEST_KEYS if key in source}
+    return facts or None
 
 
 class DispatchProviderChanged(RuntimeError):
@@ -441,6 +471,7 @@ class GenerationQueue:
 
         requested_facts = _narration_request_facts(task_type, payload)
         text_request_facts = _text_request_facts(task_type, payload)
+        reference_prompt_request_facts = _reference_prompt_request_facts(task_type, payload)
 
         def _guard_deduped(existing_payload: dict[str, Any], existing_task_id: str) -> None:
             if requested_facts is not None and _narration_request_facts(task_type, existing_payload) != requested_facts:
@@ -448,6 +479,12 @@ class GenerationQueue:
             if (
                 text_request_facts is not None
                 and _text_request_facts(task_type, existing_payload) != text_request_facts
+            ):
+                raise ActiveTaskRequestConflict(resource_id=resource_id, existing_task_id=existing_task_id)
+            if (
+                reference_prompt_request_facts is not None
+                and _reference_prompt_request_facts(task_type, existing_payload)
+                != reference_prompt_request_facts
             ):
                 raise ActiveTaskRequestConflict(resource_id=resource_id, existing_task_id=existing_task_id)
 

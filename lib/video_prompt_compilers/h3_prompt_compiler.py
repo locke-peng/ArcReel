@@ -274,6 +274,36 @@ def _replace_mentions(text: str, references: Sequence[H3Reference]) -> str:
     return _MENTION_RE.sub(repl, text)
 
 
+def _render_inline_dialogues(
+    text: str,
+    references: Sequence[H3Reference],
+    options: H3CompileOptions,
+) -> str:
+    """Render ArcReel dialogue markers in place so multi-shot ownership is preserved."""
+    source_to_subject: dict[str, str] = {}
+    for ref in references:
+        source_to_subject.setdefault(ref.source_name, ref.subject_label)
+
+    voice_styles = options.voice_styles or {}
+    speaker_ids: dict[str, str] = {}
+
+    def dialogue_repl(match: re.Match[str]) -> str:
+        speaker = match.group("speaker").strip()
+        speaker_id = speaker_ids.setdefault(speaker, f"S{len(speaker_ids) + 1}")
+        subject = source_to_subject.get(speaker)
+        source = f"{subject} ({speaker_id})" if subject else f"{speaker} ({speaker_id})"
+        voice_style = str(voice_styles.get(speaker, "")).strip()
+        delivery = (
+            f" in {voice_style},"
+            if voice_style
+            else " in a natural voice consistent with the speaker,"
+        )
+        dialogue = match.group("text").strip()
+        return f"{source} says{delivery} <d>[Chinese] {dialogue}</d>"
+
+    rendered = _ARCREEL_DIALOGUE_RE.sub(dialogue_repl, text)
+    return _replace_mentions(rendered, references)
+
 def _clean_body(text: str) -> str:
     lines = [line.rstrip() for line in text.splitlines()]
     while lines and not lines[0].strip():
@@ -406,8 +436,7 @@ def compile_h3_ref2va_prompt(
         reference_image_labels=reference_image_labels,
         options=compile_options,
     )
-    dialogues = _extract_dialogues(source_prompt, compile_options)
-    body = _clean_body(_replace_mentions(_strip_dialogues(source_prompt), references))
+    body = _clean_body(_render_inline_dialogues(source_prompt, references, compile_options))
     if not body:
         body = "Maintain the referenced subjects and perform the requested action in one continuous shot."
 
@@ -423,8 +452,10 @@ def compile_h3_ref2va_prompt(
     detailed_parts: list[str] = []
     if compile_options.style_opening.strip():
         detailed_parts.append(compile_options.style_opening.strip())
-    detailed_parts.append(f"[Shot 1] {body}")
-    detailed_parts.extend(_render_dialogues(dialogues, references))
+    if re.search(r"(?m)^\[Shot\s+\d+\]", body):
+        detailed_parts.append(body)
+    else:
+        detailed_parts.append(f"[Shot 1] {body}")
     detailed_description = "\n".join(detailed_parts)
 
     prompt = "\n".join(

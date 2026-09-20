@@ -123,6 +123,15 @@ class GenerateUnitRequest(BaseModel):
     confirmed_request_duration_seconds: int | None = Field(default=None, gt=0)
     reference_image_labels: list[str] | None = None
     prompt_compiler: Literal["auto", "h3_ref2va", "raw"] = "auto"
+    # Request-scoped Canonical Director input. It may be a full episode payload,
+    # {unit, registries} bundle, or one unit object. It is never persisted into the script.
+    canonical_director: dict[str, Any] | None = None
+    # If supplied, worker must prove that the exact prompt submitted to the provider
+    # is byte-for-byte identical (UTF-8 text) to the previewed provider_prompt.
+    expected_provider_prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
 
     @field_validator("reference_image_labels")
     @classmethod
@@ -606,6 +615,7 @@ async def preview_provider_prompt(
             prompt_override=req.prompt,
             reference_image_labels=req.reference_image_labels,
             prompt_compiler=req.prompt_compiler,
+            canonical_director=req.canonical_director,
             narration_delivery=req.narration_delivery,
             confirmed_request_duration_seconds=req.confirmed_request_duration_seconds,
             user_id=user.id,
@@ -693,6 +703,16 @@ async def generate_unit(
                 **(
                     {"prompt_compiler": request_body.prompt_compiler}
                     if request_body.prompt_compiler != "auto"
+                    else {}
+                ),
+                **(
+                    {"canonical_director": request_body.canonical_director}
+                    if request_body.canonical_director is not None
+                    else {}
+                ),
+                **(
+                    {"expected_provider_prompt_sha256": request_body.expected_provider_prompt_sha256.lower()}
+                    if request_body.expected_provider_prompt_sha256 is not None
                     else {}
                 ),
             },
