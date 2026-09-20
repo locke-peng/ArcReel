@@ -17,7 +17,7 @@ jobs:
       - name: Checkout exact test branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
