@@ -1,0 +1,52 @@
+name: E01 H3 real test on uploaded V3
+
+on:
+  push:
+    branches:
+      - h3-e01-real-test-v3-4ac53d2e
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e01-v3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout V3 test branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify exact V3 source ancestry
+        run: git merge-base --is-ancestor 4ac53d2e892410792cf08d39ca9d80368cf7121d HEAD
+
+      - name: Run uploaded V3 native tests plus E01 characterization
+        run: |
+          uv run pytest \
+            tests/unit/lib/test_h3_prompt_compiler.py \
+            tests/unit/test_reference_video_h3_prompt_execution.py \
+            tests/unit/test_reference_video_prompt_compiler_options.py \
+            tests/unit/test_reference_video_prompt_preview.py \
+            tests/integration/test_e01_h3_v3_real_path.py \
+            -vv
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run V3 frontend preview contract tests
+        working-directory: frontend
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm exec vitest run \
+            src/components/canvas/reference/__tests__/h3-generation-options.test.ts \
+            src/components/canvas/reference/__tests__/prompt-preview-contract.test.ts

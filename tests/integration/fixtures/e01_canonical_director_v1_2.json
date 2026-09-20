@@ -1,0 +1,2289 @@
+{
+  "versioning": {
+    "schema_version": "arcreel.director.v1.2",
+    "episode_revision": "E01-DIR-1.2",
+    "source_script_version": "ArcReel-screenplay-V1.1",
+    "director_revision": "1.2",
+    "compiler_contract_revision": "1.0",
+    "asset_revision": "unbound"
+  },
+  "episode": {
+    "episode_id": "E01",
+    "title": "生日礼物不是给我",
+    "duration_sec": 105,
+    "aspect_ratio": "16:9",
+    "unit_count": 11,
+    "shot_count": 33,
+    "emotion_arc": "期待 → 温柔 → 轻微错愕 → 刺痛 → 克制 → 不安",
+    "camera_arc": "TRACK进入 → PUSH靠近 → FIX承接 → TRACK/PUSH揭示 → PULL拉开 → TRACK照片墙 → FIX沉默 → 极慢PUSH拨号",
+    "end_hook": "电话几乎要自动挂断时终于接起；立即切黑进入E02。"
+  },
+  "registries": {
+    "characters": {
+      "CHAR-SZY": {
+        "name": "沈知意",
+        "appearance_anchor": "约30岁中国女性；黑色长发低马尾；米白风衣；素色衬衫；清瘦脸型。",
+        "wardrobe_state_id": "WD-SZY-E01-A"
+      },
+      "CHAR-LN": {
+        "name": "陆念",
+        "appearance_anchor": "6岁中国女童；黑色齐耳短发；浅粉色家居服。",
+        "wardrobe_state_id": "WD-LN-E01-A"
+      },
+      "CHAR-ZY": {
+        "name": "周姨",
+        "appearance_anchor": "中年中国女性；深灰制服；发髻整齐。",
+        "wardrobe_state_id": "WD-ZY-E01-A"
+      },
+      "CHAR-LYS": {
+        "name": "陆予深",
+        "appearance_anchor": "成年中国男性；深色西装；E01现实空间不正面出场。",
+        "wardrobe_state_id": "WD-LYS-E01-PHOTO"
+      },
+      "CHAR-SW": {
+        "name": "苏晚",
+        "appearance_anchor": "成年中国女性；长发；浅色连衣裙；E01仅照片中出现。",
+        "wardrobe_state_id": "WD-SW-E01-PHOTO"
+      }
+    },
+    "scenes": {
+      "SC-E01-AIRPORT": {
+        "anchor": "M国国际机场到达层，夜间，冷白顶灯，玻璃与金属材质，人流密集，低饱和冷蓝。",
+        "layout_lock": "airport_arrivals_horizontal_flow"
+      },
+      "SC-E01-VILLA-ENTRY": {
+        "anchor": "陆家郊区别墅门厅与楼梯，夜间；室外冷色、门廊和室内暖光形成冷暖对比。",
+        "layout_lock": "villa_entry_stairs_locked"
+      },
+      "SC-E01-NIANNIAN-ROOM": {
+        "anchor": "陆念房间，暖黄台灯、矮桌、贝壳、丝线、小工具；儿童生活空间。",
+        "layout_lock": "low_table_shells_door_locked"
+      },
+      "SC-E01-HALLWAY": {
+        "anchor": "陆家二楼长走廊，冷暖交界；陆念房门在后，照片墙位于前方侧墙。",
+        "layout_lock": "hallway_roomdoor_photowall_locked"
+      },
+      "SC-E01-HALLWAY-PHOTOWALL": {
+        "anchor": "二楼走廊照片墙区域；海边、游乐园、餐厅、生日派对生活照；大多为陆予深+陆念+苏晚。",
+        "layout_lock": "photowall_arrangement_locked"
+      }
+    },
+    "props": {
+      "PROP-SZY-PHONE": {
+        "name": "沈知意手机",
+        "state_enum": [
+          "idle",
+          "birthday_notifications_open",
+          "contact_selected",
+          "dialing",
+          "connected"
+        ]
+      },
+      "PROP-SZY-SUITCASE": {
+        "name": "沈知意旅行箱",
+        "state_enum": [
+          "rolling",
+          "stopped",
+          "handed_to_aunt_zhou"
+        ]
+      },
+      "PROP-SHELL-GIFT": {
+        "name": "贝壳生日礼物",
+        "state_enum": [
+          "laid_out",
+          "being_threaded",
+          "raised_in_hand",
+          "still_being_threaded"
+        ]
+      },
+      "PROP-PHOTOWALL": {
+        "name": "陆家二楼照片墙",
+        "state_enum": [
+          "not_visible",
+          "entering_frame",
+          "beach_photo_focus",
+          "multi_photo_scan",
+          "background_visible"
+        ]
+      }
+    }
+  },
+  "enum_contract": {
+    "continuity_level": [
+      "soft",
+      "hard",
+      "locked"
+    ],
+    "camera_motion_type": [
+      "static",
+      "push_in",
+      "pull_out",
+      "truck",
+      "tracking"
+    ],
+    "camera_direction": [
+      "none",
+      "left",
+      "right",
+      "parallel",
+      "follow_subject"
+    ],
+    "camera_amplitude": [
+      "none",
+      "very_small",
+      "small",
+      "medium",
+      "large"
+    ],
+    "camera_speed": [
+      "static",
+      "slow",
+      "normal",
+      "fast"
+    ],
+    "asset_priority": [
+      "low",
+      "normal",
+      "high",
+      "required"
+    ],
+    "asset_policy": [
+      "optional",
+      "preferred",
+      "required_for_final"
+    ],
+    "fallback_mode": [
+      "t2va",
+      "none"
+    ],
+    "text_legibility": [
+      "exact",
+      "blurred_unreadable",
+      "semantic_only"
+    ],
+    "subject_role": [
+      "active",
+      "depicted",
+      "referenced"
+    ],
+    "transition_type": [
+      "fade_in",
+      "hard_cut",
+      "match_cut",
+      "action_cut",
+      "audio_lead",
+      "audio_bridge",
+      "continuation"
+    ]
+  },
+  "compiler_config": {
+    "enabled": true,
+    "target_engine": "minimax_h3",
+    "mode": "auto",
+    "source_language": "zh-CN",
+    "preserve_dialogue_verbatim": true,
+    "speaker_id_policy": "per_unit_vocal_order",
+    "generate_h3_timestamps_from_shots": true,
+    "resolve_active_subjects_only_as_live_characters": true,
+    "resolve_depicted_subjects_as_embedded_media": true,
+    "resolve_referenced_entities_without_visual_spawn": true,
+    "compile_soundscape": true,
+    "compile_non_diegetic_music": true,
+    "one_primary_camera_move_per_shot": true,
+    "negative_prompt_policy": "disabled"
+  },
+  "units": [
+    {
+      "unit_id": "E01-U01",
+      "sequence": 1,
+      "title": "机场归来 / 生日祝福",
+      "start_sec": 0.0,
+      "end_sec": 10.0,
+      "duration_sec": 10,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-AIRPORT",
+      "continuity_level": "soft",
+      "previous_unit_id": null,
+      "next_unit_id": "E01-U02",
+      "active_subject_ids": [
+        "CHAR-SZY"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-LYS"
+      ],
+      "prop_ids": [
+        "PROP-SZY-PHONE",
+        "PROP-SZY-SUITCASE"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-SZY"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "SC-E01-AIRPORT",
+          "kind": "scene",
+          "policy": "optional",
+          "priority": "low",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "walking_in_airport_arrivals"
+        },
+        "prop_states": {
+          "PROP-SZY-PHONE": "idle",
+          "PROP-SZY-SUITCASE": "rolling"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "standing_in_airport_arrivals"
+        },
+        "prop_states": {
+          "PROP-SZY-PHONE": "birthday_notifications_open",
+          "PROP-SZY-SUITCASE": "rolling"
+        }
+      },
+      "director_notes": {
+        "emotion": "期待→轻微失落",
+        "transition_in": "TR-00-01 淡入淡出（黑场→机场冷白灯）",
+        "transition_out": "硬切进入别墅夜景",
+        "continuity_anchor": "沈知意：约30岁中国女性，黑色长发低马尾，米白风衣，内搭素色衬衫，面容清瘦；本Unit保持服装与发型不变。",
+        "ambience": "机场广播、人流、行李箱轮子、手机提示音。",
+        "music": "前7秒无配乐；末3秒极弱稀疏钢琴。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U01-S01",
+          "start_sec": 0.0,
+          "end_sec": 4.0,
+          "duration_sec": 4.0,
+          "framing_code": "SS-02 全景",
+          "angle_code": "AN-01 平视",
+          "composition_code": "CP-03 引导线",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "truck",
+            "direction": "parallel",
+            "amplitude": "medium",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-04",
+            "LR-02",
+            "CTM-01"
+          ],
+          "grading_code": "CG-02",
+          "emotion_motion": "EMO-POS-05期待 / MV-01",
+          "action": "M国机场到达层。镜头与沈知意平行横移，跟随她拖行李箱穿过人流；前景旅客偶尔掠过形成视差，背景旅客保持水平流动。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U01-S02",
+          "start_sec": 4.0,
+          "end_sec": 7.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-01"
+          ],
+          "grading_code": "CG-02",
+          "emotion_motion": "期待开始回落 / MV-01",
+          "action": "她拿出手机，朋友和同事的生日祝福连续弹出，拇指向上滑动。",
+          "dialogue": [],
+          "screen_text": [
+            {
+              "kind": "notification_cards",
+              "legibility": "blurred_unreadable",
+              "text": null,
+              "semantic": "multiple_birthday_messages"
+            }
+          ]
+        },
+        {
+          "shot_id": "E01-U01-S03",
+          "start_sec": 7.0,
+          "end_sec": 10.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07 留白",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-01"
+          ],
+          "grading_code": "CG-02",
+          "emotion_motion": "EMO-NEG-03失落",
+          "action": "置顶的“陆予深”没有新消息。她抬眼，笑意未成形就消失。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-SZY",
+              "text": "今天是我生日。"
+            }
+          ],
+          "screen_text": [
+            {
+              "kind": "contact_name",
+              "legibility": "exact",
+              "text": "陆予深",
+              "semantic": "pinned_contact"
+            },
+            {
+              "kind": "message_state",
+              "legibility": "semantic_only",
+              "text": null,
+              "semantic": "no_new_message"
+            }
+          ],
+          "dialogue_direction": {
+            "CHAR-SZY": "很轻"
+          }
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U02",
+      "sequence": 2,
+      "title": "抵达别墅 / 周姨意外",
+      "start_sec": 10.0,
+      "end_sec": 19.0,
+      "duration_sec": 9,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-VILLA-ENTRY",
+      "continuity_level": "soft",
+      "previous_unit_id": "E01-U01",
+      "next_unit_id": "E01-U03",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-ZY"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [],
+      "prop_ids": [
+        "PROP-SZY-SUITCASE"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-ZY"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-ZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "SC-E01-VILLA-ENTRY",
+          "kind": "scene",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "outside_villa_entrance",
+          "CHAR-ZY": "inside_behind_front_door"
+        },
+        "prop_states": {
+          "PROP-SZY-SUITCASE": "rolling"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "inside_villa_entry",
+          "CHAR-ZY": "at_front_door"
+        },
+        "prop_states": {
+          "PROP-SZY-SUITCASE": "stopped"
+        }
+      },
+      "director_notes": {
+        "emotion": "期待→不安",
+        "transition_in": "硬切：机场冷白→别墅夜色暖门灯",
+        "transition_out": "同空间对话延续到U03",
+        "continuity_anchor": "沈知意同U01；周姨：中年中国女性，深灰制服，发髻整齐，约160cm，神态谨慎。",
+        "ambience": "夜风、门锁、行李轮、室内底噪、脚步。",
+        "music": "无配乐。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U02-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-01 远景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-03",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-18",
+          "emotion_motion": "静谧、不安 / MV-01",
+          "action": "郊区别墅夜景。车辆停下，门廊只有一小块暖光，沈知意拖箱走向门口。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U02-S02",
+          "start_sec": 3.0,
+          "end_sec": 6.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-04 框架式",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "normal"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "周姨惊讶",
+          "action": "周姨拉开门，门板从前景移开形成一次自然遮挡揭示；她看见沈知意后明显愣住，双手还停在门把处。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U02-S03",
+          "start_sec": 6.0,
+          "end_sec": 9.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-06 过肩",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "沈知意轻微疑惑",
+          "action": "周姨迟疑开口，沈知意的放松表情停半拍。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-ZY",
+              "text": "太太，您……怎么来了？"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-ZY": "迟疑、谨慎"
+          }
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U03",
+      "sequence": 3,
+      "title": "询问父女 / 上楼",
+      "start_sec": 19.0,
+      "end_sec": 29.0,
+      "duration_sec": 10,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-VILLA-ENTRY",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U02",
+      "next_unit_id": "E01-U04",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-ZY"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-LYS",
+        "CHAR-LN"
+      ],
+      "prop_ids": [
+        "PROP-SZY-SUITCASE"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-SZY",
+        "CHAR-ZY"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-ZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "SC-E01-VILLA-ENTRY",
+          "kind": "scene",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "villa_entry_facing_aunt_zhou",
+          "CHAR-ZY": "villa_entry_near_front_door"
+        },
+        "prop_states": {
+          "PROP-SZY-SUITCASE": "stopped"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "ascending_stairs",
+          "CHAR-ZY": "villa_entry_holding_suitcase"
+        },
+        "prop_states": {
+          "PROP-SZY-SUITCASE": "handed_to_aunt_zhou"
+        }
+      },
+      "director_notes": {
+        "emotion": "不安→重新期待",
+        "transition_in": "同空间正反打",
+        "transition_out": "脚步匹配切到二楼走廊",
+        "continuity_anchor": "沈知意：黑色低马尾、米白风衣、素色衬衫；周姨：深灰制服、整齐发髻。两人造型与U02一致。",
+        "ambience": "室内低噪、衣料、行李轮停止、木楼梯脚步。",
+        "music": "无配乐。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U03-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-06",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "EMO-NEU-02疑惑",
+          "action": "沈知意越过周姨向屋内看，问丈夫和女儿。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-SZY",
+              "text": "予深和念念呢？"
+            }
+          ],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U03-S02",
+          "start_sec": 3.0,
+          "end_sec": 7.0,
+          "duration_sec": 4.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-06",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "周姨为难",
+          "action": "周姨轻轻侧身指向楼梯，回答时神情谨慎。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-ZY",
+              "text": "先生还没回来，小姐在楼上玩。"
+            }
+          ],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U03-S03",
+          "start_sec": 7.0,
+          "end_sec": 10.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-03",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "tracking",
+            "direction": "follow_subject",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "期待重新抬起 / MV-02",
+          "action": "沈知意把行李交给周姨，轻手轻脚上楼；镜头保持身后约两步距离缓慢跟随，不晃动，背影进入二楼暖光。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U04",
+      "sequence": 4,
+      "title": "母女重逢",
+      "start_sec": 29.0,
+      "end_sec": 39.0,
+      "duration_sec": 10,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-NIANNIAN-ROOM",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U03",
+      "next_unit_id": "E01-U05",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [],
+      "prop_ids": [
+        "PROP-SHELL-GIFT"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-LN",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "SC-E01-NIANNIAN-ROOM",
+          "kind": "scene",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "outside_nian_room_door",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "laid_out"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "being_threaded"
+        },
+        "body_contact": []
+      },
+      "director_notes": {
+        "emotion": "期待→温柔→微妙落差",
+        "transition_in": "门框遮挡转场",
+        "transition_out": "动作延续：母亲靠近女儿",
+        "continuity_anchor": "沈知意同前；陆念：6岁中国女童，黑色齐耳短发，浅粉色家居服，约110cm。两人五官、发型、服装在本Unit保持一致。",
+        "ambience": "门轴、贝壳碰撞、丝线摩擦、近距离呼吸。",
+        "music": "极弱稀疏钢琴。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U04-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-04",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "truck",
+            "direction": "right",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "温柔期待",
+          "action": "房门虚掩，暖黄台灯从门缝泄出。镜头沿走廊向右小幅横移，门框从前景滑过并逐渐揭示房间；沈知意在门外停半秒后推门。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U04-S02",
+          "start_sec": 3.0,
+          "end_sec": 6.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "normal"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "EMO-POS-03温柔",
+          "action": "陆念从矮桌前抬头，看到母亲时眼睛瞬间亮起。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-SZY",
+              "text": "念念。"
+            },
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "妈妈！"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-SZY": "轻柔",
+            "CHAR-LN": "惊喜"
+          }
+        },
+        {
+          "shot_id": "E01-U04-S03",
+          "start_sec": 6.0,
+          "end_sec": 10.0,
+          "duration_sec": 4.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "温柔中出现落差",
+          "action": "陆念很快低头继续摆贝壳，手没有停。沈知意站在她身后，笑意略僵。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "妈妈你先别打断我，我刚摆好的又乱了。"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "短促，注意力仍在贝壳"
+          }
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U05",
+      "sequence": 5,
+      "title": "拥抱 / 礼物对象揭示",
+      "start_sec": 39.0,
+      "end_sec": 48.0,
+      "duration_sec": 9,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-NIANNIAN-ROOM",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U04",
+      "next_unit_id": "E01-U06",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-SW"
+      ],
+      "prop_ids": [
+        "PROP-SHELL-GIFT"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-LN",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-SHELL-GIFT",
+          "kind": "prop",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "being_threaded"
+        },
+        "body_contact": [],
+        "transition_action": "CHAR-SZY_begins_hug_from_behind"
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "raised_in_hand"
+        },
+        "body_contact": [
+          "CHAR-SZY_arms_around_CHAR-LN"
+        ]
+      },
+      "director_notes": {
+        "emotion": "温柔→刺痛前兆",
+        "transition_in": "动作内切",
+        "transition_out": "贝壳物件匹配到U06",
+        "continuity_anchor": "沈知意与陆念造型完全延续U04；不改变发型、服装、年龄感和房间布置。",
+        "ambience": "贝壳、丝线、衣料、近距离呼吸。",
+        "music": "极弱钢琴继续，末尾压低。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U05-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "normal"
+          },
+          "lighting_codes": [
+            "LT-01",            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "EMO-POS-03温柔",
+          "action": "沈知意从背后抱住陆念，脸贴头发；陆念没有回抱，身体仍朝向桌面。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U05-S02",
+          "start_sec": 3.0,
+          "end_sec": 6.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-06",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "轻松询问",
+          "action": "沈知意低头看向孩子手中的贝壳和丝线。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-SZY",
+              "text": "念念在做什么？"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-SZY": "温柔、随口询问"
+          }
+        },
+        {
+          "shot_id": "E01-U05-S03",
+          "start_sec": 6.0,
+          "end_sec": 9.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-02",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "陆念兴奋",
+          "action": "陆念举起一枚贝壳，眼睛发亮，沈知意的笑容停住。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "给苏阿姨做生日礼物呀！"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "兴奋"
+          }
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U06",
+      "sequence": 6,
+      "title": "爸爸参与礼物",
+      "start_sec": 48.0,
+      "end_sec": 58.0,
+      "duration_sec": 10,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-NIANNIAN-ROOM",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U05",
+      "next_unit_id": "E01-U07",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-SW",
+        "CHAR-LYS"
+      ],
+      "prop_ids": [
+        "PROP-SHELL-GIFT"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-LN"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-LN",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-SHELL-GIFT",
+          "kind": "prop",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "being_threaded"
+        },
+        "body_contact": [
+          "CHAR-SZY_arms_around_CHAR-LN"
+        ]
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "still_being_threaded"
+        },
+        "body_contact": [
+          "CHAR-SZY_arms_around_CHAR-LN"
+        ],
+        "performance_states": {
+          "CHAR-SZY": "hands_stiffen"
+        }
+      },
+      "director_notes": {
+        "emotion": "刺痛→僵住",
+        "transition_in": "贝壳物件匹配",
+        "transition_out": "声音压低，进入情绪反应",
+        "continuity_anchor": "沈知意与陆念造型完全延续U05；陆念仍坐在矮桌前串贝壳，沈知意仍在她身后。",
+        "ambience": "贝壳与丝线轻响、陆念连续说话、沈知意浅呼吸；第三镜环境声短暂降低。",
+        "music": "极弱持续低音弦乐进入。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U06-S01",
+          "start_sec": 0.0,
+          "end_sec": 5.0,
+          "duration_sec": 5.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-01",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "陆念兴奋",
+          "action": "陆念一边串贝壳一边说苏晚生日快到了，语速自然，不抢拍。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "还有七天就是苏阿姨生日了，这些贝壳都是我和爸爸准备的，"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "自然、兴奋、不抢拍"
+          }
+        },
+        {
+          "shot_id": "E01-U06-S02",
+          "start_sec": 5.0,
+          "end_sec": 8.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-07 极微特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-02",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "truck",
+            "direction": "right",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "信息刺痛 / MV-01",
+          "action": "16:9横向排列贝壳、丝线与孩子手指，镜头沿桌面向右小幅横移，贝壳前后层次产生轻微视差；陆念的声音无缝跨切继续。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "爸爸还帮我一颗一颗打磨呢。"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "与上一镜同一句话连续"
+          }
+        },
+        {
+          "shot_id": "E01-U06-S03",
+          "start_sec": 8.0,
+          "end_sec": 10.0,
+          "duration_sec": 2.0,
+          "framing_code": "SS-06 大特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "EMO-NEU-07麻木前兆",
+          "action": "沈知意环抱女儿的手突然僵住，手指停止移动，呼吸变浅。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": [
+        {
+          "dialogue_group_id": "DLG-E01-U06-01",
+          "speaker_id": "CHAR-LN",
+          "shot_ids": [
+            "E01-U06-S01",
+            "E01-U06-S02"
+          ],
+          "continuous": true,
+          "compiler_behavior": "preserve_continuous_audio_across_cut"
+        }
+      ]
+    },
+    {
+      "unit_id": "E01-U07",
+      "sequence": 7,
+      "title": "惊喜继续 / 反问生日",
+      "start_sec": 58.0,
+      "end_sec": 68.0,
+      "duration_sec": 10,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-NIANNIAN-ROOM",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U06",
+      "next_unit_id": "E01-U08",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-SW",
+        "CHAR-LYS"
+      ],
+      "prop_ids": [
+        "PROP-SHELL-GIFT"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-LN",
+        "CHAR-SZY"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-LN",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "behind_and_slightly_side_of_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "still_being_threaded"
+        },
+        "performance_states": {
+          "CHAR-SZY": "hands_stiff"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "behind_and_slightly_side_of_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "still_being_threaded"
+        },
+        "performance_states": {
+          "CHAR-SZY": "quietly_waiting_for_answer"
+        }
+      },
+      "director_notes": {
+        "emotion": "僵住→确认受伤",
+        "transition_in": "声音抽空后恢复孩子声音",
+        "transition_out": "正反打进入U08",
+        "continuity_anchor": "沈知意与陆念造型、位置延续U06；沈知意仍站在孩子身后偏侧位置，陆念继续低头操作贝壳。",
+        "ambience": "贝壳与丝线、儿童说话、沈知意浅呼吸；反应镜环境声略降。",
+        "music": "低音弦乐维持极弱水平。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U07-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "孩子无知的兴奋",
+          "action": "陆念仍盯着贝壳，继续炫耀。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "爸爸还准备了别的惊喜给苏阿姨——"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "无意识炫耀、兴奋"
+          }
+        },
+        {
+          "shot_id": "E01-U07-S02",
+          "start_sec": 3.0,
+          "end_sec": 6.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-04",
+          "composition_code": "CP-07",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "EMO-NEG-03失落",
+          "action": "沈知意侧脸，眼睑缓慢下移，嘴唇张开又停住。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U07-S03",
+          "start_sec": 6.0,
+          "end_sec": 10.0,
+          "duration_sec": 4.0,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "失落→试探",
+          "action": "她声音很轻，像最后确认一次。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-SZY",
+              "text": "念念……记得妈妈的生日吗？"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-SZY": "很轻、试探"
+          }
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U08",
+      "sequence": 8,
+      "title": "生日被忘 / 松手",
+      "start_sec": 68.0,
+      "end_sec": 77.0,
+      "duration_sec": 9,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-NIANNIAN-ROOM",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U07",
+      "next_unit_id": "E01-U09",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-LN"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [],
+      "prop_ids": [
+        "PROP-SHELL-GIFT"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-LN"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-LN",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "behind_CHAR-LN",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "still_being_threaded"
+        },
+        "body_contact": [
+          "CHAR-SZY_arms_around_CHAR-LN"
+        ]
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "standing_behind_CHAR-LN_no_contact",
+          "CHAR-LN": "seated_at_low_table"
+        },
+        "prop_states": {
+          "PROP-SHELL-GIFT": "still_being_threaded"
+        },
+        "body_contact": []
+      },
+      "director_notes": {
+        "emotion": "确认受伤→克制",
+        "transition_in": "正反打",
+        "transition_out": "硬切走廊冷暖交界",
+        "continuity_anchor": "沈知意与陆念沿用U07造型和位置；陆念仍坐在矮桌前，沈知意站在她身后。",
+        "ambience": "贝壳与丝线、陆念说话、沈知意呼吸；最后三秒环境声变薄。",
+        "music": "低音弦乐进一步变弱。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U08-S01",
+          "start_sec": 0.0,
+          "end_sec": 2.0,
+          "duration_sec": 2.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "EMO-NEU-02疑惑",
+          "action": "陆念短暂抬头，完全没反应过来。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "啊？什么？"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "疑惑"
+          }
+        },
+        {
+          "shot_id": "E01-U08-S02",
+          "start_sec": 2.0,
+          "end_sec": 6.0,
+          "duration_sec": 4.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-06",
+          "emotion_motion": "孩子轻微不耐",
+          "action": "她再次低头，手忙着整理珠子。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-LN",
+              "text": "妈妈你别跟我说话，珠子又乱了。"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-LN": "轻微不耐烦"
+          }
+        },
+        {
+          "shot_id": "E01-U08-S03",
+          "start_sec": 6.0,
+          "end_sec": 9.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-06 大特写",
+          "angle_code": "AN-04",
+          "composition_code": "CP-07",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "pull_out",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "EMO-NEG-03失落→EMO-NEU-07麻木",
+          "action": "沈知意慢慢松开手，双手从女儿肩侧滑下；镜头极缓慢后移一点，母女之间的空隙被拉开，孩子仍没有回头。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U09",
+      "sequence": 9,
+      "title": "走廊 / 照片墙发现",
+      "start_sec": 77.0,
+      "end_sec": 86.0,
+      "duration_sec": 9,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-HALLWAY",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U08",
+      "next_unit_id": "E01-U10",
+      "active_subject_ids": [
+        "CHAR-SZY"
+      ],
+      "depicted_subject_ids": [
+        "CHAR-LYS",
+        "CHAR-LN",
+        "CHAR-SW"
+      ],
+      "referenced_entity_ids": [],
+      "prop_ids": [
+        "PROP-PHOTOWALL"
+      ],
+      "speaker_semantic_order": [],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-PHOTOWALL",
+          "kind": "prop",
+          "policy": "required_for_final",
+          "priority": "required",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "outside_nian_room_in_hallway"
+        },
+        "prop_states": {
+          "PROP-PHOTOWALL": "not_visible"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "stopped_at_photowall"
+        },
+        "prop_states": {
+          "PROP-PHOTOWALL": "beach_photo_focus"
+        }
+      },
+      "director_notes": {
+        "emotion": "克制→不安",
+        "transition_in": "硬切：暖房间→冷暖走廊",
+        "transition_out": "照片物件连切到U10",
+        "continuity_anchor": "沈知意保持黑色低马尾、米白风衣、素色衬衫。走廊结构固定：房门在后、照片墙在前方侧墙。照片中的陆念保持黑色齐耳短发；陆予深为成年男性、深色西装；苏晚为长发女性、浅色连衣裙。",
+        "ambience": "走廊脚步、门锁、远处贝壳声、室内底噪。",
+        "music": "稀疏钢琴与持续低频轻入。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U09-S01",
+          "start_sec": 0.0,
+          "end_sec": 3.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-04",
+          "composition_code": "CP-04",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "克制",
+          "action": "沈知意轻轻带上房门，暖光被门板一点点切断，屋内贝壳声仍隐约传出。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U09-S02",
+          "start_sec": 3.0,
+          "end_sec": 6.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-02 全景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-03",
+          "lens_mm": 35,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "truck",
+            "direction": "parallel",
+            "amplitude": "medium",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "孤独 / MV-01",
+          "action": "镜头与沈知意平行横移穿过长走廊，前景门框与墙柱依次掠过制造视差，照片墙逐渐进入画面右侧。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U09-S03",
+          "start_sec": 6.0,
+          "end_sec": 9.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-04 近景",
+          "angle_code": "AN-01",
+          "composition_code": "CP-01",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "small",
+            "speed": "normal"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-02",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "不安",
+          "action": "她在照片墙前停住，视线先落到一张海边合照。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U10",
+      "sequence": 10,
+      "title": "照片墙 / 母亲缺席",
+      "start_sec": 86.0,
+      "end_sec": 94.0,
+      "duration_sec": 8,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-HALLWAY-PHOTOWALL",
+      "continuity_level": "locked",
+      "previous_unit_id": "E01-U09",
+      "next_unit_id": "E01-U11",
+      "active_subject_ids": [
+        "CHAR-SZY"
+      ],
+      "depicted_subject_ids": [
+        "CHAR-LYS",
+        "CHAR-LN",
+        "CHAR-SW"
+      ],
+      "referenced_entity_ids": [],
+      "prop_ids": [
+        "PROP-PHOTOWALL"
+      ],
+      "speaker_semantic_order": [],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-PHOTOWALL",
+          "kind": "prop",
+          "policy": "required_for_final",
+          "priority": "required",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "stopped_at_photowall"
+        },
+        "prop_states": {
+          "PROP-PHOTOWALL": "beach_photo_focus"
+        }
+      },
+      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "beside_photowall_looking_away"
+        },
+        "prop_states": {
+          "PROP-PHOTOWALL": "multi_photo_scan"
+        }
+      },
+      "director_notes": {
+        "emotion": "不安→失落→麻木",
+        "transition_in": "物件匹配剪辑",
+        "transition_out": "走廊脚步声引出周姨",
+        "continuity_anchor": "照片墙位置与U09完全一致。照片内三人外观保持稳定，不新增人物；沈知意仍是黑色低马尾、米白风衣。",
+        "ambience": "轻微走廊底噪、远处贝壳声消失、周姨脚步由远及近。",
+        "music": "稀疏钢琴+持续低频，反应镜略增强后回落。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U10-S01",
+          "start_sec": 0.0,
+          "end_sec": 2.5,
+          "duration_sec": 2.5,
+          "framing_code": "SS-07 极微特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-02",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-01",
+          "emotion_motion": "照片内快乐反差",
+          "action": "海边照片里陆予深、陆念、苏晚自然靠近，笑得像一家人。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U10-S02",
+          "start_sec": 2.5,
+          "end_sec": 5.0,
+          "duration_sec": 2.5,
+          "framing_code": "SS-07 极微特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-02",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "truck",
+            "direction": "right",
+            "amplitude": "small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-01",
+            "LR-02",
+            "CTM-03"
+          ],
+          "grading_code": "CG-01",
+          "emotion_motion": "反差累积 / MV-01",
+          "action": "镜头贴近照片墙向右小幅横移，依次掠过游乐园、餐厅、生日派对照片，照片边框产生轻微视差；母亲几乎没有出现。",
+          "dialogue": [],
+          "screen_text": []
+        },
+        {
+          "shot_id": "E01-U10-S03",
+          "start_sec": 5.0,
+          "end_sec": 8.0,
+          "duration_sec": 3.0,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "EMO-NEU-07麻木",
+          "action": "沈知意的目光从照片慢慢移开，不哭，嘴角完全放平；远处传来周姨接近的脚步。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": []
+    },
+    {
+      "unit_id": "E01-U11",
+      "sequence": 11,
+      "title": "丈夫不回 / 拨号钩子",
+      "start_sec": 94.0,
+      "end_sec": 105.0,
+      "duration_sec": 11,
+      "aspect_ratio": "16:9",
+      "scene_id": "SC-E01-HALLWAY-PHOTOWALL",
+      "continuity_level": "hard",
+      "previous_unit_id": "E01-U10",
+      "next_unit_id": "E02-U01",
+      "active_subject_ids": [
+        "CHAR-SZY",
+        "CHAR-ZY"
+      ],
+      "depicted_subject_ids": [],
+      "referenced_entity_ids": [
+        "CHAR-LYS"
+      ],
+      "prop_ids": [
+        "PROP-SZY-PHONE",
+        "PROP-PHOTOWALL"
+      ],
+      "speaker_semantic_order": [
+        "CHAR-ZY"
+      ],
+      "reference_image_labels": [],
+      "asset_requirements": [
+        {
+          "asset_key": "CHAR-SZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "CHAR-ZY",
+          "kind": "character",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-SZY-PHONE",
+          "kind": "prop",
+          "policy": "preferred",
+          "priority": "normal",
+          "fallback": "t2va"
+        },
+        {
+          "asset_key": "PROP-PHOTOWALL",
+          "kind": "prop",
+          "policy": "preferred",
+          "priority": "high",
+          "fallback": "t2va"
+        }
+      ],
+      "continuity_in": {
+        "character_positions": {
+          "CHAR-SZY": "beside_photowall_looking_away",
+          "CHAR-ZY": "approaching_from_hallway"
+        },
+        "prop_states": {
+          "PROP-SZY-PHONE": "idle",
+          "PROP-PHOTOWALL": "background_visible"
+        }
+      },      "continuity_out": {
+        "character_positions": {
+          "CHAR-SZY": "phone_at_ear",
+          "CHAR-ZY": "behind_CHAR-SZY"
+        },
+        "prop_states": {
+          "PROP-SZY-PHONE": "connected",
+          "PROP-PHOTOWALL": "background_visible"
+        }
+      },
+      "director_notes": {
+        "emotion": "麻木→最后一次期待→悬念",
+        "transition_in": "脚步声先行",
+        "transition_out": "TR-01-03 黑帧切割；拨号音跨集进入E02",
+        "continuity_anchor": "沈知意保持黑色低马尾、米白风衣、素色衬衫；周姨保持深灰制服、整齐发髻。两人站在同一二楼走廊，照片墙仍在背景侧后方。",
+        "ambience": "走廊脚步、周姨对白、手机触控、拨号音、末尾接通轻响。",
+        "music": "前6秒极弱低频；按下拨号键后完全停配乐。"
+      },
+      "shots": [
+        {
+          "shot_id": "E01-U11-S01",
+          "start_sec": 0.0,
+          "end_sec": 6.0,
+          "duration_sec": 6.0,
+          "framing_code": "SS-03 中景",
+          "angle_code": "AN-06",
+          "composition_code": "CP-04",
+          "lens_mm": 50,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-04"
+          ],
+          "grading_code": "CG-04",
+          "emotion_motion": "周姨为难；沈知意麻木",
+          "action": "周姨停在她身后，把先生今晚不回的消息告诉她。沈知意没有回头，只轻轻点头。",
+          "dialogue": [
+            {
+              "speaker_id": "CHAR-ZY",
+              "text": "太太，我刚给先生打了电话。先生说今晚有事，让您先休息。"
+            }
+          ],
+          "screen_text": [],
+          "dialogue_direction": {
+            "CHAR-ZY": "为难、谨慎"
+          }
+        },
+        {
+          "shot_id": "E01-U11-S02",
+          "start_sec": 6.0,
+          "end_sec": 8.5,
+          "duration_sec": 2.5,
+          "framing_code": "SS-06 大特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 100,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "static",
+            "direction": "none",
+            "amplitude": "none",
+            "speed": "static"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-01"
+          ],
+          "grading_code": "CG-02",
+          "emotion_motion": "最后一次期待",
+          "action": "沈知意打开手机通讯录，手指停在“陆予深”上半秒，随后按下拨号键。",
+          "dialogue": [],
+          "screen_text": [
+            {
+              "kind": "contact_name",
+              "legibility": "exact",
+              "text": "陆予深",
+              "semantic": "selected_contact"
+            }
+          ]
+        },
+        {
+          "shot_id": "E01-U11-S03",
+          "start_sec": 8.5,
+          "end_sec": 11.0,
+          "duration_sec": 2.5,
+          "framing_code": "SS-05 特写",
+          "angle_code": "AN-01",
+          "composition_code": "CP-07",
+          "lens_mm": 85,
+          "camera_position_code": "CAM-EYE",
+          "camera_motion": {
+            "type": "push_in",
+            "direction": "none",
+            "amplitude": "very_small",
+            "speed": "slow"
+          },
+          "lighting_codes": [
+            "LT-02",
+            "LR-03",
+            "CTM-01"
+          ],
+          "grading_code": "CG-02",
+          "emotion_motion": "悬念",
+          "action": "她把手机举到耳边。拨号音持续；镜头以几乎不可察觉的速度向眼睛逼近，最后约0.4秒传来接通轻响，立即切黑。",
+          "dialogue": [],
+          "screen_text": []
+        }
+      ],
+      "cross_shot_dialogue": []
+    }
+  ],
+  "qa": {
+    "rules": [
+      {
+        "id": "QA-001",
+        "severity": "error",
+        "rule": "episode.duration_sec == sum(unit.duration_sec)",
+        "message": "Unit总时长必须等于Episode总时长"
+      },
+      {
+        "id": "QA-002",
+        "severity": "error",
+        "rule": "units are contiguous and non-overlapping",
+        "message": "Unit时间必须连续、无重叠、无缺口"
+      },
+      {
+        "id": "QA-003",
+        "severity": "error",
+        "rule": "4 <= unit.duration_sec <= 15",
+        "message": "每个生成Unit必须落在4–15秒"
+      },
+      {
+        "id": "QA-004",
+        "severity": "error",
+        "rule": "shot ranges are contiguous within unit",
+        "message": "Shot时间必须覆盖所属Unit且无重叠/缺口"
+      },
+      {
+        "id": "QA-005",
+        "severity": "error",
+        "rule": "shot.duration_sec >= 2.0",
+        "message": "本项目Shot建议最短2秒；低于2秒视为生成风险"
+      },
+      {
+        "id": "QA-006",
+        "severity": "error",
+        "rule": "camera_motion.type in enum and one primary move only",
+        "message": "每镜仅允许一个主要相机运动"
+      },
+      {
+        "id": "QA-007",
+        "severity": "error",
+        "rule": "active/depicted/referenced sets are pairwise disjoint",
+        "message": "人物角色分类不得重叠"
+      },
+      {
+        "id": "QA-008",
+        "severity": "error",
+        "rule": "speaker_id must exist in active_subject_ids",
+        "message": "现实对白说话人必须是active subject"
+      },
+      {
+        "id": "QA-009",
+        "severity": "error",
+        "rule": "exact screen text requires non-empty text",
+        "message": "exact可见文字必须提供精确文本"
+      },
+      {
+        "id": "QA-010",
+        "severity": "warning",
+        "rule": "dialogue char rate <= 8 Chinese chars/sec",
+        "message": "对白过密可能造成口型/节奏风险"
+      },
+      {
+        "id": "QA-011",
+        "severity": "error",
+        "rule": "reference_image_labels must not contain unresolved fake refs",
+        "message": "不得伪造参考图标签"
+      },
+      {
+        "id": "QA-012",
+        "severity": "error",
+        "rule": "required_for_final assets must have fallback declared",
+        "message": "最终必需资产必须声明缺失时的降级策略"
+      },
+      {
+        "id": "QA-013",
+        "severity": "error",
+        "rule": "hard/locked continuity requires continuity_in and continuity_out",
+        "message": "强连续Unit必须有状态机入/出状态"
+      },
+      {
+        "id": "QA-014",
+        "severity": "error",
+        "rule": "continuity prop states must be valid enum values",
+        "message": "道具状态必须来自Prop Registry状态枚举"
+      },
+      {
+        "id": "QA-015",
+        "severity": "error",
+        "rule": "last unit next_unit_id must point to E02-U01",
+        "message": "E01集尾接口必须指向E02-U01"
+      }
+    ],
+    "results": [
+      {
+        "rule_id": "QA-001",
+        "status": "pass",
+        "detail": "sum=105"
+      },
+      {
+        "rule_id": "QA-002",
+        "status": "pass",
+        "detail": "unit timeline contiguous"
+      },
+      {
+        "rule_id": "QA-003",
+        "status": "pass",
+        "detail": "all units 8–11 sec"
+      },
+      {
+        "rule_id": "QA-004",
+        "status": "pass",
+        "detail": "all shot ranges contiguous"
+      },
+      {
+        "rule_id": "QA-005",
+        "status": "pass",
+        "detail": "short_shots=[]"
+      },
+      {
+        "rule_id": "QA-006",
+        "status": "pass",
+        "detail": "camera motion enums valid"
+      },
+      {
+        "rule_id": "QA-007",
+        "status": "pass",
+        "detail": "overlap=[]"
+      },
+      {
+        "rule_id": "QA-008",
+        "status": "pass",
+        "detail": "invalid_speakers=[]"
+      },
+      {
+        "rule_id": "QA-009",
+        "status": "pass",
+        "detail": "bad_exact_text=[]"
+      },
+      {
+        "rule_id": "QA-010",
+        "status": "pass",
+        "detail": "dialogue density within threshold"
+      },
+      {
+        "rule_id": "QA-011",
+        "status": "pass",
+        "detail": "no fabricated refs"
+      },
+      {
+        "rule_id": "QA-012",
+        "status": "pass",
+        "detail": "missing_fallback=[]"
+      },
+      {
+        "rule_id": "QA-013",
+        "status": "pass",
+        "detail": "missing_state_machine=[]"
+      },
+      {
+        "rule_id": "QA-014",
+        "status": "pass",
+        "detail": "invalid_prop_states=[]"
+      },
+      {
+        "rule_id": "QA-015",
+        "status": "pass",
+        "detail": "E02-U01"
+      }
+    ]
+  }
+}
