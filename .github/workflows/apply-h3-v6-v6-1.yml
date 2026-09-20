@@ -1,0 +1,56 @@
+name: Apply H3 V6 and V6.1
+
+on:
+  push:
+    branches:
+      - h3-v6-v6-1-preview-lock
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    if: ${{ !contains(github.event.head_commit.message || '', '[h3-v6-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: h3-v6-v6-1-preview-lock
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Apply V6
+        run: python tools/apply_arcreel_h3_v6.py . --skip-git-check
+
+      - name: Apply V6.1
+        run: python tools/apply_arcreel_h3_v6_1_preview_runtime_lock.py . --skip-git-check
+
+      - name: Check patch whitespace
+        run: git diff --check
+
+      - name: Run H3 regression tests
+        run: |
+          uv run pytest             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_v6_director.py             tests/unit/test_h3_preview_runtime_lock.py             -q
+
+      - name: Ruff changed Python
+        run: |
+          uv run ruff check             lib/video_prompt_compilers/h3_director_compiler.py             lib/video_prompt_compilers/h3_prompt_compiler.py             lib/reference_video/h3_prompt_execution.py             lib/reference_video/prompt_preview.py             lib/generation_queue.py             server/services/reference_video_prompt_preview.py             server/services/reference_video_tasks.py             server/routers/reference_videos.py             server/tool_runtime.py             server/agent_runtime/sdk_tools/prompt_preview.py             server/remote_mcp.py             tests/unit/test_h3_v6_director.py             tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Commit applied source changes
+        shell: bash
+        run: |
+          git config user.name "locke-peng"
+          git config user.email "129651085+locke-peng@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "fix(reference-video): apply H3 V6 + V6.1 preview/runtime lock [h3-v6-applied]"
+          git push origin HEAD:h3-v6-v6-1-preview-lock
