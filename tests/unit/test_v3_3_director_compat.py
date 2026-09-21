@@ -169,12 +169,15 @@ def test_v33_integrated_director_dimensions_survive_t2va_compile() -> None:
 
     assert "Framing / shot size: SS-06 大特写." in prompt
     assert "Composition: CP-01 居中对称" in prompt
-    assert "Lighting:" in prompt and "LT-02 侧光" in prompt
+    assert "Lighting:" in prompt
+    assert "LT-02 侧光" in prompt
     assert "Color grade: CG-10 冷白科技舞台" in prompt
     assert "Scene anchors that must remain spatially stable" in prompt
 
-    assert "Transition in:" in prompt and "big_screen_reveal" in prompt
-    assert "Transition out:" in prompt and "gaze_bridge" in prompt
+    assert "Transition in:" in prompt
+    assert "big_screen_reveal" in prompt
+    assert "Transition out:" in prompt
+    assert "gaze_bridge" in prompt
     assert "[Shot 2] At 00:04.000" in prompt
     assert "50mm lens" in prompt
     assert "slow small tracking shot following the subject" in prompt
