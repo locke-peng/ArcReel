@@ -13,10 +13,10 @@ This module is intentionally stdlib-only.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 import json
 import re
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Literal
 
 H3_MIN_DURATION_SECONDS = 4
