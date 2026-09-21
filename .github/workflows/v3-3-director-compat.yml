@@ -1,0 +1,38 @@
+name: V3.3 Director Compatibility
+
+on:
+  push:
+    branches:
+      - test/v3-3-director-compat-3b3bc527
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  h3-director-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run H3 baseline and v3.3 compatibility regression
+        run: |
+          uv run pytest \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_v6_director.py \
+            tests/unit/test_h3_preview_runtime_lock.py \
+            tests/unit/test_v3_3_director_compat.py \
+            -q
+
+      - name: Ruff changed Python
+        run: |
+          uv run ruff check \
+            lib/video_prompt_compilers/h3_director_compiler.py \
+            tests/unit/test_v3_3_director_compat.py
