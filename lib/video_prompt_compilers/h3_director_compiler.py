@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import json
 import re
 from typing import Any, Literal
 
@@ -468,6 +469,80 @@ def _dialogue_line(
     return f"{who} {verb}{delivery_text}: <d>[Chinese] {text}</d>"
 
 
+
+def _compact_director_value(value: object) -> str:
+    """Deterministic compact rendering for request-scoped director metadata."""
+    if isinstance(value, Mapping):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return json.dumps(list(value), ensure_ascii=False, separators=(",", ":"))
+    return str(value).strip()
+
+
+def _visual_language_lines(shot: Mapping[str, Any]) -> list[str]:
+    """Preserve v3.3 visual-language dimensions instead of silently dropping them."""
+    lines: list[str] = []
+
+    framing = shot.get("shot_size") or shot.get("framing")
+    if framing:
+        lines.append(f"Framing / shot size: {_compact_director_value(framing)}.")
+
+    composition = shot.get("composition")
+    if composition:
+        lines.append(f"Composition: {_compact_director_value(composition)}.")
+
+    lighting = shot.get("lighting")
+    if lighting:
+        lines.append(f"Lighting: {_compact_director_value(lighting)}.")
+
+    color_grade = shot.get("color_grade")
+    if color_grade:
+        lines.append(f"Color grade: {_compact_director_value(color_grade)}.")
+
+    anchors = shot.get("scene_anchors")
+    if anchors:
+        lines.append(
+            "Scene anchors that must remain spatially stable in this shot: "
+            + _compact_director_value(anchors)
+            + "."
+        )
+
+    return lines
+
+
+def _transition_sentence(value: object, *, edge: str) -> str:
+    if value is None or value == "" or value == {} or value == []:
+        return ""
+    return f"Transition {edge}: {_compact_director_value(value)}."
+
+
+def _continuity_lines(unit: Mapping[str, Any]) -> list[str]:
+    """Render concrete continuity state carried by the Canonical Director bundle."""
+    lines: list[str] = []
+    anchors = unit.get("scene_anchors")
+    if anchors:
+        lines.append(
+            "Unit scene anchors: "
+            + _compact_director_value(anchors)
+            + ". Preserve their layout throughout the unit."
+        )
+    continuity_in = unit.get("continuity_in")
+    if continuity_in:
+        lines.append(
+            "Continuity-in state that must match at the start of this unit: "
+            + _compact_director_value(continuity_in)
+            + "."
+        )
+    continuity_out = unit.get("continuity_out")
+    if continuity_out:
+        lines.append(
+            "Continuity-out state that must be true at the end of this unit: "
+            + _compact_director_value(continuity_out)
+            + "."
+        )
+    return lines
+
+
 def _shot_lines(
     *,
     unit: Mapping[str, Any],
@@ -495,6 +570,10 @@ def _shot_lines(
                 result.append("<scenetrans>")
             result.append(f"[Shot {index}] At {_format_ts(start)}")
 
+        transition_in = _transition_sentence(shot.get("transition_in"), edge="in")
+        if transition_in:
+            result.append(transition_in)
+
         action = str(shot.get("action") or "").strip()
         if action:
             result.append(action)
@@ -502,6 +581,8 @@ def _shot_lines(
         camera = _camera_sentence(shot)
         if camera:
             result.append(camera)
+
+        result.extend(_visual_language_lines(shot))
 
         emotion = str(shot.get("emotion_motion") or "").strip()
         if emotion:
@@ -542,6 +623,11 @@ def _shot_lines(
                     continuation=shot_id in continuation_targets,
                 )
             )
+
+        transition_out = _transition_sentence(shot.get("transition_out"), edge="out")
+        if transition_out:
+            result.append(transition_out)
+
         previous_shot_id = shot_id
 
     return result
@@ -592,6 +678,7 @@ def compile_h3_director_prompt(
 
     detailed: list[str] = []
     detailed.extend(_role_constraints(unit, registries))
+    detailed.extend(_continuity_lines(unit))
     detailed.extend(_shot_lines(unit=unit, registries=registries, references=refs))
 
     notes = _mapping(unit.get("director_notes"))
