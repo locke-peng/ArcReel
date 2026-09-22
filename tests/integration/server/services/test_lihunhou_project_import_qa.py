@@ -10,7 +10,7 @@ from lib.project_manager import ProjectManager
 from server.services.project_archive import ProjectArchiveService
 
 
-NAME = "lihunhou_ai_dalao_e01_qa"
+NAME = "lihunhou-ai-dalao-e01-qa"
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -58,7 +58,12 @@ def test_lihunhou_e01_manual_zip_imports_as_16x9_reference_video(tmp_path: Path)
     source.save_project(NAME, project)
     project_dir = source.get_project_path(NAME)
 
-    for rel in ("characters/沈知意.png", "characters/陆念.png", "scenes/陆念房间.png", "props/贝壳生日礼物.png"):
+    for rel in (
+        "characters/沈知意.png",
+        "characters/陆念.png",
+        "scenes/陆念房间.png",
+        "props/贝壳生日礼物.png",
+    ):
         path = project_dir / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"qa-fixture")
