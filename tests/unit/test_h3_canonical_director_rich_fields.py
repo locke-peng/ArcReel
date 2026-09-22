@@ -76,9 +76,7 @@ def test_rich_fields_are_rendered_and_derivative_ref_maps_to_base_identity() -> 
                         "previous_shot_id": "E13S02",
                         "state": {
                             "scene": {"scene_id": "S14"},
-                            "subjects": [
-                                {"subject_id": "C01", "name": "沈知意", "costume_variant": "W05"}
-                            ],
+                            "subjects": [{"subject_id": "C01", "name": "沈知意", "costume_variant": "W05"}],
                         },
                     },
                     "transition_to_next": {"name": "match cut", "medium": "stage screen to reaction"},
