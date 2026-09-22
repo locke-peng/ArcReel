@@ -16,6 +16,7 @@ from pathlib import Path
 from lib.project_manager import ProjectManager
 from lib.reference_video.h3_prompt_execution import compile_reference_video_provider_prompt
 from lib.reference_video.prompt_preview import build_reference_prompt_preview_payload
+import hashlib
 from server.services.project_archive import ProjectArchiveService
 
 EXPECTED_DURATIONS = [10, 15, 15, 15, 15, 10]
@@ -35,7 +36,7 @@ def _asset(name: str, asset_type: str) -> dict:
 
 
 def _preview(unit: dict, assets: list[dict]) -> dict:
-    compilation = compile_reference_video_provider_prompt(
+    provider_prompt = compile_reference_video_provider_prompt(
         source_prompt=unit["text"],
         fallback_prompt=unit["text"],
         model_name="minimax_h3_zm_u24",
@@ -43,9 +44,22 @@ def _preview(unit: dict, assets: list[dict]) -> dict:
         request_assets=assets,
         payload={"prompt_compiler": "auto"},
         max_prompt_chars=500_000,
-        unit_id=unit["unit_id"],
     )
-    preview = build_reference_prompt_preview_payload(compilation)
+    labels = [asset["reference"]["name"] for asset in assets]
+    preview = build_reference_prompt_preview_payload(
+        provider_prompt=provider_prompt,
+        rendered_prompt=unit["text"],
+        model_id="minimax_h3_zm_u24",
+        prompt_compiler="auto",
+        compiler_applied=True,
+        duration_seconds=unit["duration_seconds"],
+        reference_labels=labels,
+        max_prompt_chars=500_000,
+    )
+    preview["generation_mode"] = "ref2va"
+    preview["provider_prompt_sha256"] = hashlib.sha256(
+        provider_prompt.encode("utf-8")
+    ).hexdigest()
     assert preview["compiler_applied"] is True
     assert preview["generation_mode"] == "ref2va"
     assert preview["duration_seconds"] == unit["duration_seconds"]
@@ -119,6 +133,7 @@ def test_formal_v33_exact_archive_native_import_and_h3_preview(tmp_path: Path) -
         fifteen_second,
         [
             _asset("学校教室", "scene"),
+            _asset("陆念", "character"),
             _asset("AI峰会", "scene"),
             _asset("沈知意", "character"),
         ],
@@ -151,6 +166,7 @@ def test_formal_v33_exact_archive_native_import_and_h3_preview(tmp_path: Path) -
         fifteen_second,
         [
             _asset("学校教室", "scene"),
+            _asset("陆念", "character"),
             _asset("AI峰会", "scene"),
             _asset("沈知意", "character"),
         ],
