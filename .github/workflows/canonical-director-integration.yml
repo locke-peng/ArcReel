@@ -1,0 +1,40 @@
+name: Canonical Director Integration
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff targeted
+        run: |
+          uv run ruff check             lib/video_prompt_compilers/canonical_shot_arcreel_adapter.py             lib/video_prompt_compilers/h3_director_enrichment.py             tests/unit/test_canonical_shot_arcreel_adapter.py             tests/unit/test_h3_canonical_director_rich_fields.py
+          uv run ruff format --check             lib/video_prompt_compilers/canonical_shot_arcreel_adapter.py             lib/video_prompt_compilers/h3_director_enrichment.py             tests/unit/test_canonical_shot_arcreel_adapter.py             tests/unit/test_h3_canonical_director_rich_fields.py
+
+      - name: Pyright targeted
+        run: |
+          uv run basedpyright             lib/video_prompt_compilers/canonical_shot_arcreel_adapter.py             lib/video_prompt_compilers/h3_director_enrichment.py
+
+      - name: H3 regression tests
+        run: |
+          uv run python -m pytest -q             tests/unit/test_canonical_shot_arcreel_adapter.py             tests/unit/test_h3_canonical_director_rich_fields.py             tests/unit/test_h3_v6_director.py             tests/unit/test_h3_preview_runtime_lock.py             tests/unit/test_h3_prompt_compiler.py
