@@ -28,6 +28,18 @@ jobs:
           unzip -t /tmp/v33-project.zip
           unzip -t /tmp/delta002.zip
 
+      - name: Normalize compiler bytes to true-machine Golden preimage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("lib/video_prompt_compilers/h3_prompt_compiler.py")
+          data = p.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+          p.write_bytes(data)
+          PY
+          echo "8bb3be53c380df6a4d09de6beef04d7ed344153f57e50549d21bad991809553a  lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
+
       - name: Apply Golden-anchored H3 multi-shot delta
         shell: bash
         run: |
