@@ -18,6 +18,13 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal
 
+from lib.video_prompt_compilers.h3_director_enrichment import (
+    enrich_dialogue_delivery,
+    enrich_overall_soundscape,
+    shot_post_lines,
+    shot_setup_lines,
+)
+
 H3_MIN_DURATION_SECONDS = 4
 H3_MAX_DURATION_SECONDS = 15
 H3_MAX_REFERENCE_IMAGES = 9
@@ -355,7 +362,16 @@ def _subject_for_entity(
     name = _character_name(entity_id, registries)
     normalized = {name.casefold(), entity_id.casefold()}
     for ref in references:
-        if ref.source_name.casefold() in normalized or ref.label.casefold() in normalized:
+        source = ref.source_name.casefold()
+        label = ref.label.casefold()
+        source_base = source.split("/", 1)[0]
+        label_base = label.split("/", 1)[0]
+        if (
+            source in normalized
+            or label in normalized
+            or source_base in normalized
+            or label_base in normalized
+        ):
             return ref.subject
     return None
 
@@ -495,6 +511,8 @@ def _shot_lines(
                 result.append("<scenetrans>")
             result.append(f"[Shot {index}] At {_format_ts(start)}")
 
+        result.extend(shot_setup_lines(shot))
+
         action = str(shot.get("action") or "").strip()
         if action:
             result.append(action)
@@ -530,7 +548,8 @@ def _shot_lines(
             text = str(item.get("text") or "")
             if not speaker_id or not text:
                 continue
-            delivery = str(direction_map.get(speaker_id) or direction_scalar or "")
+            delivery = str(direction_map.get(speaker_id) or direction_scalar or item.get("delivery") or "")
+            delivery = enrich_dialogue_delivery(item, delivery)
             result.append(
                 _dialogue_line(
                     speaker_id=speaker_id,
@@ -542,6 +561,8 @@ def _shot_lines(
                     continuation=shot_id in continuation_targets,
                 )
             )
+
+        result.extend(shot_post_lines(shot, unit))
         previous_shot_id = shot_id
 
     return result
@@ -595,11 +616,13 @@ def compile_h3_director_prompt(
     detailed.extend(_shot_lines(unit=unit, registries=registries, references=refs))
 
     notes = _mapping(unit.get("director_notes"))
+    sound_design = _mapping(unit.get("sound_design"))
     ambience = str(
-        _mapping(unit.get("sound_design")).get("ambience")
+        sound_design.get("ambience")
         or notes.get("ambience")
         or "N/A"
     ).strip() or "N/A"
+    ambience = enrich_overall_soundscape(sound_design, ambience)
     music = str(
         _mapping(unit.get("sound_design")).get("music")
         or notes.get("music")
