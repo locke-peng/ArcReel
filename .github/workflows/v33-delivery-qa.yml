@@ -1,0 +1,28 @@
+name: V33 Delivery QA
+
+on:
+  pull_request:
+    branches:
+      - qa/golden-3b3bc
+
+permissions:
+  contents: read
+
+jobs:
+  v33-delivery-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync
+      - name: Run v3.3 delivery compatibility QA
+        run: uv run pytest -q tests/integration/server/services/test_lihunhou_v33_delivery_compat.py
