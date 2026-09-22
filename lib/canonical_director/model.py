@@ -46,7 +46,7 @@ class DirectorSourceV1(_ContractModel):
     shot_ids: tuple[ShotId, ...] = Field(min_length=1, max_length=CANONICAL_DIRECTOR_MAX_SHOTS)
 
     @model_validator(mode="after")
-    def _unique_shot_ids(self) -> "DirectorSourceV1":
+    def _unique_shot_ids(self) -> DirectorSourceV1:
         if len(set(self.shot_ids)) != len(self.shot_ids):
             raise ValueError("source.shot_ids must be unique")
         return self
@@ -137,7 +137,7 @@ class ContinuityV1(_ContractModel):
     notes: tuple[LongText, ...] = Field(default=(), max_length=8)
 
     @model_validator(mode="after")
-    def _unique_subjects(self) -> "ContinuityV1":
+    def _unique_subjects(self) -> ContinuityV1:
         ids = [item.subject_id for item in self.subjects]
         if len(set(ids)) != len(ids):
             raise ValueError("continuity.subjects must not contain duplicate subject_id values")
@@ -195,7 +195,7 @@ class DirectorShotV1(_ContractModel):
     quality_terms: tuple[ShortText, ...] = Field(default=(), max_length=16)
 
     @model_validator(mode="after")
-    def _unique_subject_cues(self) -> "DirectorShotV1":
+    def _unique_subject_cues(self) -> DirectorShotV1:
         subject_ids = [item.subject_id for item in self.subjects]
         if len(set(subject_ids)) != len(subject_ids):
             raise ValueError("shot.subjects must not contain duplicate subject_id values")
@@ -217,7 +217,7 @@ class CanonicalDirectorV1(_ContractModel):
     negative_constraints: NegativeConstraintsV1 | None = None
 
     @model_validator(mode="after")
-    def _validate_contract(self) -> "CanonicalDirectorV1":
+    def _validate_contract(self) -> CanonicalDirectorV1:
         if not _UNIT_ID_RE.fullmatch(self.unit_id):
             raise ValueError("unit_id must match ArcReel reference-video unit syntax")
 
