@@ -201,11 +201,9 @@ def _dialogue(shot: Mapping[str, Any]) -> tuple[list[dict[str, Any]], dict[str, 
 
 def _action_text(shot: Mapping[str, Any]) -> str:
     actions = [
-        f"{name}: {action}" if name else action
+        f"{_text(subject.get('name'))}: {action}" if _text(subject.get("name")) else action
         for subject in _items(shot.get("subjects"))
-        if isinstance(subject, Mapping)
-        and (action := _text(subject.get("action")))
-        and (name := _text(subject.get("name"))) is not None
+        if isinstance(subject, Mapping) and (action := _text(subject.get("action")))
     ]
     return " ; ".join(actions)
 
@@ -427,7 +425,7 @@ def _character_registry(
     for subject_id, name in sorted(names.items()):
         base_id = "EX" if subject_id.startswith("EX-") else subject_id
         cast_entry = cast_by_id.get(base_id, {})
-        variants = _unique(_items(cast_entry.get("costume_variants"))) if isinstance(cast_entry, Mapping) else []
+        variants = _unique(_items(cast_entry.get("costume_variants")))
         result[subject_id] = {
             "name": name,
             "base_character_id": base_id,
