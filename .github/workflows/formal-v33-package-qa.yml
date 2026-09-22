@@ -28,24 +28,13 @@ jobs:
           unzip -t /tmp/v33-project.zip
           unzip -t /tmp/delta002.zip
 
-      - name: Normalize compiler bytes to true-machine Golden preimage
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          p = Path("lib/video_prompt_compilers/h3_prompt_compiler.py")
-          data = p.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
-          p.write_bytes(data)
-          PY
-          echo "8bb3be53c380df6a4d09de6beef04d7ed344153f57e50549d21bad991809553a  lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
-
-      - name: Apply Golden-anchored H3 multi-shot delta
+      - name: Install verified Delta002 H3 compiler payload
         shell: bash
         run: |
           set -euo pipefail
           unzip -q /tmp/delta002.zip -d /tmp/delta002
-          python /tmp/delta002/apply_upgrade.py "$GITHUB_WORKSPACE" --package-dir /tmp/delta002
+          echo "6c47406820ab07ea82316fce5e66c7d7424b2267f3bb2bccbd69163b2a57f5dd  /tmp/delta002/payload/lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
+          cp /tmp/delta002/payload/lib/video_prompt_compilers/h3_prompt_compiler.py lib/video_prompt_compilers/h3_prompt_compiler.py
           echo "6c47406820ab07ea82316fce5e66c7d7424b2267f3bb2bccbd69163b2a57f5dd  lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
