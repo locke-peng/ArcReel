@@ -51,4 +51,4 @@ jobs:
       - name: Run exact-package formal delivery QA
         env:
           FORMAL_PACKAGE_ZIP: /tmp/v33-project.zip
-        run: uv run pytest -q -s tests/integration/server/services/test_formal_lihunhou_v33_package.py
+        run: uv run python qa/formal_v33_package_qa.py
