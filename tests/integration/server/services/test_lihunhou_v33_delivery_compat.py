@@ -15,7 +15,7 @@ from lib.reference_video.h3_prompt_execution import compile_reference_video_prov
 from lib.reference_video.prompt_preview import build_reference_prompt_preview_payload
 from server.services.project_archive import ProjectArchiveService
 
-PROJECT_NAME = "lihunhou_ai_dalao_v33_qa"
+PROJECT_NAME = "lihunhou-ai-dalao-v33-qa"
 
 
 def _write_json(path: Path, payload: dict) -> None:
