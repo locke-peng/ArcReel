@@ -1,0 +1,54 @@
+name: Formal V33 Package QA
+
+on:
+  pull_request:
+    branches:
+      - qa/golden-3b3bc
+
+permissions:
+  contents: read
+
+jobs:
+  formal-v33-package-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Reconstruct exact delivery archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat qa_assets/v33_project.b64.part* | tr -d '\n\r' | base64 -d > /tmp/v33-project.zip
+          cat qa_assets/delta002.b64.part* | tr -d '\n\r' | base64 -d > /tmp/delta002.zip
+          echo "a5fdd5f794f2034dbe15f0dfefba6df5b5428a7cffd528a523682e6f7e18b6d8  /tmp/v33-project.zip" | sha256sum -c -
+          echo "3a58ee8a21211c6f34b041f410b094e0383df63a1090604e0207bb81c09806f3  /tmp/delta002.zip" | sha256sum -c -
+          unzip -t /tmp/v33-project.zip
+          unzip -t /tmp/delta002.zip
+
+      - name: Install verified Delta002 H3 compiler payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -q /tmp/delta002.zip -d /tmp/delta002
+          echo "6c47406820ab07ea82316fce5e66c7d7424b2267f3bb2bccbd69163b2a57f5dd  /tmp/delta002/payload/lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
+          cp /tmp/delta002/payload/lib/video_prompt_compilers/h3_prompt_compiler.py lib/video_prompt_compilers/h3_prompt_compiler.py
+          echo "6c47406820ab07ea82316fce5e66c7d7424b2267f3bb2bccbd69163b2a57f5dd  lib/video_prompt_compilers/h3_prompt_compiler.py" | sha256sum -c -
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Run exact-package formal delivery QA
+        env:
+          FORMAL_PACKAGE_ZIP: /tmp/v33-project.zip
+        run: uv run python qa/formal_v33_package_qa.py
