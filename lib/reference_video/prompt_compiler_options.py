@@ -10,10 +10,10 @@ PROMPT_COMPILER_MODES: frozenset[str] = frozenset({"auto", "h3_ref2va", "raw"})
 
 
 def normalize_reference_image_labels(value: Sequence[object] | None) -> list[str] | None:
-    """Trim labels without changing order.
+    """Trim UI/API labels without changing order.
 
-    Empty input means "derive labels from the actual projected provider image order".
-    Blank elements are rejected because they create silent Picture/Subject drift.
+    Empty input means "derive from the actual projected request assets".
+    Blank elements are rejected because they create silent Subject/Picture drift.
     """
     if value is None:
         return None
@@ -30,7 +30,7 @@ def resolve_reference_image_labels(
     *,
     derived: Sequence[str],
 ) -> list[str]:
-    """Resolve display labels for the exact provider reference-image order."""
+    """Resolve the exact labels for the exact provider reference-image order."""
     normalized = normalize_reference_image_labels(override)
     if normalized is None:
         return [str(item) for item in derived]
@@ -47,5 +47,7 @@ def normalize_prompt_compiler(value: object | None) -> PromptCompilerMode:
         return "auto"
     normalized = str(value).strip().lower()
     if normalized not in PROMPT_COMPILER_MODES:
-        raise ValueError("prompt_compiler must be one of: auto, h3_ref2va, raw")
+        raise ValueError(
+            "prompt_compiler must be one of: auto, h3_ref2va, raw"
+        )
     return normalized  # type: ignore[return-value]
