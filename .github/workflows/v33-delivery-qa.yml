@@ -25,4 +25,4 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Run v3.3 delivery compatibility QA
-        run: uv run pytest -q tests/integration/server/services/test_lihunhou_v33_delivery_compat.py
+        run: uv run pytest -q -s tests/integration/server/services/test_lihunhou_v33_delivery_compat.py
