@@ -181,6 +181,9 @@ def test_v33_representative_shot_compiles_to_h3_ref2va_preview() -> None:
         unit_id="E13U07",
     )
     preview = build_reference_prompt_preview_payload(compilation)
+    print("\\nV33_H3_PREVIEW_START")
+    print(json.dumps(preview, ensure_ascii=False, indent=2))
+    print("V33_H3_PREVIEW_END")
 
     assert preview["compiler_applied"] is True
     assert preview["generation_mode"] == "ref2va"
