@@ -20,7 +20,7 @@ SHOT_COUNTS = [2, 3, 3, 3, 3, 2]
 
 
 def _materialize_exact_package(tmp_path: Path) -> Path:
-    fixture_dir = Path(__file__).parents[2] / "fixtures"
+    fixture_dir = Path(__file__).parents[3] / "fixtures"
     encoded = "".join(
         (fixture_dir / f"v33_exact_part{i}.b64").read_text(encoding="utf-8")
         for i in range(1, 5)
