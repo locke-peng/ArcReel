@@ -57,7 +57,7 @@ ARCHIVE_SCRIPT_SCHEMA_VERSION = 2
 DEFAULT_IMPORT_FILENAME = "imported-project.zip"
 _ARTIFACT_ACTIVATION_ERRORS = (ArtifactManifestError, OSError, UnicodeError, ValueError)
 _EXPORT_SNAPSHOT_ATTEMPTS = 3
-_LEGACY_BOUND_ORIG_SCRIPT_RE = re.compile(r"^scripts/episode_(?P<episode>[1-9][0-9]*)\\.orig\\.json$")
+_LEGACY_BOUND_ORIG_SCRIPT_RE = re.compile(r"^scripts/episode_(?P<episode>[1-9][0-9]*)\.orig\.json$")
 
 
 def _resolve_existing_asset(name: str, candidates: set[str]) -> str:
@@ -793,7 +793,7 @@ class ProjectArchiveService:
             raw = episode_meta.get("script_file")
             if not isinstance(raw, str):
                 continue
-            normalized = raw.strip().replace("\\\\", "/")
+            normalized = raw.strip().replace("\\", "/")
             match = _LEGACY_BOUND_ORIG_SCRIPT_RE.fullmatch(normalized)
             if match is None:
                 continue
