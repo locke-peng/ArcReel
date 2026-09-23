@@ -41,6 +41,7 @@ from lib.speech_presentation import (
     materialize_raw_video_presentation,
     materialize_speech_presentation,
     presentation_artifact_paths,
+    video_unit_subtitle_timing,
 )
 from lib.version_manager import VersionManager
 from server.services.artifact_version_restore import (
@@ -286,6 +287,7 @@ class PresentationReadModelService:
 
         transition = item.get("transition_to_next")
         transition_to_next = transition if isinstance(transition, str) else "cut"
+        timing = video_unit_subtitle_timing(item, admission.preparation) if kind == "video_units" else None
         try:
             presentation = materialize_speech_presentation(
                 admission.preparation,
@@ -294,6 +296,7 @@ class PresentationReadModelService:
                 narration_audio=audio_media,
                 provider_audio_enabled=provider_audio_enabled,
                 transition_to_next=transition_to_next,
+                timing=timing,
             )
         except (TypeError, ValueError) as exc:
             raise PresentationUnavailableError("selected media cannot form the requested presentation") from exc
