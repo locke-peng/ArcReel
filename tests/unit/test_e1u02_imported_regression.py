@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from lib.reference_video.h3_prompt_execution import compile_reference_video_provider_prompt
 from lib.speech_artifact_provenance import project_subtitle_utterances
 from lib.speech_composition import admit_script_unit
-from lib.speech_presentation import MechanicalSubtitleTiming, video_unit_subtitle_timing
+from lib.speech_presentation import (
+    MechanicalSubtitleTiming,
+    video_unit_subtitle_timing,
+)
 
 
 E1U02_TEXT = """[Shot 1]
