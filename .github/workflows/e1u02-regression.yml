@@ -32,7 +32,7 @@ jobs:
             tests/unit/test_e1u02_imported_regression.py \
             tests/integration/server/services/test_presentation_read_model.py \
             tests/integration/server/services/test_project_archive_reference_video.py \
-            tests/unit/lib/project/project_migrations/test_project_migration_v14_v15.py \
+            tests/unit/lib/project_migrations/test_project_migration_v14_v15.py \
             tests/integration/lib/project_migrations/test_project_migration_v14_v15.py \
             -q
 
