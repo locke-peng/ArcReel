@@ -55,3 +55,19 @@ jobs:
             lib/artifact_planner.py \
             server/services/presentation_read_model.py \
             tests/unit/test_e1u02_imported_regression.py
+
+      - name: Package tested ArcReel source
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.venv \
+            --exclude='**/__pycache__' \
+            -czf /tmp/arcreel-e1u02-fixed-src.tar.gz .
+
+      - name: Upload tested ArcReel source
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcreel-e1u02-fixed-src
+          path: /tmp/arcreel-e1u02-fixed-src.tar.gz
+          if-no-files-found: error
+          retention-days: 3
