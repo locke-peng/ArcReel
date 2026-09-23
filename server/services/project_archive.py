@@ -21,6 +21,7 @@ from lib.artifact_activation import (
     snapshot_preserved_artifact_manifest,
 )
 from lib.artifact_manifest import (
+    MANIFEST_FILENAME,
     ArtifactKey,
     ArtifactManifestEntry,
     ArtifactManifestError,
