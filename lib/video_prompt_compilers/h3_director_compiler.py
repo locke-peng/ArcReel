@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal
 
+from lib.video_prompt_compilers.h3_prompt_compiler import ensure_h3_visible_text_guard
+
 H3_MIN_DURATION_SECONDS = 4
 H3_MAX_DURATION_SECONDS = 15
 H3_MAX_REFERENCE_IMAGES = 9
@@ -85,7 +87,7 @@ def compile_h3_text_t2va_prompt(
     }
     found = {m.group(1) for m in _H3_SECTION_RE.finditer(source_prompt)}
     if required.issubset(found):
-        prompt = source_prompt.strip()
+        prompt = ensure_h3_visible_text_guard(source_prompt.strip())
     else:
         body = _legacy_inline_body(source_prompt)
         detailed = body if re.search(r"(?m)^\[Shot\s+\d+\]", body) else f"[Shot 1] {body}"
@@ -111,6 +113,7 @@ def compile_h3_text_t2va_prompt(
                 non_diegetic_music.strip() or "N/A",
             ]
         ).strip()
+        prompt = ensure_h3_visible_text_guard(prompt)
     if len(prompt) > int(max_prompt_chars):
         raise H3DirectorCompileError(
             f"compiled H3 prompt is {len(prompt)} characters; limit is {max_prompt_chars}"
@@ -627,6 +630,7 @@ def compile_h3_director_prompt(
             music,
         ]
     ).strip()
+    prompt = ensure_h3_visible_text_guard(prompt)
     if len(prompt) > int(max_prompt_chars):
         raise H3DirectorCompileError(
             f"compiled H3 prompt is {len(prompt)} characters; limit is {max_prompt_chars}"
