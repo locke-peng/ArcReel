@@ -146,6 +146,66 @@ class TestProjectArchiveReferenceVideo:
         assert (project_dir / "reference_videos" / "E1U1.mp4").exists()
         assert (project_dir / "reference_videos" / "thumbnails" / "E1U1.jpg").exists()
 
+    def test_import_canonicalizes_legacy_bound_orig_script_before_v15_migration(self, tmp_path):
+        """导入 staging 中的 episode_N.orig ledger 绑定以绑定内容为真相规范化。
+
+        旧包可能同时带一个未绑定且内容不同的 episode_N.json；导入不得拿它覆盖 ledger
+        当前真正使用的 .orig 剧本。冲突文件先留备份，再让原生 v13→v15 迁移看到规范绑定。
+        """
+
+        pm = ProjectManager(tmp_path / "projects")
+        unit = _build_unit(video_clip=None, generated_assets={"status": "pending"}, text="BOUND-TRUTH")
+        project_dir = _create_reference_video_project(
+            pm,
+            name="legacyorig",
+            unit=unit,
+            write_clip=False,
+            write_thumbnail=False,
+        )
+
+        canonical = project_dir / "scripts" / "episode_1.json"
+        bound = project_dir / "scripts" / "episode_1.orig.json"
+        bound_payload = json.loads(canonical.read_text(encoding="utf-8"))
+        bound_payload["video_units"][0]["text"] = "BOUND-TRUTH"
+        _write_json(bound, bound_payload)
+
+        stale_payload = json.loads(canonical.read_text(encoding="utf-8"))
+        stale_payload["video_units"][0]["text"] = "STALE-UNBOUND"
+        _write_json(canonical, stale_payload)
+
+        project_path = project_dir / "project.json"
+        project = json.loads(project_path.read_text(encoding="utf-8"))
+        project["schema_version"] = 13
+        project["episodes"][0]["script_file"] = "scripts/episode_1.orig.json"
+        _write_json(project_path, project)
+
+        archive_path = tmp_path / "legacy-orig.zip"
+        _make_manual_zip(project_dir, archive_path)
+        shutil.rmtree(project_dir)
+
+        result = ProjectArchiveService(pm).import_project_archive(
+            archive_path,
+            uploaded_filename="legacy-orig.zip",
+        )
+
+        imported_dir = pm.get_project_path(result.project_name)
+        imported_project = json.loads((imported_dir / "project.json").read_text(encoding="utf-8"))
+        assert imported_project["schema_version"] >= 15
+        assert imported_project["episodes"][0]["script_file"] == "scripts/episode_1.json"
+
+        imported_script = json.loads((imported_dir / "scripts" / "episode_1.json").read_text(encoding="utf-8"))
+        assert imported_script["video_units"][0]["text"] == "BOUND-TRUTH"
+        assert (imported_dir / "scripts" / "episode_1.orig.json").is_file()
+
+        backup = imported_dir / "drafts" / "episode_1" / "import_unbound_script_backup.json"
+        assert backup.is_file()
+        backup_payload = json.loads(backup.read_text(encoding="utf-8"))
+        assert backup_payload["video_units"][0]["text"] == "STALE-UNBOUND"
+        assert any(
+            item["code"] == "legacy_bound_script_canonicalized"
+            for item in result.diagnostics["auto_fixed"]
+        )
+
     def test_import_migrates_legacy_per_shot_duration_before_validation(self, tmp_path):
         """存量归档的 unit 仍是收编前形状（时长挂在 shots 上、无 unit 级 duration_seconds）：
         结构校验要求 duration_seconds 落在合理区间内，早于迁移执行的话会把这类归档直接拒绝，
