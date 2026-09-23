@@ -14,9 +14,10 @@ The compiler is intentionally stdlib-only and can run before any provider submis
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any, Literal
 
 H3_MAX_REFERENCE_IMAGES = 9
 H3_MIN_DURATION_SECONDS = 4
@@ -126,11 +127,7 @@ def is_h3_model(model: str | None) -> bool:
     if not model:
         return False
     normalized = model.strip().lower().replace("_", "-")
-    return (
-        normalized == "minimax-h3"
-        or normalized.startswith("minimax-h3-")
-        or normalized.startswith("minimax-h3/")
-    )
+    return normalized == "minimax-h3" or normalized.startswith(("minimax-h3-", "minimax-h3/"))
 
 
 def _unique_mentions(text: str) -> list[str]:
