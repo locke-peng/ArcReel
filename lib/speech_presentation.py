@@ -167,8 +167,8 @@ class MechanicalSubtitleTiming:
 
 
 _SHOT_HEADER_RE = re.compile(
-    r"^\\s*\\[Shot\\s+(?P<number>\\d+)\\]"
-    r"(?:\\s+At\\s+(?P<minutes>\\d{2}):(?P<seconds>\\d{2})\\.(?P<millis>\\d{3}))?"
+    r"^\s*\[Shot\s+(?P<number>\d+)\]"
+    r"(?:\s+At\s+(?P<minutes>\d{2}):(?P<seconds>\d{2})\.(?P<millis>\d{3}))?"
 )
 
 
