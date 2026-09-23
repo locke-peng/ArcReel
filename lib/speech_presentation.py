@@ -670,7 +670,6 @@ def _vtt_timestamp(microseconds: int) -> str:
 
 __all__ = [
     "MechanicalSubtitleTiming",
-    "ShotWindowMechanicalSubtitleTiming",
     "MediaCurrency",
     "MediaSelection",
     "NarrationPresentationTrack",
@@ -681,6 +680,7 @@ __all__ = [
     "RawPresentationMedia",
     "RawVideoPresentation",
     "RawVideoPresentationTrack",
+    "ShotWindowMechanicalSubtitleTiming",
     "SpeechPresentation",
     "SubtitleCue",
     "SubtitleTimingPolicy",
