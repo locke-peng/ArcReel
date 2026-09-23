@@ -61,6 +61,7 @@ from lib.speech_presentation import (
     PresentationMedia,
     materialize_speech_presentation,
     presentation_artifact_paths,
+    video_unit_subtitle_timing,
 )
 from lib.storyboard_sequence import get_storyboard_items
 from lib.version_manager import VersionManager
@@ -1184,6 +1185,11 @@ class TargetStatePlanner:
         if admission.allowed:
             live_transition = item.get("transition_to_next")
             current_transition = live_transition if isinstance(live_transition, str) else "cut"
+            current_timing = (
+                video_unit_subtitle_timing(item, admission.preparation)
+                if episode.kind == "video_units"
+                else None
+            )
             try:
                 current = materialize_speech_presentation(
                     admission.preparation,
@@ -1192,6 +1198,7 @@ class TargetStatePlanner:
                     narration_audio=current_audio,
                     provider_audio_enabled=provider_audio_enabled,
                     transition_to_next=current_transition,
+                    timing=current_timing,
                 )
             except (TypeError, ValueError):
                 pass
