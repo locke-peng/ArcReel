@@ -1,0 +1,57 @@
+name: E1U02 H3 Leakage + Subtitle Regression
+
+on:
+  push:
+    branches:
+      - fix/e1u02-h3-leakage-shot-subtitles-3b3bc527
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e1u02-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run imported E1U02 and baseline regressions
+        run: |
+          uv run pytest \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_v6_director.py \
+            tests/unit/test_h3_preview_runtime_lock.py \
+            tests/unit/lib/test_speech_presentation.py \
+            tests/unit/test_e1u02_imported_regression.py \
+            tests/integration/server/services/test_presentation_read_model.py \
+            -q
+
+      - name: Compile changed Python
+        run: |
+          uv run python -m py_compile \
+            lib/video_prompt_compilers/h3_prompt_compiler.py \
+            lib/video_prompt_compilers/h3_director_compiler.py \
+            lib/speech_presentation.py \
+            lib/artifact_planner.py \
+            server/services/presentation_read_model.py \
+            tests/unit/test_e1u02_imported_regression.py
+
+      - name: Ruff delta
+        run: |
+          # The baseline director compiler already has unrelated legacy lint debt.
+          # Check correctness/import/style classes without rewriting baseline behavior.
+          uv run ruff check \
+            --ignore UP037,RUF046,B905,RUF007,PERF401,SIM102 \
+            lib/video_prompt_compilers/h3_prompt_compiler.py \
+            lib/video_prompt_compilers/h3_director_compiler.py \
+            lib/speech_presentation.py \
+            lib/artifact_planner.py \
+            server/services/presentation_read_model.py \
+            tests/unit/test_e1u02_imported_regression.py
