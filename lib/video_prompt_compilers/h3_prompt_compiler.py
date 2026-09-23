@@ -44,6 +44,12 @@ _H3_DIALOGUE_RE = re.compile(
 _H3_SECTION_RE = re.compile(
     r"(?m)^(subject_definitions|summary|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):\s*$"
 )
+
+_H3_VISIBLE_TEXT_GUARD_MARKER = "ARCREEL_H3_VISIBLE_TEXT_GUARD"
+_H3_VISIBLE_TEXT_GUARD = """ARCREEL_H3_VISIBLE_TEXT_GUARD:
+Treat shot labels/numbers, timestamps, subject/picture labels, camera and lens settings, movement direction/speed, lighting notes, transition notes, audio notes, and all other prompt metadata as control instructions only. Never render any of them as visible text.
+Text inside <d>...</d> is spoken dialogue/lip-sync content only. Never render dialogue as subtitles, captions, speech bubbles, UI text, signage, or overlays.
+Do not add subtitles, captions, watermarks, technical labels, or other visible text. Visible text is allowed only when a shot explicitly instructs: render exactly \"...\" as on-screen text."""
 _SCENE_HINTS = (
     "房", "室", "厅", "堂", "院", "宅", "门外", "后巷", "街", "城门", "客栈", "县衙",
     "山", "林", "温泉", "场景", "scene", "room", "house", "street", "forest", "hall", "courtyard",
@@ -392,6 +398,16 @@ def _render_dialogues(dialogues: Sequence[H3Dialogue], references: Sequence[H3Re
     return lines
 
 
+def ensure_h3_visible_text_guard(prompt: str) -> str:
+    """Inject one deterministic H3 visible-text guard into detailed_description."""
+    if _H3_VISIBLE_TEXT_GUARD_MARKER in prompt:
+        return prompt
+    marker = "detailed_description:\n"
+    if marker not in prompt:
+        raise H3PromptCompileError("H3 prompt is missing detailed_description section")
+    return prompt.replace(marker, marker + _H3_VISIBLE_TEXT_GUARD + "\n", 1)
+
+
 def compile_h3_ref2va_prompt(
     *,
     source_prompt: str,
@@ -423,11 +439,12 @@ def compile_h3_ref2va_prompt(
         }
         found = {m.group(1) for m in _H3_SECTION_RE.finditer(source_prompt)}
         if required.issubset(found):
-            if len(source_prompt) > compile_options.max_prompt_chars:
+            guarded = ensure_h3_visible_text_guard(source_prompt.strip())
+            if len(guarded) > compile_options.max_prompt_chars:
                 raise H3PromptCompileError(
                     f"compiled H3 prompt exceeds {compile_options.max_prompt_chars} characters"
                 )
-            return source_prompt.strip()
+            return guarded
 
     references = _build_references(
         source_prompt,
@@ -479,6 +496,7 @@ def compile_h3_ref2va_prompt(
             compile_options.non_diegetic_music.strip() or "N/A",
         ]
     ).strip()
+    prompt = ensure_h3_visible_text_guard(prompt)
 
     if len(prompt) > compile_options.max_prompt_chars:
         raise H3PromptCompileError(
