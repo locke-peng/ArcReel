@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import base64
 import math
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -162,6 +164,168 @@ class MechanicalSubtitleTiming:
                 )
             )
         return tuple(cues)
+
+
+_SHOT_HEADER_RE = re.compile(
+    r"^\\s*\\[Shot\\s+(?P<number>\\d+)\\]"
+    r"(?:\\s+At\\s+(?P<minutes>\\d{2}):(?P<seconds>\\d{2})\\.(?P<millis>\\d{3}))?"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ShotWindowMechanicalSubtitleTiming:
+    """Allocate reference-video subtitles inside their authored shot windows."""
+
+    planned_boundary_microseconds: int
+    shot_windows: tuple[tuple[int, int], ...]
+    utterance_window_indices: tuple[int, ...]
+    policy_version: int = 1
+
+    def __post_init__(self) -> None:
+        if self.planned_boundary_microseconds <= 0:
+            raise ValueError("planned_boundary_microseconds must be positive")
+        if not self.shot_windows:
+            raise ValueError("shot_windows must not be empty")
+        previous_end = 0
+        for start, end in self.shot_windows:
+            if start < previous_end or end <= start or end > self.planned_boundary_microseconds:
+                raise ValueError("shot windows must be ordered, non-overlapping, and inside the planned boundary")
+            previous_end = end
+        if any(index < 0 or index >= len(self.shot_windows) for index in self.utterance_window_indices):
+            raise ValueError("utterance window index is out of range")
+
+    @property
+    def basis_identity(self) -> dict[str, object]:
+        return {
+            "kind": "mechanical-shot-window-text-length",
+            "version": self.policy_version,
+            "planned_boundary_microseconds": self.planned_boundary_microseconds,
+            "shot_windows": [list(window) for window in self.shot_windows],
+            "utterance_window_indices": list(self.utterance_window_indices),
+        }
+
+    def distribute(
+        self,
+        utterances: tuple[SubtitleUtteranceEvidence, ...],
+        *,
+        boundary_microseconds: int,
+    ) -> tuple[SubtitleCue, ...]:
+        if type(boundary_microseconds) is not int or boundary_microseconds <= 0:
+            raise ValueError("boundary_microseconds must be a positive integer")
+        if len(utterances) != len(self.utterance_window_indices):
+            raise ValueError("shot-aware subtitle utterance count changed after timing projection")
+        if not utterances:
+            return ()
+
+        grouped: dict[int, list[tuple[int, SubtitleUtteranceEvidence]]] = {}
+        for index, (utterance, window_index) in enumerate(
+            zip(utterances, self.utterance_window_indices, strict=True)
+        ):
+            grouped.setdefault(window_index, []).append((index, utterance))
+
+        cues_by_index: dict[int, SubtitleCue] = {}
+        for window_index, members in grouped.items():
+            planned_start, planned_end = self.shot_windows[window_index]
+            start = boundary_microseconds * planned_start // self.planned_boundary_microseconds
+            end = boundary_microseconds * planned_end // self.planned_boundary_microseconds
+            if end <= start:
+                raise ValueError("scaled shot window is too short for subtitles")
+
+            weights = [len(utterance.text) for _, utterance in members]
+            total_weight = sum(weights)
+            if total_weight <= 0:  # pragma: no cover - evidence invariant
+                raise ValueError("subtitle utterances must contain visible text")
+
+            cumulative = 0
+            span = end - start
+            for (utterance_index, utterance), weight in zip(members, weights, strict=True):
+                cue_start = start + span * cumulative // total_weight
+                cumulative += weight
+                cue_end = start + span * cumulative // total_weight
+                if cue_end <= cue_start:
+                    raise ValueError("shot window is too short for its subtitle utterances")
+                cues_by_index[utterance_index] = SubtitleCue(
+                    start_microseconds=cue_start,
+                    duration_microseconds=cue_end - cue_start,
+                    text=utterance.text,
+                    owner=utterance.owner,
+                    speaker=utterance.speaker,
+                )
+        return tuple(cues_by_index[index] for index in range(len(utterances)))
+
+
+def video_unit_subtitle_timing(
+    unit: Mapping[str, object],
+    preparation: SpeechPreparation,
+) -> SubtitleTimingPolicy:
+    """Use authored [Shot N] timestamps for reference-video subtitle timing when available.
+
+    Malformed or legacy unit text falls back to the existing whole-clip mechanical
+    policy. This keeps old projects readable while preventing a line in Shot 1 from
+    mechanically spilling across the Shot 2 boundary.
+    """
+
+    text = unit.get("text")
+    planned_seconds = unit.get("duration_seconds")
+    if (
+        not isinstance(text, str)
+        or not isinstance(planned_seconds, int)
+        or isinstance(planned_seconds, bool)
+        or planned_seconds <= 0
+    ):
+        return MechanicalSubtitleTiming()
+
+    planned_boundary = planned_seconds * MICROSECONDS_PER_SECOND
+    headers: list[tuple[int, int]] = []
+    for line_index, line in enumerate(text.splitlines()):
+        match = _SHOT_HEADER_RE.match(line)
+        if match is None:
+            continue
+        minutes = match.group("minutes")
+        seconds = match.group("seconds")
+        millis = match.group("millis")
+        if minutes is None:
+            if headers or int(match.group("number")) != 1:
+                return MechanicalSubtitleTiming()
+            start = 0
+        else:
+            start = (
+                (int(minutes) * 60 + int(seconds)) * MICROSECONDS_PER_SECOND
+                + int(millis) * 1_000
+            )
+        headers.append((line_index, start))
+
+    if len(headers) < 2 or headers[0][1] != 0:
+        return MechanicalSubtitleTiming()
+    starts = [start for _, start in headers]
+    if any(left >= right for left, right in zip(starts, starts[1:], strict=False)):
+        return MechanicalSubtitleTiming()
+    if starts[-1] >= planned_boundary:
+        return MechanicalSubtitleTiming()
+
+    windows = tuple(
+        (start, starts[index + 1] if index + 1 < len(starts) else planned_boundary)
+        for index, start in enumerate(starts)
+    )
+    assignments: list[int] = []
+    for utterance in preparation.utterances:
+        if not utterance.text.strip():
+            continue
+        line = utterance.location.line
+        if utterance.location.path != ("text",) or line is None:
+            return MechanicalSubtitleTiming()
+        candidates = [index for index, (header_line, _start) in enumerate(headers) if header_line <= line]
+        if not candidates:
+            return MechanicalSubtitleTiming()
+        assignments.append(candidates[-1])
+
+    if not assignments:
+        return MechanicalSubtitleTiming()
+    return ShotWindowMechanicalSubtitleTiming(
+        planned_boundary_microseconds=planned_boundary,
+        shot_windows=windows,
+        utterance_window_indices=tuple(assignments),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -506,6 +670,7 @@ def _vtt_timestamp(microseconds: int) -> str:
 
 __all__ = [
     "MechanicalSubtitleTiming",
+    "ShotWindowMechanicalSubtitleTiming",
     "MediaCurrency",
     "MediaSelection",
     "NarrationPresentationTrack",
@@ -524,4 +689,5 @@ __all__ = [
     "materialize_speech_presentation",
     "presentation_artifact_paths",
     "subtitles_webvtt",
+    "video_unit_subtitle_timing",
 ]
