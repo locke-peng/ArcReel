@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import stat
@@ -56,6 +57,7 @@ ARCHIVE_SCRIPT_SCHEMA_VERSION = 2
 DEFAULT_IMPORT_FILENAME = "imported-project.zip"
 _ARTIFACT_ACTIVATION_ERRORS = (ArtifactManifestError, OSError, UnicodeError, ValueError)
 _EXPORT_SNAPSHOT_ATTEMPTS = 3
+_LEGACY_BOUND_ORIG_SCRIPT_RE = re.compile(r"^scripts/episode_(?P<episode>[1-9][0-9]*)\\.orig\\.json$")
 
 
 def _resolve_existing_asset(name: str, candidates: set[str]) -> str:
@@ -758,6 +760,148 @@ class ProjectArchiveService:
                 copied.append(((relative_dir / filename).as_posix(), hexdigest))
         return tuple(copied)
 
+    def _canonicalize_legacy_bound_orig_scripts(
+        self,
+        project_dir: Path,
+        project: dict[str, Any],
+        versions_payload: dict[str, Any],
+        diagnostics: ArchiveDiagnostics,
+    ) -> bool:
+        """Canonicalize import-only scripts/episode_N.orig.json ledger bindings.
+
+        v15 deliberately requires the episode ledger to bind scripts/episode_N.json.
+        Some manual ArcReel project bundles preserved the actually-used formal
+        script as episode_N.orig.json while a stale/unbound episode_N.json also
+        remained on disk. During archive import the ledger is the content-truth
+        source: preserve that bound file, back up any conflicting unbound canonical
+        file, copy the bound bytes to the canonical path, and rewrite path-only
+        provenance before the normal schema migration runs.
+
+        This repair is intentionally narrow and import-only. Arbitrary custom
+        script bindings remain a hard v14->v15 migration error.
+        """
+
+        episodes = project.get("episodes")
+        if not isinstance(episodes, list):
+            return False
+
+        changed = False
+        rewritten: dict[str, str] = {}
+        for index, episode_meta in enumerate(episodes):
+            if not isinstance(episode_meta, dict):
+                continue
+            raw = episode_meta.get("script_file")
+            if not isinstance(raw, str):
+                continue
+            normalized = raw.strip().replace("\\\\", "/")
+            match = _LEGACY_BOUND_ORIG_SCRIPT_RE.fullmatch(normalized)
+            if match is None:
+                continue
+            episode = parse_positive_episode_num(episode_meta.get("episode"))
+            if episode is None or int(match.group("episode")) != episode:
+                continue
+
+            legacy_rel = normalized
+            canonical_rel = f"scripts/episode_{episode}.json"
+            legacy_path = try_safe_join(project_dir, legacy_rel)
+            canonical_path = try_safe_join(project_dir, canonical_rel)
+            if legacy_path is None or canonical_path is None or not legacy_path.is_file():
+                continue
+
+            legacy_bytes = legacy_path.read_bytes()
+            if canonical_path.is_file():
+                canonical_bytes = canonical_path.read_bytes()
+                if canonical_bytes != legacy_bytes:
+                    backup = project_dir / "drafts" / f"episode_{episode}" / "import_unbound_script_backup.json"
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    if not backup.exists():
+                        backup.write_bytes(canonical_bytes)
+                    diagnostics.add(
+                        "auto_fixed",
+                        "legacy_bound_script_conflict_preserved",
+                        ValidationMessage.literal(
+                            f"Preserved the unbound scripts/episode_{episode}.json as "
+                            f"drafts/episode_{episode}/import_unbound_script_backup.json before canonicalizing "
+                            f"the ledger-bound {legacy_rel}."
+                        ),
+                        location=f"episodes[{index}].script_file",
+                    )
+
+            if not canonical_path.is_file() or canonical_path.read_bytes() != legacy_bytes:
+                canonical_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(legacy_path, canonical_path)
+
+            episode_meta["script_file"] = canonical_rel
+            rewritten[legacy_rel] = canonical_rel
+            changed = True
+            diagnostics.add(
+                "auto_fixed",
+                "legacy_bound_script_canonicalized",
+                ValidationMessage(
+                    "arch_script_file_repaired",
+                    {"location": f"episodes[{index}].script_file", "path": canonical_rel},
+                ),
+                location=f"episodes[{index}].script_file",
+            )
+
+        if not rewritten:
+            return changed
+
+        versions_changed = False
+        for bucket in versions_payload.values():
+            if not isinstance(bucket, dict):
+                continue
+            for resource in bucket.values():
+                if not isinstance(resource, dict):
+                    continue
+                records = resource.get("versions")
+                if not isinstance(records, list):
+                    continue
+                for record in records:
+                    if not isinstance(record, dict):
+                        continue
+                    execution_script_file = record.get("execution_script_file")
+                    replacement = rewritten.get(execution_script_file) if isinstance(execution_script_file, str) else None
+                    if replacement is not None:
+                        record["execution_script_file"] = replacement
+                        versions_changed = True
+        if versions_changed:
+            versions_path = project_dir / "versions" / "versions.json"
+            self._write_json_file(versions_path, versions_payload)
+
+        presentations_root = project_dir / "presentations"
+        if presentations_root.is_dir():
+            for presentation_path in presentations_root.glob("episode_*/*.json"):
+                payload = self._load_json_file(presentation_path)
+                if payload is None:
+                    continue
+                raw_script = payload.get("script_file")
+                if not isinstance(raw_script, str):
+                    continue
+                for legacy_rel, canonical_rel in rewritten.items():
+                    if raw_script in {legacy_rel, Path(legacy_rel).name}:
+                        payload["script_file"] = Path(canonical_rel).name
+                        self._write_json_file(presentation_path, payload)
+                        break
+
+        manifest_path = project_dir / MANIFEST_FILENAME
+        manifest = self._load_json_file(manifest_path)
+        entries = manifest.get("entries") if isinstance(manifest, dict) else None
+        manifest_changed = False
+        if isinstance(entries, dict):
+            for entry in entries.values():
+                if not isinstance(entry, dict):
+                    continue
+                artifact_path = entry.get("artifact_path")
+                replacement = rewritten.get(artifact_path) if isinstance(artifact_path, str) else None
+                if replacement is not None:
+                    entry["artifact_path"] = replacement
+                    manifest_changed = True
+        if manifest_changed and manifest is not None:
+            self._write_json_file(manifest_path, manifest)
+
+        return changed
+
     def _repair_project_tree(self, project_dir: Path) -> ArchiveDiagnostics:
         diagnostics = ArchiveDiagnostics()
         project_path = project_dir / self.project_manager.PROJECT_FILE
@@ -776,7 +920,12 @@ class ProjectArchiveService:
 
         basename_index = self._build_basename_index(project_dir)
         versions_payload = self._load_versions_payload(project_dir)
-        project_changed = False
+        project_changed = self._canonicalize_legacy_bound_orig_scripts(
+            project_dir,
+            project,
+            versions_payload,
+            diagnostics,
+        )
 
         style_image_rel = project.get("style_image") or "style_reference.png"
         if self._repair_path_to_canonical(
