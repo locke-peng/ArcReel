@@ -10,7 +10,6 @@ from lib.speech_presentation import (
     video_unit_subtitle_timing,
 )
 
-
 E1U02_TEXT = """[Shot 1]
 @[陆家别墅]门廊，暖黄壁灯。中景、构图门廊居中、35mm浅景深，镜头固定。@[周姨]从门内右侧走出，双手在围裙上擦一下，身体前倾约10度、眼睁大2mm、嘴唇微张。
 @[周姨]：{太太，您怎么来了}
