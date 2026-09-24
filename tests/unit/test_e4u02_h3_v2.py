@@ -1,8 +1,4 @@
-from lib.video_prompt_compilers.h3_prompt_compiler import (
-    compile_h3_ref2va_prompt,
-    validate_h3_native_ref2va_prompt,
-)
-
+from lib.video_prompt_compilers.h3_prompt_compiler import compile_h3_ref2va_prompt, validate_h3_native_ref2va_prompt
 
 E4U02_SOURCE = """[Shot 1] A close shot inside @[沈知意小房子] frames @[手机] in the foreground. The phone screen displays the alarm label "给念念打电话" clearly while the room remains still.
 Sound: A short electronic notification sounds over quiet room tone.
