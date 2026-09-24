@@ -1,0 +1,13 @@
+unit=E4U02
+repair=v3_identity_lock
+attempt=1
+purpose=paid AutoDL MiniMax H3 acceptance test for canonical C03 Lu Nian identity lock plus prior visible-text/dialogue gates
+character_id=C03
+character_name=陆念
+younger_variant_same_identity=true
+only_legal_visible_text=给念念打电话
+dialogue_visualization=forbidden
+duration_seconds=15
+resolution=480p横
+aspect_ratio=16:9
+scope_lock=do_not_enter_E13U01_until_E4U02_identity_PASS
