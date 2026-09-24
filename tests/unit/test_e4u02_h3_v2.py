@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 
 from lib.video_prompt_compilers.h3_prompt_compiler import (
