@@ -87,6 +87,20 @@ jobs:
           print("E12U06 encrypted bundle integrity PASS")
           PY
 
+          cp ".github/supplier-prompts/E12U06.v3.txt" "$SUPPLIER_BUNDLE_DIR/prompt.txt"
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path("/tmp/e12u06-bundle")
+          manifest_path=root/"manifest.json"
+          m=json.loads(manifest_path.read_text())
+          prompt_sha=hashlib.sha256((root/"prompt.txt").read_bytes()).hexdigest()
+          assert prompt_sha=="4c3e7fdcb8aedf106779e2a926242a241a9bd1048b214123c9fb0ffe32586aed"
+          m["prompt_sha256"]=prompt_sha
+          manifest_path.write_text(json.dumps(m, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+          print("E12U06 v3 prompt override PASS:", prompt_sha)
+          PY
+
       - name: Submit exactly one E12U06 supplier task
         run: uv run python scripts/run_native_supplier_bundle.py
 
