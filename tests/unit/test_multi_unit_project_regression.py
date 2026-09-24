@@ -129,6 +129,102 @@ UNITS = {
 中景、构图居中、35mm，镜头缓慢推近约0.4米、慢速。@[沈知意]独自从后台走上主舞台。
 声音：掌声。""",
     },
+    "E4U02": {
+        "duration": 15,
+        "dialogues": 2,
+        "text": """[Shot 1]
+@[沈知意小房子]，特写屏幕、构图居中、50mm，镜头固定。闹钟标签写着"给念念打电话"。
+声音：电子提示。
+
+【转场】褪色淡入
+
+[Shot 2] At 00:05.000
+闪回近景、构图居中、50mm，镜头轻微缩放。@[幼年陆念]抱@[手机]贴脸哭、肩膀一抽一抽。
+@[幼年陆念]：{妈妈，我想你}
+声音：电话底噪。
+
+【转场】褪色淡入
+
+[Shot 3] At 00:10.000
+闪回近景、构图居中、50mm，镜头固定。稍大的@[陆念]看一眼别处、低头摆弄手里玩具。
+@[陆念]：{妈妈，我在忙}
+声音：忙音。""",
+    },
+    "E11U03": {
+        "duration": 15,
+        "dialogues": 2,
+        "text": """[Shot 1]
+@[AI峰会]媒体区，近景、构图居中、50mm，镜头固定。@[苏晚]对镜头从容微笑。
+@[苏晚]：{等会就知道}
+声音：媒体声。
+
+【转场】硬切
+
+[Shot 2] At 00:05.000
+中景、构图纵深、35mm，镜头缓慢推近约0.3米、慢速。@[陆予深]经过"天枢"巨屏、下意识停步。
+声音：电子低频。
+
+【转场】硬切
+
+[Shot 3] At 00:10.000
+@[学校教室]，中景、构图居中、35mm，镜头固定。投影播放峰会预告。
+@[老师]：{今天看直播}
+声音：教室声。""",
+    },
+    "E12U04": {
+        "duration": 15,
+        "dialogues": 2,
+        "text": """[Shot 1]
+@[AI峰会]观众席，中景、构图纵深、35mm，镜头轻微平移。观众骚动、媒体连续举机拍摄。
+声音：议论与快门。
+
+【转场】硬切
+
+[Shot 2] At 00:05.000
+近景、构图居中、50mm，镜头固定。@[技术负责人]盯着屏幕、摇头。
+@[技术负责人]：{需要真正熟悉天枢底层的人}
+声音：低频。
+
+【转场】硬切
+
+[Shot 3] At 00:10.000
+中景、构图居中、35mm，镜头缓慢推近约0.3米、慢速。@[江屿]从观众席站起。
+@[江屿]：{那正好}
+声音：会场声。""",
+    },
+    "E12U06": {
+        "duration": 10,
+        "dialogues": 0,
+        "text": """[Shot 1]
+@[AI峰会]主屏，特写屏幕、构图居中、50mm，镜头固定。主屏由报错切黑、身份字幕开始加载。
+声音：电子低频。
+
+【转场】硬切
+
+[Shot 2] At 00:05.000
+中景、构图居中、35mm，镜头缓慢推近约0.4米、慢速。舞台侧门缓缓开启、追光亮起。
+声音：掌声前的寂静。""",
+    },
+    "E13U03": {
+        "duration": 15,
+        "dialogues": 1,
+        "text": """[Shot 1]
+@[学校教室]，中景、构图居中、35mm，镜头缓慢推近约0.3米、慢速。直播里@[陆念]猛地坐直。
+声音：同学惊呼。
+
+【转场】溶接
+
+[Shot 2] At 00:05.000
+@[AI峰会]舞台控制台，近景、构图居中、50mm，镜头固定。@[沈知意]走到控制台前坐下。
+@[沈知意]：{打开底层日志}
+声音：键盘声。
+
+【转场】硬切
+
+[Shot 3] At 00:10.000
+特写屏幕、构图居中、50mm，镜头轻微缩放。日志快速滚动、她目光扫过。
+声音：电子声。""",
+    },
 }
 
 
@@ -258,3 +354,53 @@ def test_compiled_multi_unit_prompt_is_idempotent_for_visual_frame_policy() -> N
         unit_id="E13U01",
     ).provider_prompt
     assert second == first
+
+
+def test_e4u02_preserves_intended_alarm_label_but_not_dialogue_as_screen_text() -> None:
+    text = str(UNITS["E4U02"]["text"])
+    result = compile_reference_video_provider_prompt(
+        source_prompt=text,
+        fallback_prompt=text,
+        model_name="minimax_h3_zm_u24",
+        duration_seconds=15,
+        request_assets=_reference_entries(text),
+        payload={"prompt_compiler": "auto"},
+        unit_id="E4U02",
+    )
+    prompt = result.provider_prompt
+    assert 'On-screen text: render exactly "给念念打电话".' in prompt
+    assert 'render exactly "妈妈，我想你"' not in prompt
+    assert 'render exactly "妈妈，我在忙"' not in prompt
+
+
+def test_e12u06_does_not_invent_identity_copy_when_source_only_says_loading() -> None:
+    text = str(UNITS["E12U06"]["text"])
+    result = compile_reference_video_provider_prompt(
+        source_prompt=text,
+        fallback_prompt=text,
+        model_name="minimax_h3_zm_u24",
+        duration_seconds=10,
+        request_assets=_reference_entries(text),
+        payload={"prompt_compiler": "auto"},
+        unit_id="E12U06",
+    )
+    prompt = result.provider_prompt
+    assert "身份字幕开始加载" in prompt
+    assert "On-screen text: render exactly" not in prompt
+
+
+def test_e13u03_keeps_livestream_and_log_actions_without_forcing_visible_captions() -> None:
+    text = str(UNITS["E13U03"]["text"])
+    result = compile_reference_video_provider_prompt(
+        source_prompt=text,
+        fallback_prompt=text,
+        model_name="minimax_h3_zm_u24",
+        duration_seconds=15,
+        request_assets=_reference_entries(text),
+        payload={"prompt_compiler": "auto"},
+        unit_id="E13U03",
+    )
+    prompt = result.provider_prompt
+    assert "直播里<Subject" in prompt
+    assert "日志快速滚动" in prompt
+    assert 'render exactly "打开底层日志"' not in prompt
