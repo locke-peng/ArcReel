@@ -18,6 +18,7 @@ jobs:
       MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
       SUPPLIER_BUNDLE_DIR: /tmp/e12u06-bundle
       SUPPLIER_OUTPUT_DIR: artifacts/supplier-e12u06
+      SUPPLIER_TEST_RESOLUTION: 480p
     steps:
       - name: Checkout
         uses: actions/checkout@v4
