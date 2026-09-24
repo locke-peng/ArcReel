@@ -46,11 +46,15 @@ _H3_SECTION_RE = re.compile(
     r"(?m)^(subject_definitions|summary|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):\s*$"
 )
 
-_H3_VISIBLE_TEXT_GUARD_MARKER = "ARCREEL_H3_VISIBLE_TEXT_GUARD"
-_H3_VISIBLE_TEXT_GUARD = """ARCREEL_H3_VISIBLE_TEXT_GUARD:
-Treat shot labels/numbers, timestamps, subject/picture labels, camera and lens settings, movement direction/speed, lighting notes, transition notes, audio notes, and all other prompt metadata as control instructions only. Never render any of them as visible text.
-Text inside <d>...</d> is spoken dialogue/lip-sync content only. Never render dialogue as subtitles, captions, speech bubbles, UI text, signage, or overlays.
-Do not add subtitles, captions, watermarks, technical labels, or other visible text. Visible text is allowed only when a shot explicitly instructs: render exactly \"...\" as on-screen text."""
+_H3_VISIBLE_TEXT_GUARD_MARKER = "ARCREEL_H3_VISUAL_FRAME_POLICY"
+_H3_VISIBLE_TEXT_GUARD = """ARCREEL_H3_VISUAL_FRAME_POLICY:
+Prompt labels, timestamps, reference labels, camera/lens notation, motion notes, lighting notes, transition notes, and audio notes are generation controls rather than scene content.
+Keep the visible frame as natural cinematic imagery. Written characters may appear only when a shot explicitly declares exact on-screen text.
+Words inside <d>...</d> are audio-only spoken content for voice and lip synchronization; they must not become visible typography in the image."""
+_H3_DIALOGUE_FRAME_NOTE = (
+    "Visual-frame note: the spoken words in this shot are audio-only; keep the image free of added "
+    "typography or graphic overlays unless exact on-screen text is explicitly requested in this shot."
+)
 _SCENE_HINTS = (
     "房", "室", "厅", "堂", "院", "宅", "门外", "后巷", "街", "城门", "客栈", "县衙",
     "山", "林", "温泉", "场景", "scene", "room", "house", "street", "forest", "hall", "courtyard",
@@ -396,13 +400,25 @@ def _render_dialogues(dialogues: Sequence[H3Dialogue], references: Sequence[H3Re
 
 
 def ensure_h3_visible_text_guard(prompt: str) -> str:
-    """Inject one deterministic H3 visible-text guard into detailed_description."""
-    if _H3_VISIBLE_TEXT_GUARD_MARKER in prompt:
-        return prompt
+    """Inject H3 visual-frame policy and local audio-only dialogue notes."""
     marker = "detailed_description:\n"
     if marker not in prompt:
         raise H3PromptCompileError("H3 prompt is missing detailed_description section")
-    return prompt.replace(marker, marker + _H3_VISIBLE_TEXT_GUARD + "\n", 1)
+
+    guarded = prompt
+    if _H3_VISIBLE_TEXT_GUARD_MARKER not in guarded:
+        guarded = guarded.replace(marker, marker + _H3_VISIBLE_TEXT_GUARD + "\n", 1)
+
+    lines = guarded.splitlines()
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        out.append(line)
+        if "</d>" not in line:
+            continue
+        next_line = lines[index + 1] if index + 1 < len(lines) else ""
+        if next_line.strip() != _H3_DIALOGUE_FRAME_NOTE:
+            out.append(_H3_DIALOGUE_FRAME_NOTE)
+    return "\n".join(out)
 
 
 def compile_h3_ref2va_prompt(
