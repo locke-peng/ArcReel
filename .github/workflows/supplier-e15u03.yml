@@ -1,0 +1,132 @@
+name: Supplier Test E15U03
+
+on:
+  push:
+    branches:
+      - delta/h3-native-compliance-ref2va-t2va
+
+permissions:
+  contents: read
+
+jobs:
+  supplier-e15u03:
+    if: contains(github.event.head_commit.message, '[supplier-e15u03]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+      MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
+      SUPPLIER_BUNDLE_DIR: /tmp/e15u03-bundle
+      SUPPLIER_OUTPUT_DIR: artifacts/supplier-e15u03
+      SUPPLIER_TEST_RESOLUTION: 480p横
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Ensure ffmpeg tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y ffmpeg
+          fi
+          ffprobe -version | head -n 1
+
+      - name: Verify supplier secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MINIMAX_H3_API_KEY"
+          test -n "$MINIMAX_H3_BASE_URL"
+          echo "::add-mask::$MINIMAX_H3_BASE_URL"
+          echo "Supplier credentials are configured."
+
+      - name: Decrypt private E15U03 test bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=".github/supplier-bundles/E15U03"
+          WORK="/tmp/e15u03-secure"
+          mkdir -p "$WORK" "$SUPPLIER_BUNDLE_DIR"
+
+          tr -d '\r\n ' < "$SRC/cert.pem.b64" | base64 -d > "$WORK/cert.pem"
+          tr -d '\r\n ' < "$SRC/private.pem.enc.b64" | base64 -d > "$WORK/private.pem.enc"
+
+          cat "$SRC"/bundle.part.* | tr -d '\r\n ' | base64 -d > "$WORK/bundle.cms"
+          echo "7162bf8c9b0d552868d8e35072a726bc08ecaecb2d1a009047e21288c2db20e3  $WORK/bundle.cms" | sha256sum -c -
+
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in "$WORK/private.pem.enc" \
+            -out "$WORK/private.pem" \
+            -pass env:MINIMAX_H3_API_KEY
+
+          openssl cms -decrypt -binary -inform DER \
+            -in "$WORK/bundle.cms" \
+            -recip "$WORK/cert.pem" \
+            -inkey "$WORK/private.pem" \
+            -out "$WORK/bundle.tar.gz"
+
+          tar -xzf "$WORK/bundle.tar.gz" -C "$SUPPLIER_BUNDLE_DIR"
+          rm -f "$WORK/private.pem" "$WORK/bundle.tar.gz" "$WORK/bundle.cms"
+
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path("/tmp/e15u03-bundle")
+          m=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+          assert m["unit_id"]=="E15U03"
+          assert m["workflow_id"]=="minimax_h3_zm_u24"
+          assert m["duration_seconds"]==15
+          assert m["prompt_sha256"]=="b8143dfe1e500a83d6f45f0ca133cf3fed9ab55c7ab6739686c11b0f1eb87dd0"
+          assert hashlib.sha256((root/"prompt.txt").read_bytes()).hexdigest()==m["prompt_sha256"]
+          expected=[
+            "87d54ccd76abd21e2a03e83036cac6af9469b6de50614a44c67196d0e8b9674a",
+            "50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9",
+          ]
+          assert [x["sha256"] for x in m["references"]]==expected
+          for ref in m["references"]:
+            p=root/ref["filename"]
+            assert hashlib.sha256(p.read_bytes()).hexdigest()==ref["sha256"]
+            assert p.stat().st_size==int(ref["size_bytes"])
+          print("E15U03 encrypted bundle integrity PASS")
+          print("E15U03 prompt SHA:", m["prompt_sha256"])
+          print("E15U03 reference count:", len(m["references"]))
+          PY
+
+      - name: Submit exactly one E15U03 supplier task
+        run: uv run python scripts/run_native_supplier_bundle.py
+
+      - name: Probe generated E15U03 video
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          VIDEO="$SUPPLIER_OUTPUT_DIR/E15U03.mp4"
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
+            -of json "$VIDEO" > "$SUPPLIER_OUTPUT_DIR/ffprobe.json"
+
+          mkdir -p "$SUPPLIER_OUTPUT_DIR/frames"
+          for t in 0.5 2.5 4.5 5.5 7.5 9.5 10.5 12.5 14.5; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" -i "$VIDEO" -frames:v 1 \
+              "$SUPPLIER_OUTPUT_DIR/frames/frame_${t}.jpg"
+          done
+
+          ffmpeg -hide_banner -loglevel error -i "$VIDEO" -vn -acodec pcm_s16le \
+            "$SUPPLIER_OUTPUT_DIR/audio.wav" || true
+
+      - name: Upload E15U03 supplier evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-e15u03-evidence
+          path: artifacts/supplier-e15u03
+          if-no-files-found: warn
+          retention-days: 3
