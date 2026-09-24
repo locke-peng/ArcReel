@@ -1,0 +1,19 @@
+subject_definitions:
+<Subject 1> is the summit stage environment defined by <Picture 1>; preserve the referenced stage architecture, main LED screen, side-stage wing, stage-edge geometry, lighting identity, and spatial relationships.
+
+summary:
+[reference generation] Create one continuous 10-second target video using <Subject 1>. The first shot shows the referenced main LED screen changing into a sparse abstract geometric system display made from four simple light shapes. The second shot shows the stage-wing side door, physically attached to the stage edge, opening onto an empty threshold while a single stage spotlight rises beside it.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - preserve the referenced summit-stage architecture, the physical location and scale of the main LED screen, the side-stage wing attached directly to the performance area, the stage-edge geometry, and the established lighting identity.
+
+detailed_description:
+The target video uses live-action cinematic conference imagery with restrained camera movement, clean stage lighting, and stable spatial continuity. Every visual event is concrete and directly observable.
+[Shot 1] A tight centered 50mm shot in <Subject 1> holds on the main LED screen with a static camera. The screen becomes pure black. Three broad solid white horizontal rectangles appear one after another across the upper-middle area, evenly spaced and identical in style. One thin solid white rectangular bar appears beneath them. The finished screen composition contains only these four simple geometric light shapes against the black background. The shapes stay flat, uniform, and motionless through the end of the shot.
+[Shot 2] At 00:05.000, the shot cuts to a centered medium 35mm view in <Subject 1>. The stage-wing side door is built directly into the wing at the immediate edge of the performance stage, with a very short threshold connecting the doorway to the stage floor. The door opens inward slowly to about seventy degrees. Through the open doorway, the visible area consists of the empty threshold, the adjacent wing wall, and the immediate stage floor, and this empty architectural view remains unchanged for the rest of the shot. A single focused spotlight at the stage edge switches on and gradually brightens across the empty side-stage floor. The camera pushes forward with small amplitude at slow speed while preserving the direct physical connection between doorway and stage edge. If the main LED screen remains visible in the background, it keeps the same black field with the same four simple geometric light shapes established in [Shot 1].
+
+overall_soundscape:
+A low electronic system tone accompanies the screen change in the first shot. In the second shot, the side door produces a soft hinge sound over quiet auditorium room tone; the first light applause begins only in the final moment.
+
+non_diegetic_music:
+N/A
