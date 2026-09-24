@@ -4,3 +4,4 @@ Read-only provider protocol probe.
 Read-only provider docs probe.
 Read-only ComfyUI provider docs probe.
 Read-only workflow route existence probe.
+Corrected AutoDL custom-2 live validation.
