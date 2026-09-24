@@ -1,0 +1,106 @@
+name: H3 E4U02 v4 Dialogue-Detached Live Supplier Test
+
+on:
+  push:
+    branches:
+      - fix/e4u02-h3-v3-c03-identity-lock
+    paths:
+      - .github/live-tests/e4u02-v4-dialogue-detached-request.txt
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e4u02-v4-dialogue-detached-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MINIMAX_LIVE_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY || secrets.MINIMAX_API_KEY }}
+      MINIMAX_LIVE_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL || 'https://autodl.art' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg and CJK font
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E4U02 v2 + v3 + v4 contract gates
+        run: |
+          uv run pytest -q \
+            tests/unit/test_e4u02_v2_prompt_contract.py \
+            tests/unit/test_e4u02_v3_identity_lock.py \
+            tests/unit/test_e4u02_v4_dialogue_detached.py
+
+      - name: Credential preflight
+        run: |
+          if [ -z "$MINIMAX_LIVE_API_KEY" ]; then
+            echo "NO_MINIMAX_API_KEY_SECRET"
+            exit 2
+          fi
+          echo "MiniMax/AutoDL credential present; value is not printed."
+
+      - name: Download attempt-7 soundtrack source
+        uses: actions/download-artifact@v4
+        with:
+          name: e4u02-v3-c03-identity-h3-live-evidence
+          path: prior_e4u02_attempt7
+          github-token: ${{ github.token }}
+          run-id: 36035936789
+
+      - name: Prepare dialogue-only reference channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p live_artifacts/E4U02/input
+          SOURCE_VIDEO="$(find prior_e4u02_attempt7 -type f -name 'E4U02.mp4' | head -n 1)"
+          if [ -z "$SOURCE_VIDEO" ]; then
+            SOURCE_VIDEO="$(find prior_e4u02_attempt7 -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.webm' \) | head -n 1)"
+          fi
+          if [ -z "$SOURCE_VIDEO" ]; then
+            echo "ATTEMPT7_VIDEO_NOT_FOUND"
+            exit 3
+          fi
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$SOURCE_VIDEO" \
+            -vn -t 14.90 -ac 1 -ar 24000 -b:a 48k \
+            live_artifacts/E4U02/input/dialogue_soundtrack.mp3
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 \
+            live_artifacts/E4U02/input/dialogue_soundtrack.mp3
+          echo "E4U02_AUDIO_REF=$GITHUB_WORKSPACE/live_artifacts/E4U02/input/dialogue_soundtrack.mp3" >> "$GITHUB_ENV"
+
+      - name: Run paid E4U02 v4 dialogue-detached supplier test
+        run: uv run python scripts/experiments/run_e4u02_minimax_h3_audio_detached_live.py
+
+      - name: Extract dense review frames
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p live_artifacts/E4U02/review_frames
+          VIDEO="$(find live_artifacts/E4U02/project/reference_videos -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.webm' \) | head -n 1)"
+          if [ -n "$VIDEO" ]; then
+            for T in 0.5 1.5 2.5 3.5 4.5 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75 10.25 10.75 11.25 11.75 12.25 12.75 13.25 13.75 14.25 14.75; do
+              ffmpeg -hide_banner -loglevel error -ss "$T" -i "$VIDEO" -frames:v 1 "live_artifacts/E4U02/review_frames/frame_${T}.png"
+            done
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e4u02-v4-dialogue-detached-h3-live-evidence
+          path: live_artifacts/E4U02
+          if-no-files-found: warn
+          retention-days: 14
