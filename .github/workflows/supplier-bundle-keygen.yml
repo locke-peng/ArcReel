@@ -1,0 +1,45 @@
+name: Supplier Bundle Keygen
+
+on:
+  push:
+    branches:
+      - delta/h3-native-compliance-ref2va-t2va
+
+permissions:
+  contents: read
+
+jobs:
+  keygen:
+    if: contains(github.event.head_commit.message, '[supplier-keygen]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+    steps:
+      - name: Verify secret
+        run: test -n "$MINIMAX_H3_API_KEY"
+      - name: Generate one-time envelope key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/supplier-key
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out /tmp/supplier-key/private.pem 2>/dev/null
+          openssl req -new -x509 -key /tmp/supplier-key/private.pem \
+            -subj "/CN=ArcReel Supplier Test Bundle/" -days 2 \
+            -out /tmp/supplier-key/cert.pem
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in /tmp/supplier-key/private.pem \
+            -out /tmp/supplier-key/private.pem.enc \
+            -pass env:MINIMAX_H3_API_KEY
+          rm -f /tmp/supplier-key/private.pem
+          openssl x509 -in /tmp/supplier-key/cert.pem -noout -fingerprint -sha256 > /tmp/supplier-key/fingerprint.txt
+      - name: Upload public cert and encrypted private key
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-bundle-key
+          path: |
+            /tmp/supplier-key/cert.pem
+            /tmp/supplier-key/private.pem.enc
+            /tmp/supplier-key/fingerprint.txt
+          if-no-files-found: error
+          retention-days: 2
