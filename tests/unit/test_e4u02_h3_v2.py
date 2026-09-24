@@ -1,5 +1,3 @@
-import re
-
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     compile_h3_ref2va_prompt,
     validate_h3_native_ref2va_prompt,
@@ -16,6 +14,24 @@ Sound: Light phone-line noise and a soft breath.
 The memory changes to the same child looking away and handling a small toy beside @[手机].
 @[幼年陆念]：{妈妈，我在忙。}
 Sound: The phone-line ambience continues softly."""
+
+
+def _strip_h3_dialogue(prompt: str) -> str:
+    stripped = prompt
+    while "<d>[" in stripped:
+        start = stripped.index("<d>[")
+        end = stripped.index("</d>", start) + len("</d>")
+        stripped = stripped[:start] + stripped[end:]
+    return stripped
+
+
+def _has_cjk(value: str) -> bool:
+    return any(
+        "\u3400" <= char <= "\u4dbf"
+        or "\u4e00" <= char <= "\u9fff"
+        or "\uf900" <= char <= "\ufaff"
+        for char in value
+    )
 
 
 def _compile_e4u02() -> str:
