@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from lib.reference_video.h3_prompt_execution import compile_reference_video_provider_prompt
+from lib.video_prompt_compilers.h3_prompt_compiler import H3PromptCompileError
 from lib.speech_artifact_provenance import project_subtitle_utterances
 from lib.speech_composition import admit_script_unit
 from lib.speech_presentation import (
@@ -57,39 +60,17 @@ def _entries() -> list[Entry]:
     ]
 
 
-def test_imported_e1u02_h3_compilation_keeps_shots_dialogue_and_blocks_visible_control_text() -> None:
-    result = compile_reference_video_provider_prompt(
-        source_prompt=E1U02_TEXT,
-        fallback_prompt="legacy rendered prompt with Avoid: BGM、文字字幕、水印",
-        model_name="MiniMax-H3",
-        duration_seconds=15,
-        request_assets=_entries(),
-        payload={"prompt_compiler": "auto"},
-        unit_id="E1U02",
-    )
-    prompt = result.provider_prompt
-
-    assert result.compiler_applied is True
-    assert result.generation_mode == "ref2va"
-    assert prompt.count("ARCREEL_H3_VISUAL_FRAME_POLICY:") == 1
-    assert "Keep the visible frame as natural cinematic imagery." in prompt
-    assert "Words inside <d>...</d> are audio-only spoken content" in prompt
-    assert prompt.count("Visual-frame note: the spoken words in this shot are audio-only") == 3
-    assert "subtitles" not in prompt.lower()
-    assert "captions" not in prompt.lower()
-    assert "watermarks" not in prompt.lower()
-
-    assert "[Shot 1] [Shot 1]" not in prompt
-    shot1 = prompt.index("[Shot 1]")
-    first_dialogue = prompt.index("<d>[Chinese] 太太，您怎么来了</d>")
-    shot2 = prompt.index("[Shot 2] At 00:05.000")
-    second_dialogue = prompt.index("<d>[Chinese] 念念呢</d>")
-    shot3 = prompt.index("[Shot 3] At 00:10.000")
-    third_dialogue = prompt.index("<d>[Chinese] 念念</d>")
-    assert shot1 < first_dialogue < shot2 < second_dialogue < shot3 < third_dialogue
-
-    for index in range(1, 6):
-        assert f"<Subject {index}>" in prompt
+def test_imported_e1u02_legacy_chinese_execution_prompt_is_rejected_until_native_rewrite() -> None:
+    with pytest.raises(H3PromptCompileError, match="non-English execution prose"):
+        compile_reference_video_provider_prompt(
+            source_prompt=E1U02_TEXT,
+            fallback_prompt="legacy rendered prompt with Avoid: BGM、文字字幕、水印",
+            model_name="MiniMax-H3",
+            duration_seconds=15,
+            request_assets=_entries(),
+            payload={"prompt_compiler": "auto"},
+            unit_id="E1U02",
+        )
 
 
 def test_imported_e1u02_reproduces_old_whole_clip_mechanical_subtitle_bug() -> None:
