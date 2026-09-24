@@ -227,7 +227,7 @@ async def main() -> None:
     for required_rule in (
         "CHARACTER IDENTITY LOCK",
         "SAME PERSON",
-        "never swap",
+        "Never swap",
         "No face substitution",
         "AUDIO-ONLY",
         "Never render any <d> content as on-screen text",
