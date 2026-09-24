@@ -56,6 +56,22 @@ async def main() -> None:
                 if hits:
                     row["hits"] = hits
                 if text:
+                    marker_snippets = []
+                    for marker in ("cg_tool_upload", "uploadModel", "workflow_input", "comfyui/inputs", "large-model", "ref_image_0"):
+                        start = 0
+                        while True:
+                            pos = text.find(marker, start)
+                            if pos < 0:
+                                break
+                            marker_snippets.append({
+                                "marker": marker,
+                                "snippet": redact(text[max(0, pos - 2500): pos + 4000]),
+                            })
+                            start = pos + len(marker)
+                            if len(marker_snippets) >= 80:
+                                break
+                    if marker_snippets:
+                        row["marker_snippets"] = marker_snippets[:80]
                     quoted = re.findall(r'["\\\']([^"\\\']{1,500})["\\\']', text)
                     upload_strings = []
                     api_strings = []
