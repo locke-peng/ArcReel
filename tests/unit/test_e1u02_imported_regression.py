@@ -71,10 +71,13 @@ def test_imported_e1u02_h3_compilation_keeps_shots_dialogue_and_blocks_visible_c
 
     assert result.compiler_applied is True
     assert result.generation_mode == "ref2va"
-    assert prompt.count("ARCREEL_H3_VISIBLE_TEXT_GUARD:") == 1
-    assert "Never render any of them as visible text." in prompt
-    assert "Never render dialogue as subtitles, captions" in prompt
-    assert 'Visible text is allowed only when a shot explicitly instructs: render exactly "' in prompt
+    assert prompt.count("ARCREEL_H3_VISUAL_FRAME_POLICY:") == 1
+    assert "Keep the visible frame as natural cinematic imagery." in prompt
+    assert "Words inside <d>...</d> are audio-only spoken content" in prompt
+    assert prompt.count("Visual-frame note: the spoken words in this shot are audio-only") == 3
+    assert "subtitles" not in prompt.lower()
+    assert "captions" not in prompt.lower()
+    assert "watermarks" not in prompt.lower()
 
     assert "[Shot 1] [Shot 1]" not in prompt
     shot1 = prompt.index("[Shot 1]")
