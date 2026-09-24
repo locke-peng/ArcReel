@@ -1,0 +1,45 @@
+name: E1U02 Provider Probe
+
+on:
+  push:
+    branches:
+      - fix/e1u02-h3-leakage-shot-subtitles-3b3bc527
+
+permissions:
+  contents: read
+
+jobs:
+  probe-provider:
+    if: contains(github.event.head_commit.message, '[probe-h3]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+      MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify provider secrets
+        shell: bash
+        run: |
+          test -n "$MINIMAX_H3_API_KEY"
+          test -n "$MINIMAX_H3_BASE_URL"
+          echo "::add-mask::$MINIMAX_H3_BASE_URL"
+
+      - name: Probe provider protocol without creating a task
+        run: uv run python scripts/e1u02_probe_h3_endpoint.py
+
+      - name: Upload probe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: e1u02-provider-probe
+          path: artifacts/e1u02-provider-probe
+          if-no-files-found: error
+          retention-days: 3
