@@ -130,8 +130,10 @@ async def main() -> None:
         unit_id="E1U02",
     )
     final_prompt = compiled.provider_prompt
-    if "ARCREEL_H3_VISIBLE_TEXT_GUARD:" not in final_prompt:
-        raise RuntimeError("visible-text guard missing")
+    if "ARCREEL_H3_VISUAL_FRAME_POLICY:" not in final_prompt:
+        raise RuntimeError("visual-frame policy missing")
+    if final_prompt.count("Visual-frame note: the spoken words in this shot are audio-only") != 3:
+        raise RuntimeError("shot-local audio-only visual-frame notes are incomplete")
     if "[Shot 1] [Shot 1]" in final_prompt:
         raise RuntimeError("duplicate adjacent Shot 1 marker leaked")
     ordered = [
@@ -332,7 +334,10 @@ async def main() -> None:
         "prompt_sha256": hashlib.sha256(final_prompt.encode("utf-8")).hexdigest(),
         "video_sha256": sha256_file(video_path),
         "video_size_bytes": video_path.stat().st_size,
-        "visible_text_guard_present": True,
+        "visual_frame_policy_present": True,
+        "dialogue_frame_note_count": final_prompt.count(
+            "Visual-frame note: the spoken words in this shot are audio-only"
+        ),
         "shot_dialogue_order_preflight": True,
         "subtitle_policy": timing.basis_identity,
     }
