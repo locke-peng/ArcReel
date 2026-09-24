@@ -1,8 +1,8 @@
 unit=E12U06
-attempt=2
+attempt=3
 purpose=one-shot paid AutoDL MiniMax H3 supplier smoke test
-fix=use project AutoDL declarative endpoint instead of official MiniMax v2 endpoint
-previous_attempt=405_before_task_id
+fix=use accepted AutoDL resolution enum 480p横
+previous_attempts=no task_id (405 endpoint mismatch; resolution enum validation)
 duration_seconds=10
-resolution=480p
+resolution=480p横
 aspect_ratio=16:9
