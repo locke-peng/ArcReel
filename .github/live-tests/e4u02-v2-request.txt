@@ -1,0 +1,12 @@
+unit=E4U02
+repair=v2
+attempt=1
+purpose=paid AutoDL MiniMax H3 acceptance test for visible-text whitelist and dialogue non-visualization
+only_legal_visible_text=给念念打电话
+dialogue_visualization=forbidden
+dialogue_1=妈妈，我想你
+dialogue_2=妈妈，我在忙
+duration_seconds=15
+resolution=480p横
+aspect_ratio=16:9
+scope_lock=do_not_enter_E13U01_until_E4U02_PASS
