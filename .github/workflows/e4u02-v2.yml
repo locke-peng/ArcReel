@@ -1,0 +1,76 @@
+name: E4U02 H3 v2 Gate
+
+on:
+  push:
+    branches:
+      - fix/e4u02-h3-v2-ui-dialogue-guard
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e4u02-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Run E4U02 v2 only
+        run: |
+          uv run pytest tests/unit/test_e4u02_h3_v2.py -q
+
+      - name: Compile E4U02 v2 changed Python
+        run: |
+          uv run python -m py_compile \
+            lib/video_prompt_compilers/h3_prompt_compiler.py \
+            tests/unit/test_e4u02_h3_v2.py
+
+      - name: Ruff E4U02 v2 delta
+        run: |
+          uv run ruff check \
+            lib/video_prompt_compilers/h3_prompt_compiler.py \
+            tests/unit/test_e4u02_h3_v2.py
+
+      - name: Materialize exact final provider prompt
+        shell: bash
+        run: |
+          mkdir -p artifacts/e4u02-v2
+          uv run python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import runpy
+
+          namespace = runpy.run_path("tests/unit/test_e4u02_h3_v2.py")
+          prompt = namespace["_compile_e4u02"]()
+          out = Path("artifacts/e4u02-v2")
+          (out / "final_prompt.txt").write_text(prompt, encoding="utf-8")
+          summary = {
+              "unit_id": "E4U02",
+              "gate": "v2-preflight",
+              "visible_text_allowlist": ["给念念打电话"],
+              "dialogue_audio_only": True,
+              "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+          }
+          (out / "preflight_summary.json").write_text(
+              json.dumps(summary, ensure_ascii=False, indent=2),
+              encoding="utf-8",
+          )
+          print(json.dumps(summary, ensure_ascii=False))
+          PY
+
+      - name: Upload E4U02 v2 preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e4u02-h3-v2-preflight
+          path: artifacts/e4u02-v2
+          if-no-files-found: warn
+          retention-days: 3
