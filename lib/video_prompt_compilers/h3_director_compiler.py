@@ -997,7 +997,8 @@ def _extract_english_sound_lines(text: str) -> tuple[str, str]:
         stripped = line.strip()
         match = re.match(r"^(?:Sound|Audio):\s*(.+)$", stripped, re.IGNORECASE)
         if match:
-            sounds.append(match.group(1).strip())        else:
+            sounds.append(match.group(1).strip())
+        else:
             body.append(line)
     return "\n".join(body), " ".join(sounds).strip()
 
