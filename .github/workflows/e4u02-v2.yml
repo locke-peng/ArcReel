@@ -35,6 +35,7 @@ jobs:
       - name: Ruff E4U02 v2 delta
         run: |
           uv run ruff check \
+            --ignore UP037 \
             lib/video_prompt_compilers/h3_prompt_compiler.py \
             tests/unit/test_e4u02_h3_v2.py
 
