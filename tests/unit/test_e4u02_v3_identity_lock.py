@@ -1,36 +1,45 @@
-from __future__ import annotations
-
 import hashlib
 
 from scripts.experiments.run_e4u02_minimax_h3_live import (
     CHARACTER_ID,
     CHARACTER_NAME,
-    CHARACTER_REF,
+    CURRENT_CHARACTER_REF,
+    CURRENT_CHARACTER_SHA256,
     DIALOGUE_1,
     DIALOGUE_2,
     ONLY_VISIBLE_TEXT,
     PROMPT,
+    YOUNG_CHARACTER_NAME,
+    YOUNG_CHARACTER_REF,
+    YOUNG_CHARACTER_SHA256,
 )
 
 
-EXPECTED_C03_FACE_SHA256 = "c3ea705490e1367950a6bc95ea225e0982b6c01c0b1810184cb9f8a9b9f800fc"
+def _sha256(path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_e4u02_v3_uses_canonical_c03_reference_asset() -> None:
+def test_e4u02_v3_uses_exact_official_age_specific_c03_assets() -> None:
     assert CHARACTER_ID == "C03"
     assert CHARACTER_NAME == "陆念"
-    assert CHARACTER_REF.is_file()
-    assert hashlib.sha256(CHARACTER_REF.read_bytes()).hexdigest() == EXPECTED_C03_FACE_SHA256
+    assert YOUNG_CHARACTER_NAME == "幼年陆念"
+    assert YOUNG_CHARACTER_REF.is_file()
+    assert CURRENT_CHARACTER_REF.is_file()
+    assert YOUNG_CHARACTER_SHA256 == "6f0fe84b8e150abce613499536dd614302598767836083209a2aa5e58d60ecde"
+    assert CURRENT_CHARACTER_SHA256 == "c92b71c3fe707088dd340d41de9a202e2ab7d02392fef4913b2df6959c4932b0"
+    assert _sha256(YOUNG_CHARACTER_REF) == YOUNG_CHARACTER_SHA256
+    assert _sha256(CURRENT_CHARACTER_REF) == CURRENT_CHARACTER_SHA256
 
 
-def test_e4u02_v3_shot2_and_shot3_share_one_character_identity() -> None:
-    assert "<Subject 2> is canonical character C03 陆念" in PROMPT
-    assert "one person across both memory shots" in PROMPT
-    assert "two ages of ONE PERSON" in PROMPT
-    assert "same canonical person, C03 陆念" in PROMPT
+def test_e4u02_v3_shots_bind_to_the_correct_age_reference_without_swapping() -> None:
+    assert "<Subject 2> is 幼年陆念" in PROMPT
+    assert "<Subject 3> is canonical character C03 陆念" in PROMPT
+    assert "[Shot 2] must use <Subject 2> from <Picture 2>" in PROMPT
+    assert "[Shot 3] must use <Subject 3> from <Picture 3>" in PROMPT
+    assert "<Subject 2> and <Subject 3> are the SAME PERSON at two ages" in PROMPT
+    assert "never swap the two age references" in PROMPT
     assert "No face substitution" in PROMPT
-    assert "do not change facial identity" in PROMPT
-    assert "<Subject 3>" not in PROMPT
+    assert "do not merge the two references into a new face" in PROMPT.lower()
 
 
 def test_e4u02_v3_preserves_previous_text_and_dialogue_guards() -> None:
