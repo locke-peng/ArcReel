@@ -1,4 +1,4 @@
-name: E1U02 H3 Leakage + Subtitle Regression
+name: Project H3 Prompt + Subtitle Regression
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Run imported E1U02 and baseline regressions
+      - name: Run imported project representative units and baseline regressions
         run: |
           uv run pytest \
             tests/unit/test_h3_prompt_compiler.py \
