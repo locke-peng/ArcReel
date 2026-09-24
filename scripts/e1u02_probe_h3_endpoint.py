@@ -64,6 +64,10 @@ async def main() -> None:
         ("origin_docs", "GET", urljoin(origin + "/", "docs")),
         ("docs_comfyui_api", "GET", urljoin(origin + "/", "docs/comfyui_api/")),
         ("docs_comfyui_online", "GET", urljoin(origin + "/", "docs/comfyui_online/")),
+        ("u24_get", "GET", urljoin(origin + "/", "api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u24")),
+        ("u24_options", "OPTIONS", urljoin(origin + "/", "api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u24")),
+        ("known_15s_get", "GET", urljoin(origin + "/", "api/v1/comfyui/comfyui_workflow/minimax_h3_image_audio_to_video_v2_15s")),
+        ("known_15s_options", "OPTIONS", urljoin(origin + "/", "api/v1/comfyui/comfyui_workflow/minimax_h3_image_audio_to_video_v2_15s")),
         ("base_openapi", "GET", base_url.rstrip("/") + "/openapi.json"),
     ]
 
