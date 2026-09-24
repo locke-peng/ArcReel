@@ -164,7 +164,7 @@ def test_prompt_compiler_modes() -> None:
     assert normalize_prompt_compiler(None) == "auto"
     assert normalize_prompt_compiler(" H3_REF2VA ") == "h3_ref2va"
     assert normalize_prompt_compiler("raw") == "raw"
-    with pytest.raises(ValueError, match="unsupported prompt_compiler"):
+    with pytest.raises(ValueError, match="prompt_compiler must be one of"):
         normalize_prompt_compiler("other")
 
 
