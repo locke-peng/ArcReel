@@ -413,7 +413,7 @@ def ensure_h3_visible_text_guard(prompt: str) -> str:
     out: list[str] = []
     for index, line in enumerate(lines):
         out.append(line)
-        if "</d>" not in line:
+        if "<d>[" not in line or "</d>" not in line:
             continue
         next_line = lines[index + 1] if index + 1 < len(lines) else ""
         if next_line.strip() != _H3_DIALOGUE_FRAME_NOTE:
