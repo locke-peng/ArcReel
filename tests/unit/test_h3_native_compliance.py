@@ -9,7 +9,6 @@ from lib.video_prompt_compilers.h3_prompt_compiler import (
     validate_h3_native_ref2va_prompt,
 )
 
-
 CASES = {
     "E4U02": {
         "duration": 15,
