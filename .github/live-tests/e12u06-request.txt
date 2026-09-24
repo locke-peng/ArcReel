@@ -1,0 +1,8 @@
+unit=E12U06
+purpose=one-shot paid MiniMax H3 supplier smoke test
+baseline=3b3bc527197bad66ac0425094036ea86b0add7e8
+experiment_head_before_live=249a50c1395cb56be12d2a30049c0fad0d1f8a71
+duration_seconds=10
+resolution=768p
+aspect_ratio=16:9
+trigger_once=path-filtered marker addition
