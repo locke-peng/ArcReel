@@ -306,7 +306,10 @@ def _normalize_explicit_screen_text(text: str) -> str:
 
         exact_texts: list[str] = []
 
-        def repl(match: re.Match[str]) -> str:
+        def repl(
+            match: re.Match[str],
+            exact_texts: list[str] = exact_texts,
+        ) -> str:
             literal = _MENTION_RE.sub(lambda item: item.group("name").strip(), match.group("text"))
             literal = literal.strip()
             if not literal:
