@@ -1,0 +1,15 @@
+unit=E4U02
+repair=v4_dialogue_detached
+attempt=8
+purpose=paid AutoDL MiniMax H3 acceptance with C03 identity bridge and dialogue text removed from visual provider prompt
+only_legal_visible_text=给念念打电话
+dialogue_visualization=forbidden
+dialogue_transport=reference_audio_only
+character_identity=C03_陆念
+young_variant=幼年陆念
+same_person_lineage=required
+source_audio_run=36035936789
+duration_seconds=15
+resolution=480p横
+aspect_ratio=16:9
+scope_lock=do_not_enter_E13U01_until_E4U02_PASS
