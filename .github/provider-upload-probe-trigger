@@ -3,3 +3,4 @@ probe precise 2026-09-24
 probe callsites 2026-09-24
 probe dynamic chunks 2026-09-24
 probe fixed dynamic scan 2026-09-24
+probe exact callsites 2026-09-24
