@@ -1,7 +1,7 @@
 unit=E4U02
 repair=v3_identity_lock
-attempt=3
-purpose=paid AutoDL MiniMax H3 acceptance test for canonical C03 Lu Nian identity lock plus prior visible-text/dialogue gates
+attempt=4
+purpose=paid AutoDL MiniMax H3 acceptance retry after shared C03 identity-master reinforcement and final subtitle-avoid guard
 character_id=C03
 character_name=陆念
 younger_variant_same_identity=true
