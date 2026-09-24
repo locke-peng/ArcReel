@@ -55,6 +55,20 @@ async def main() -> None:
                         hits.append({"marker": marker, "snippet": redact(snippet)})
                 if hits:
                     row["hits"] = hits
+                if text:
+                    quoted = re.findall(r'["\\\']([^"\\\']{1,500})["\\\']', text)
+                    upload_strings = []
+                    api_strings = []
+                    for value in quoted:
+                        lower_value = value.lower()
+                        if any(token in lower_value for token in ("upload", "presign", "tos-cn-", "comfyui-prod", "workflow_input")):
+                            upload_strings.append(redact(value))
+                        if "/api/" in lower_value and any(token in lower_value for token in ("file", "upload", "comfyui", "oss", "tos")):
+                            api_strings.append(redact(value))
+                    if upload_strings:
+                        row["upload_strings"] = list(dict.fromkeys(upload_strings))[:200]
+                    if api_strings:
+                        row["api_strings"] = list(dict.fromkeys(api_strings))[:200]
             except Exception as exc:
                 row["error"] = type(exc).__name__
             rows.append(row)
