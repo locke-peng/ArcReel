@@ -1,0 +1,71 @@
+name: H3 E4U02 v2 Live Supplier Test
+
+on:
+  push:
+    branches:
+      - fix/e4u02-h3-visible-text-v2-3b3bc527
+    paths:
+      - .github/live-tests/e4u02-v2-request.txt
+
+permissions:
+  contents: read
+
+jobs:
+  e4u02-v2-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MINIMAX_LIVE_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY || secrets.MINIMAX_API_KEY }}
+      MINIMAX_LIVE_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL || 'https://api.minimaxi.com/v1' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg and CJK font
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E4U02 v2 prompt contract tests
+        run: uv run pytest -q tests/unit/test_e4u02_v2_prompt_contract.py
+
+      - name: Credential preflight
+        run: |
+          if [ -z "$MINIMAX_LIVE_API_KEY" ]; then
+            echo "NO_MINIMAX_API_KEY_SECRET"
+            exit 2
+          fi
+          echo "MiniMax credential present; value is not printed."
+
+      - name: Run paid E4U02 v2 supplier test through ArcReel MediaGenerator
+        run: uv run python scripts/experiments/run_e4u02_minimax_h3_live.py
+
+      - name: Extract review frames
+        if: always()
+        run: |
+          mkdir -p live_artifacts/E4U02/review_frames
+          VIDEO="$(find live_artifacts/E4U02 -type f \( -name '*.mp4' -o -name '*.mov' -o -name '*.webm' \) | head -n 1)"
+          if [ -n "$VIDEO" ]; then
+            for T in 0.5 2.5 4.5 5.5 7.5 9.5 10.5 12.5 14.5; do
+              ffmpeg -hide_banner -loglevel error -ss "$T" -i "$VIDEO" -frames:v 1 "live_artifacts/E4U02/review_frames/frame_${T}.png"
+            done
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e4u02-v2-h3-live-evidence
+          path: live_artifacts/E4U02
+          if-no-files-found: warn
+          retention-days: 14
