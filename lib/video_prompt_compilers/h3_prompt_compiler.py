@@ -720,7 +720,11 @@ def _render_inline_dialogues(
         else:
             delivery = " in a natural voice consistent with the speaker"
         dialogue = match.group("text").strip()
-        return f"{vocal_source} says{delivery}: <d>[Chinese] {dialogue}</d>{close}"
+        audio_only = (
+            " The <d> line is spoken audio only and must never appear as subtitles, captions, "
+            "on-screen transcription, speech bubbles, UI text, or any other visible text."
+        )
+        return f"{vocal_source} says{delivery}: <d>[Chinese] {dialogue}</d>{audio_only}{close}"
 
     rendered = _ARCREEL_DIALOGUE_RE.sub(dialogue_repl, text)
 
@@ -729,6 +733,25 @@ def _render_inline_dialogues(
         return source_to_subject.get(name, name)
 
     return _MENTION_RE.sub(mention_repl, rendered)
+
+
+def _native_visual_text_and_dialogue_policy(source_prompt: str) -> str:
+    """Build native natural-language guardrails without adding non-H3 pseudo-fields."""
+    policies: list[str] = []
+    if _ARCREEL_DIALOGUE_RE.search(source_prompt) or _H3_DIALOGUE_RE.search(source_prompt):
+        policies.append(
+            "All <d> dialogue is spoken audio only. Never render, caption, subtitle, transcribe, quote, "
+            "or otherwise display any <d> content as visible text, overlays, speech bubbles, or UI text."
+        )
+
+    dialogue_masked = _H3_DIALOGUE_RE.sub("", source_prompt)
+    if _SCREEN_TEXT_QUOTE_RE.search(dialogue_masked):
+        policies.append(
+            "Readable on-screen text is limited strictly to the exact quoted scene-text literals explicitly "
+            "specified in the shots. Do not create any additional readable letters, numbers, captions, "
+            "subtitles, dialogue transcription, chat bubbles, badges, timestamps, watermarks, or UI copy."
+        )
+    return " ".join(policies)
 
 
 def _extract_english_sound_lines(text: str) -> tuple[str, str]:
@@ -847,7 +870,12 @@ def compile_h3_ref2va_prompt(
         })
         retention_lines.append(_retention_line(primary, shots))
     retention = "\n".join(retention_lines)
-    detailed = style_opening + "\n" + body
+    native_policy = _native_visual_text_and_dialogue_policy(source_prompt)
+    detailed_parts = [style_opening]
+    if native_policy:
+        detailed_parts.append(native_policy)
+    detailed_parts.append(body)
+    detailed = "\n".join(detailed_parts)
     prompt = "\n".join(
         [
             "subject_definitions:",
