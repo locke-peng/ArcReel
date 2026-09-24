@@ -1,17 +1,17 @@
-name: H3 E4U02 v2 Live Supplier Test
+name: H3 E4U02 v3 C03 Identity Live Supplier Test
 
 on:
   push:
     branches:
-      - fix/e4u02-h3-visible-text-v2-3b3bc527
+      - fix/e4u02-h3-v3-c03-identity-lock
     paths:
-      - .github/live-tests/e4u02-v2-request.txt
+      - .github/live-tests/e4u02-v3-identity-request.txt
 
 permissions:
   contents: read
 
 jobs:
-  e4u02-v2-live:
+  e4u02-v3-identity-live:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -36,8 +36,11 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run E4U02 v2 prompt contract tests
-        run: uv run pytest -q tests/unit/test_e4u02_v2_prompt_contract.py
+      - name: Run E4U02 v3 prompt and identity contract tests
+        run: |
+          uv run pytest -q \
+            tests/unit/test_e4u02_v2_prompt_contract.py \
+            tests/unit/test_e4u02_v3_identity_lock.py
 
       - name: Credential preflight
         run: |
@@ -47,7 +50,7 @@ jobs:
           fi
           echo "MiniMax credential present; value is not printed."
 
-      - name: Run paid E4U02 v2 supplier test through ArcReel MediaGenerator
+      - name: Run paid E4U02 v3 identity supplier test through ArcReel MediaGenerator
         run: uv run python scripts/experiments/run_e4u02_minimax_h3_live.py
 
       - name: Extract review frames
@@ -65,7 +68,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: e4u02-v2-h3-live-evidence
+          name: e4u02-v3-c03-identity-h3-live-evidence
           path: live_artifacts/E4U02
           if-no-files-found: warn
           retention-days: 14
