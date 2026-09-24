@@ -1,6 +1,6 @@
 unit=E4U02
 repair=v4_dialogue_detached
-attempt=8
+attempt=9
 purpose=paid AutoDL MiniMax H3 acceptance with C03 identity bridge and dialogue text removed from visual provider prompt
 only_legal_visible_text=给念念打电话
 dialogue_visualization=forbidden
