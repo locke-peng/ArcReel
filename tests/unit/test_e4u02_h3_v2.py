@@ -57,7 +57,7 @@ def _compile_e4u02() -> str:
 
 def test_e4u02_v2_phone_ui_has_exactly_one_legal_cjk_visible_literal() -> None:
     prompt = _compile_e4u02()
-    without_dialogue = re.sub(r"<d>\[[^\]]+\].*?</d>", "", prompt, flags=re.DOTALL)
+    without_dialogue = _strip_h3_dialogue(prompt)
     cjk_quoted = [
         match.group(0)
         for match in re.finditer(r'"[^"\r\n]*"', without_dialogue)
@@ -80,7 +80,7 @@ def test_e4u02_v2_dialogue_exists_only_as_audio_not_visible_text() -> None:
     assert "<d>[Chinese] 妈妈，我想你。</d>" in prompt
     assert "<d>[Chinese] 妈妈，我在忙。</d>" in prompt
 
-    without_dialogue = re.sub(r"<d>\[[^\]]+\].*?</d>", "", prompt, flags=re.DOTALL)
+    without_dialogue = _strip_h3_dialogue(prompt)
     assert "妈妈，我想你。" not in without_dialogue
     assert "妈妈，我在忙。" not in without_dialogue
     assert '"妈妈，我想你。"' not in prompt
