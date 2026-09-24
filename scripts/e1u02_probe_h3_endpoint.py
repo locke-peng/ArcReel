@@ -102,6 +102,29 @@ async def main() -> None:
                             if isinstance(paths, dict):
                                 row["openapi_paths"] = list(paths.keys())[:100]
                             row["interesting_fields"] = collect_interesting(body)[:200]
+                elif name == "origin_docs" and "text/html" in ctype.lower():
+                    sanitized = response.text.replace(base_url, "<BASE_URL>").replace(origin, "<ORIGIN>")
+                    (Path("artifacts/e1u02-provider-probe") / "docs.sanitized.html").parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
+                    (Path("artifacts/e1u02-provider-probe") / "docs.sanitized.html").write_text(
+                        sanitized,
+                        encoding="utf-8",
+                    )
+                    lower = sanitized.lower()
+                    markers = [
+                        "ref_image_0",
+                        "video_generation",
+                        "minimax",
+                        "api_key",
+                        "authorization",
+                        "duration",
+                        "seed",
+                        "resolution",
+                    ]
+                    row["docs_markers_present"] = {
+                        marker: marker in lower for marker in markers
+                    }
             except Exception as exc:
                 row["error_type"] = type(exc).__name__
             output["probes"].append(row)
