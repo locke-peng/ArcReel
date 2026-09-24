@@ -98,7 +98,7 @@ async def main() -> None:
                 continue
             main_js = response.text
             (out / "main.public.js").write_text(main_js, encoding="utf-8")
-            names = re.findall(r'assets/[A-Za-z0-9_.-]+\\.js', main_js)
+            names = re.findall(r'assets/[A-Za-z0-9_.-]+\.js', main_js)
             for name in names:
                 if any(token in name for token in (
                     "large-model", "comfy-ui", "set-image", "detail.", "index.", "upload",
