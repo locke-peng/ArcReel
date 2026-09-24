@@ -98,7 +98,7 @@ Sound: Applause rises and fills the hall.''',
 def _compile(unit_id: str) -> str:
     case = CASES[unit_id]
     source_names = [name for name, _kind in case["refs"]]
-    kinds = {name: kind for name, kind in case["refs"]}
+    kinds = dict(case["refs"])
     return compile_h3_ref2va_prompt(
         source_prompt=case["text"],
         duration_seconds=case["duration"],
