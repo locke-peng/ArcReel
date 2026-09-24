@@ -88,11 +88,66 @@ async def main() -> None:
             except Exception as exc:
                 row["error"] = type(exc).__name__
             rows.append(row)
+        initial_rows = [row for row in rows if row.get("hits")]
+        dynamic_candidates: list[str] = []
+        for row in rows:
+            if row.get("path") != "/assets/index.85084518.js":
+                continue
+            response = await client.get(urljoin(str(page.url), row["path"]))
+            if response.status_code != 200:
+                continue
+            main_js = response.text
+            (out / "main.public.js").write_text(main_js, encoding="utf-8")
+            names = re.findall(r'assets/[A-Za-z0-9_.-]+\\.js', main_js)
+            for name in names:
+                if any(token in name for token in (
+                    "large-model", "comfy-ui", "set-image", "detail.", "index.", "upload",
+                )):
+                    dynamic_candidates.append(name)
+        dynamic_candidates = list(dict.fromkeys(dynamic_candidates))[:120]
+        dynamic_rows: list[dict[str, object]] = []
+        for asset in dynamic_candidates:
+            url = urljoin(str(page.url), "/" + asset)
+            row: dict[str, object] = {"path": "/" + asset}
+            try:
+                response = await client.get(url)
+                row["status"] = response.status_code
+                row["bytes"] = len(response.content)
+                text_value = response.text if response.status_code == 200 else ""
+                if text_value:
+                    wanted = []
+                    for marker in (
+                        "ref_image_0", "workflow_input", "comfyui/inputs",
+                        "upload", "presign", "tos-cn-", "cg-comfyui-prod",
+                        "FormData", "/api/v1/file", "large-model",
+                    ):
+                        start = 0
+                        while True:
+                            pos = text_value.find(marker, start)
+                            if pos < 0:
+                                break
+                            wanted.append({
+                                "marker": marker,
+                                "snippet": redact(text_value[max(0, pos - 1800):pos + 3000]),
+                            })
+                            start = pos + len(marker)
+                            if len(wanted) >= 60:
+                                break
+                    if wanted:
+                        row["hits"] = wanted[:60]
+                        safe_name = asset.replace("/", "__")
+                        (out / safe_name).write_text(text_value, encoding="utf-8")
+            except Exception as exc:
+                row["error"] = type(exc).__name__
+            if row.get("hits"):
+                dynamic_rows.append(row)
         result = {
             "page_status": page.status_code,
             "page_path": urlparse(str(page.url)).path,
             "script_count": len(links),
-            "scripts_with_hits": [row for row in rows if row.get("hits")],
+            "scripts_with_hits": initial_rows,
+            "dynamic_candidate_count": len(dynamic_candidates),
+            "dynamic_scripts_with_hits": dynamic_rows,
         }
         (out / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({
