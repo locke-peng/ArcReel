@@ -541,10 +541,11 @@ def _dialogue_delivery(
     # If a semantic direction exists only in non-English source form, fail instead of dropping it.
     original = shot.get("dialogue_direction")
     if original not in (None, "", {}, []):
-        if isinstance(original, Mapping):
-            value = str(original.get(speaker_id) or "").strip()
-        else:
-            value = str(original).strip()
+        value = (
+            str(original.get(speaker_id) or "").strip()
+            if isinstance(original, Mapping)
+            else str(original).strip()
+        )
         if value and _contains_cjk(value):
             raise H3DirectorCompileError(
                 f"{path} has non-English dialogue_direction; provide dialogue_direction_en"
