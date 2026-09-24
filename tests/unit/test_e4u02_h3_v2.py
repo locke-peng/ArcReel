@@ -58,12 +58,9 @@ def _compile_e4u02() -> str:
 def test_e4u02_v2_phone_ui_has_exactly_one_legal_cjk_visible_literal() -> None:
     prompt = _compile_e4u02()
     without_dialogue = _strip_h3_dialogue(prompt)
-    cjk_quoted = [
-        match.group(0)
-        for match in re.finditer(r'"[^"\r\n]*"', without_dialogue)
-        if re.search(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]", match.group(0))
-    ]
-    assert cjk_quoted == ['"给念念打电话"']
+    quoted_literals = without_dialogue.split('"')[1::2]
+    cjk_quoted = [literal for literal in quoted_literals if _has_cjk(literal)]
+    assert cjk_quoted == ["给念念打电话"]
     assert prompt.count('"给念念打电话"') == 1
     assert (
         "Readable on-screen text is limited strictly to the exact quoted scene-text literals "
