@@ -37,6 +37,8 @@ CHARACTER_NAME = "陆念"
 YOUNG_CHARACTER_NAME = "幼年陆念"
 YOUNG_CHARACTER_REF = Path("scripts/experiments/fixtures/e4u02/C03_LuNian_young_face.jpg")
 CURRENT_CHARACTER_REF = Path("scripts/experiments/fixtures/e4u02/C03_LuNian_current_face.jpg")
+SHARED_IDENTITY_REF = CURRENT_CHARACTER_REF
+FINAL_AVOID_LINE = "Avoid: BGM、文字字幕、水印"
 YOUNG_CHARACTER_SHA256 = "6f0fe84b8e150abce613499536dd614302598767836083209a2aa5e58d60ecde"
 CURRENT_CHARACTER_SHA256 = "c92b71c3fe707088dd340d41de9a202e2ab7d02392fef4913b2df6959c4932b0"
 
@@ -53,12 +55,13 @@ retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - preserve the phone composition and reproduce only the exact alarm label “{ONLY_VISIBLE_TEXT}”; every other UI field is abstract, icon-only, blank, blurred, or non-linguistic.
 <Subject 2> (appears in [Shot 2]): fully_preserved identity - preserve <Picture 2> as the authoritative younger-age face for {CHARACTER_ID} {CHARACTER_NAME}. Keep facial topology, proportions, eyes, brows, nose, mouth, cheeks, hairline, dark hair, and skin tone recognizable. Do not age it upward and do not replace it with another child.
 <Subject 3> (appears in [Shot 3]): fully_preserved identity - preserve <Picture 3> as the authoritative later-age face for {CHARACTER_ID} {CHARACTER_NAME}. Keep facial topology, proportions, eyes, brows, nose, mouth, cheek/jaw relationship, hairline, dark hair, and skin tone recognizable. Do not replace it with another child.
+Shared identity master: <Picture 4> is the authoritative common facial identity for both ages of C03. For Shot 2, age-specific appearance comes from <Picture 2> but the facial identity remains anchored to <Picture 4>. For Shot 3, age-specific appearance comes from <Picture 3> and the facial identity remains anchored to <Picture 4>.
 Cross-age continuity: <Subject 2> and <Subject 3> must read as the SAME PERSON at two ages. Preserve their shared identity cues while respecting each age-specific reference. No face substitution, no random child casting, no identity swap, no identity morph into a third face.
 
 detailed_description:
 CHARACTER IDENTITY CONTRACT — HIGHEST PRIORITY: the child in both memory shots is canonical {CHARACTER_ID} {CHARACTER_NAME}. [Shot 2] is locked to the official {YOUNG_CHARACTER_NAME} reference <Picture 2>. [Shot 3] is locked to the official {CHARACTER_NAME} reference <Picture 3>. The viewer must recognize these as two ages of the same person. Do not synthesize either child from prose alone when an assigned visual reference exists. Do not merge the two references into a new face. Do not let hair, eyes, nose, mouth, cheek structure, or overall likeness drift away from the assigned reference.
 GLOBAL VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: “{ONLY_VISIBLE_TEXT}” is the sole readable text allowed in the complete 15-second output. It is allowed only inside the phone screen in [Shot 1]. Every other visible surface must be text-free. Do not show digits, extra UI labels, names, notifications, status-bar numerals, captions, subtitles, titles, watermarks, logos, or invented glyph-like writing. The spoken strings “{DIALOGUE_1}” and “{DIALOGUE_2}” are strictly audio-only and forbidden from appearing visually.
-DIALOGUE CHANNEL CONTRACT — HIGHEST PRIORITY: every <d> block controls speech/audio only. Never render any <d> content as on-screen text. No subtitle track, burned-in subtitle, closed-caption styling, lower-third, dialogue card, speech bubble, karaoke line, or textual transcription is permitted.
+DIALOGUE CHANNEL CONTRACT — HIGHEST PRIORITY: every <d> block controls speech/audio only. Never render any <d> content as on-screen text. No subtitle track, burned-in subtitle, closed-caption styling, lower-third, dialogue card, speech bubble, karaoke line, or textual transcription is permitted. During 00:05-00:15 the lower 30% of the frame contains natural scene imagery only, with no graphic overlay or readable glyphs.
 
 [Shot 1] 00:00-00:05. Tight macro close-up of <Subject 1> on a dark bedside surface at night, vibrating gently. Cool-white screen light against a blue-black room. The alarm interface is intentionally minimal: one centered readable label, exactly “{ONLY_VISIBLE_TEXT}”. All other UI is abstract, icon-only, blank, blurred, or non-linguistic; specifically no readable time digits or secondary labels. Static 50mm close-up, shallow depth of field. No speech. Soft alarm vibration/electronic tone.
 
@@ -70,7 +73,8 @@ overall_soundscape:
 Shot 1: restrained alarm vibration/electronic tone and quiet night ambience. Shot 2: natural child speech from <d> plus faint phone-room tone. Shot 3: natural child speech from <d> plus faint phone-room tone. The <d> strings are audio-only and must never be visualized.
 
 non_diegetic_music:
-N/A"""
+N/A
+${FINAL_AVOID_LINE}"""
 
 
 @dataclass(frozen=True)
@@ -171,10 +175,16 @@ async def main() -> None:
         Entry(Ref("object", "E4U02手机闹钟")),
         Entry(Ref("character", YOUNG_CHARACTER_NAME)),
         Entry(Ref("character", f"{CHARACTER_ID}_{CHARACTER_NAME}")),
+        Entry(Ref("character", f"{CHARACTER_ID}_{CHARACTER_NAME}_identity_master")),
     ]
     payload = {
         "prompt_compiler": "h3_ref2va",
-        "reference_image_labels": ["E4U02手机闹钟", YOUNG_CHARACTER_NAME, f"{CHARACTER_ID}_{CHARACTER_NAME}"],
+        "reference_image_labels": [
+            "E4U02手机闹钟",
+            YOUNG_CHARACTER_NAME,
+            f"{CHARACTER_ID}_{CHARACTER_NAME}",
+            f"{CHARACTER_ID}_{CHARACTER_NAME}_identity_master",
+        ],
     }
 
     preview = compile_reference_video_provider_prompt(
@@ -222,6 +232,8 @@ async def main() -> None:
         "Never render any <d> content as on-screen text",
         "sole readable text allowed",
         "forbidden from appearing visually",
+        "shared canonical C03",
+        FINAL_AVOID_LINE,
     ):
         if required_rule not in runtime.provider_prompt:
             raise RuntimeError(f"missing E4U02 v3 guard: {required_rule}")
@@ -243,7 +255,7 @@ async def main() -> None:
         prompt=runtime.provider_prompt,
         resource_type="reference_videos",
         resource_id=UNIT_ID,
-        reference_images=[phone, YOUNG_CHARACTER_REF, CURRENT_CHARACTER_REF],
+        reference_images=[phone, YOUNG_CHARACTER_REF, CURRENT_CHARACTER_REF, SHARED_IDENTITY_REF],
         aspect_ratio=ASPECT_RATIO,
         duration_seconds=DURATION_SECONDS,
         resolution=RESOLUTION,
@@ -274,7 +286,7 @@ async def main() -> None:
         "ffprobe_video_duration_seconds": probed_duration,
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
-        "reference_count": 3,
+        "reference_count": 4,
         "character_identity_lock": f"{CHARACTER_ID}_{CHARACTER_NAME}",
         "young_variant_asset": YOUNG_CHARACTER_NAME,
         "same_character_lineage": True,
@@ -287,6 +299,7 @@ async def main() -> None:
             "phone": _sha256(phone),
             "young_character": _sha256(YOUNG_CHARACTER_REF),
             "current_character": _sha256(CURRENT_CHARACTER_REF),
+            "shared_identity_master": _sha256(SHARED_IDENTITY_REF),
         },
         "version": version,
         "version_duration_seconds": record.get("duration_seconds"),
