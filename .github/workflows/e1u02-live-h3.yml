@@ -40,7 +40,7 @@ jobs:
           echo "::add-mask::$MINIMAX_H3_BASE_URL"
           echo "MiniMax H3 credentials are configured."
 
-      - name: Run real E1U02 MiniMax H3 generation through ArcReel
+      - name: Run real E1U02 through recovered AutoDL custom-2 protocol
         shell: bash
         run: |
           export E1U02_REF0="$(printf '%s' "$E1U02_REF0_B64" | base64 -d)"
@@ -48,7 +48,7 @@ jobs:
           export E1U02_REF2="$(printf '%s' "$E1U02_REF2_B64" | base64 -d)"
           export E1U02_REF3="$(printf '%s' "$E1U02_REF3_B64" | base64 -d)"
           export E1U02_REF4="$(printf '%s' "$E1U02_REF4_B64" | base64 -d)"
-          uv run python scripts/e1u02_live_h3.py
+          uv run python scripts/e1u02_live_autodl_workflow.py
 
       - name: Probe generated video
         run: |
