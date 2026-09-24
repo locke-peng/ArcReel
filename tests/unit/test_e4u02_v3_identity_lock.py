@@ -9,6 +9,8 @@ from scripts.experiments.run_e4u02_minimax_h3_live import (
     DIALOGUE_2,
     ONLY_VISIBLE_TEXT,
     PROMPT,
+    FINAL_AVOID_LINE,
+    SHARED_IDENTITY_REF,
     YOUNG_CHARACTER_NAME,
     YOUNG_CHARACTER_REF,
     YOUNG_CHARACTER_SHA256,
@@ -29,6 +31,7 @@ def test_e4u02_v3_uses_exact_official_age_specific_c03_assets() -> None:
     assert CURRENT_CHARACTER_SHA256 == "c92b71c3fe707088dd340d41de9a202e2ab7d02392fef4913b2df6959c4932b0"
     assert _sha256(YOUNG_CHARACTER_REF) == YOUNG_CHARACTER_SHA256
     assert _sha256(CURRENT_CHARACTER_REF) == CURRENT_CHARACTER_SHA256
+    assert SHARED_IDENTITY_REF == CURRENT_CHARACTER_REF
 
 
 def test_e4u02_v3_shots_bind_to_the_correct_age_reference_without_swapping() -> None:
@@ -36,6 +39,9 @@ def test_e4u02_v3_shots_bind_to_the_correct_age_reference_without_swapping() -> 
     assert "<Subject 3> is canonical character C03 陆念" in PROMPT
     assert "[Shot 2] must use <Subject 2> from <Picture 2>" in PROMPT
     assert "[Shot 3] must use <Subject 3> from <Picture 3>" in PROMPT
+    assert "<Picture 4> is the shared canonical C03 陆念 identity master" in PROMPT
+    assert "with <Picture 4> as the shared C03 identity master" in PROMPT
+    assert "the SAME <Picture 4> identity master" in PROMPT
     assert "<Subject 2> and <Subject 3> are the SAME PERSON at two ages" in PROMPT
     assert "never swap the two age references" in PROMPT
     assert "No face substitution" in PROMPT
@@ -50,3 +56,6 @@ def test_e4u02_v3_preserves_previous_text_and_dialogue_guards() -> None:
     assert "sole readable text allowed" in PROMPT
     assert "AUDIO-ONLY" in PROMPT
     assert "Never render any <d> content as on-screen text" in PROMPT
+    assert "lower 30% of the frame contains natural scene imagery only" in PROMPT
+    assert FINAL_AVOID_LINE == "Avoid: BGM、文字字幕、水印"
+    assert PROMPT.rstrip().endswith(FINAL_AVOID_LINE)
