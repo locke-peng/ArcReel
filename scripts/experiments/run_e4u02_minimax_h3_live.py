@@ -1,4 +1,4 @@
-"""Paid supplier acceptance test for E4U02 v2 visible-text/dialogue-visualization repair."""
+"""Paid supplier acceptance test for E4U02 v3: C03 identity + visible-text/dialogue locks."""
 from __future__ import annotations
 
 import asyncio
@@ -29,33 +29,35 @@ RESOLUTION = "480p横"
 ONLY_VISIBLE_TEXT = "给念念打电话"
 DIALOGUE_1 = "妈妈，我想你"
 DIALOGUE_2 = "妈妈，我在忙"
+CHARACTER_ID = "C03"
+CHARACTER_NAME = "陆念"
+CHARACTER_REF = Path("scripts/experiments/fixtures/e4u02/C03_LuNian_face_anchor.jpg")
 
 PROMPT = f"""subject_definitions:
 <Subject 1> is the smartphone/alarm-screen reference derived from <Picture 1>. Preserve the dark phone body, cool-white alarm-card layout, and the exact six-character Chinese alarm label “{ONLY_VISIBLE_TEXT}”. This exact label is the only readable text permitted anywhere in the entire video.
-<Subject 2> is the younger-child memory reference derived from <Picture 2>. Preserve the child's identity and clothing. The reference contains no readable text.
-<Subject 3> is the older-child memory reference derived from <Picture 3>. Preserve the child's identity and clothing. The reference contains no readable text.
+<Subject 2> is canonical character {CHARACTER_ID} {CHARACTER_NAME}, derived from the identity face anchor in <Picture 2>. <Subject 2> is one person across both memory shots. Preserve the same facial identity: face outline, eye shape and spacing, brows, nose bridge and tip, mouth shape, cheek structure, hairline, dark hair, skin tone, and the overall recognizable likeness. Shot 2 may age-regress this same person to about 3–4 years old; Shot 3 uses the same person at about 6 years old. Age, expression, and clothing may change, but identity must not.
 
 summary:
-[reference generation] Create one continuous 15-second horizontal cinematic memory sequence in three authored 5-second shots. Highest-priority visible-text contract: across every frame, the ONLY readable or legible language is the exact Chinese phrase “{ONLY_VISIBLE_TEXT}”, and it may appear only on the smartphone alarm label in [Shot 1]. Do not create any other readable letters, Chinese characters, words, numbers, clock digits, status-bar text, labels, buttons, titles, logos, watermarks, captions, subtitles, karaoke text, speech bubbles, or glyph-like pseudo-text. Dialogue enclosed by <d> is AUDIO-ONLY. Never typeset, transcribe, caption, subtitle, echo, or otherwise visualize any content from <d>.
+[reference generation] Create one continuous 15-second horizontal cinematic memory sequence in three authored 5-second shots. CHARACTER IDENTITY LOCK — HIGHEST PRIORITY: both child-memory shots depict the same canonical person, {CHARACTER_ID} {CHARACTER_NAME} from <Picture 2>. Do not invent, substitute, or remap a different child face. The younger memory is only an age-regressed version of the same identity. Highest-priority visible-text contract: across every frame, the ONLY readable or legible language is the exact Chinese phrase “{ONLY_VISIBLE_TEXT}”, and it may appear only on the smartphone alarm label in [Shot 1]. Do not create any other readable letters, Chinese characters, words, numbers, clock digits, status-bar text, labels, buttons, titles, logos, watermarks, captions, subtitles, karaoke text, speech bubbles, or glyph-like pseudo-text. Dialogue enclosed by <d> is AUDIO-ONLY. Never typeset, transcribe, caption, subtitle, echo, or otherwise visualize any content from <d>.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - preserve the referenced phone composition and reproduce only the exact alarm label “{ONLY_VISIBLE_TEXT}”; replace every other UI field with non-linguistic abstract shapes/icons.
-<Subject 2> (appears in [Shot 2]): fully_preserved - preserve identity and childlike proportions; no visible text.
-<Subject 3> (appears in [Shot 3]): fully_preserved - preserve identity and the older-child look; no visible text.
+<Subject 2> (appears in [Shot 2] and [Shot 3]): fully_preserved identity - <Picture 2> is the canonical {CHARACTER_ID} {CHARACTER_NAME} face anchor and is the single identity source for both shots. Preserve facial topology and recognizable likeness across the age shift. Shot 2 is the same identity at approximately 3–4 years old; Shot 3 is the same identity at approximately 6 years old. Never generate two unrelated girls, never swap identity between shots, and never replace the face with a generic child.
 
 detailed_description:
+CHARACTER IDENTITY CONTRACT — HIGHEST PRIORITY: <Subject 2> is always {CHARACTER_ID} {CHARACTER_NAME}. Use <Picture 2> as the authoritative face anchor. In every visible frame of Shot 2 and Shot 3, retain the same core identity geometry and recognizable likeness. The age transition may soften child proportions but must preserve eye geometry, inter-eye spacing, eyebrow shape, nose structure, mouth shape, jaw/cheek relationship, hairline, dark hair, and skin tone. The two memory shots are two ages of ONE PERSON, not two characters. No face substitution, random child casting, identity drift, face morph into another person, or unrelated child.
 GLOBAL VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: “{ONLY_VISIBLE_TEXT}” is the sole readable text allowed in the complete 15-second output. It is allowed only inside the phone screen in [Shot 1]. Every other visible surface must be text-free. Do not show digits, extra UI labels, names, notifications, status-bar numerals, captions, subtitles, titles, watermarks, logos, or invented glyph-like writing. The spoken strings “{DIALOGUE_1}” and “{DIALOGUE_2}” are strictly audio-only and are forbidden from appearing visually.
 DIALOGUE CHANNEL CONTRACT — HIGHEST PRIORITY: every <d> block controls speech/audio only. Never render any <d> content as on-screen text. No subtitle track, burned-in subtitle, closed-caption styling, lower-third, dialogue card, speech bubble, karaoke line, or textual transcription is permitted.
 
 [Shot 1] 00:00-00:05. Tight macro close-up of <Subject 1> on a dark bedside surface at night, vibrating gently. Cool-white screen light against a blue-black room. The alarm interface is intentionally minimal: one centered readable label, exactly “{ONLY_VISIBLE_TEXT}”. All other UI is abstract, icon-only, blank, blurred, or non-linguistic; specifically no readable time digits or secondary labels. Static 50mm close-up, shallow depth of field. No speech. Soft alarm vibration/electronic tone.
-[Shot 2] 00:05-00:10. Clean hard cut to a warm, softened phone-memory flashback. <Subject 2> holds a phone with its screen turned away from camera or fully defocused so no UI can be read. The child looks upset and calls for her mother. No captions or subtitles. <Subject 2> says in an emotional natural child voice, <d>[Chinese] {DIALOGUE_1}</d>. Slight 50mm push-in, shallow depth of field, subtle telephone-room tone. The spoken words must remain audio-only.
-[Shot 3] 00:10-00:15. Clean hard cut to a later memory. <Subject 3> glances away with mild impatience while holding the phone low; any screen surface is turned away, dark, or heavily defocused. No readable text anywhere in frame. <Subject 3> says in a casual distracted child voice, <d>[Chinese] {DIALOGUE_2}</d>. Static 50mm medium close-up. End on the child's averted gaze. The spoken words must remain audio-only.
+[Shot 2] 00:05-00:10. Clean hard cut to a warm, softened phone-memory flashback. Show <Subject 2>, canonical {CHARACTER_ID} {CHARACTER_NAME}, age-regressed to about 3–4 years old while retaining the face identity from <Picture 2>. Keep the same distinctive eyes, brows, nose, mouth, cheek/jaw relationship, hairline and dark hair; only age-appropriate facial fullness and body proportions change. She holds a phone with its screen turned away from camera or fully defocused so no UI can be read. She looks upset and calls for her mother. No captions or subtitles. <Subject 2> says in an emotional natural child voice, <d>[Chinese] {DIALOGUE_1}</d>. Slight 50mm push-in, shallow depth of field, subtle telephone-room tone. The spoken words must remain audio-only.
+[Shot 3] 00:10-00:15. Clean hard cut to a later memory of THE SAME <Subject 2>, canonical {CHARACTER_ID} {CHARACTER_NAME}, now about 6 years old and visually closer to <Picture 2>. Do not cast a second girl and do not change facial identity. She glances away with mild impatience while holding the phone low; any screen surface is turned away, dark, or heavily defocused. No readable text anywhere in frame. <Subject 2> says in a casual distracted child voice, <d>[Chinese] {DIALOGUE_2}</d>. Static 50mm medium close-up. End on the child's averted gaze. The spoken words must remain audio-only.
 
 overall_soundscape:
 Shot 1: restrained alarm vibration/electronic tone and quiet night ambience. Shot 2: natural child speech from <d> plus faint phone-room tone. Shot 3: natural child speech from <d> plus faint phone-room tone. The <d> strings are audio-only and must never be visualized.
 
 non_diegetic_music:
-N/A"""
+N/A
 
 
 @dataclass(frozen=True)
@@ -124,21 +126,6 @@ def _make_phone_reference(path: Path) -> None:
     image.save(path, format="PNG", optimize=True)
 
 
-def _make_child_reference(path: Path, *, older: bool) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    image = Image.new("RGB", (1280, 720), (213, 196, 175) if not older else (191, 184, 176))
-    draw = ImageDraw.Draw(image)
-    cx = 640
-    # Deliberately text-free identity surrogate: face, hair, clothing, phone.
-    draw.ellipse((cx - 120, 150, cx + 120, 390), fill=(224, 186, 156), outline=(94, 73, 62), width=4)
-    draw.pieslice((cx - 135, 120, cx + 135, 365), 180, 360, fill=(50, 37, 33))
-    draw.ellipse((cx - 55, 245, cx - 35, 263), fill=(45, 38, 35))
-    draw.ellipse((cx + 35, 245, cx + 55, 263), fill=(45, 38, 35))
-    draw.arc((cx - 45, 275, cx + 45, 330), 20 if older else 200, 160 if older else 340, fill=(110, 67, 62), width=4)
-    draw.rounded_rectangle((cx - 180, 390, cx + 180, 700), radius=50, fill=(112, 134, 158) if not older else (153, 122, 114))
-    draw.rounded_rectangle((cx + 150, 320, cx + 230, 500), radius=16, fill=(28, 32, 39), outline=(75, 80, 90), width=3)
-    image.save(path, format="PNG", optimize=True)
-
 
 async def main() -> None:
     api_key = os.environ.get("MINIMAX_LIVE_API_KEY", "").strip()
@@ -150,20 +137,18 @@ async def main() -> None:
     project = root / "project"
     refs_dir = project / "fixtures"
     phone = refs_dir / "phone_alarm_exact_text.png"
-    young = refs_dir / "young_child_text_free.png"
-    older = refs_dir / "older_child_text_free.png"
     _make_phone_reference(phone)
-    _make_child_reference(young, older=False)
-    _make_child_reference(older, older=True)
+    character_ref = CHARACTER_REF
+    if not character_ref.is_file():
+        raise RuntimeError(f"canonical character reference is missing: {character_ref}")
 
     request_assets = [
         Entry(Ref("object", "E4U02手机闹钟")),
-        Entry(Ref("character", "幼年陆念")),
-        Entry(Ref("character", "陆念")),
+        Entry(Ref("character", f"{CHARACTER_ID}_{CHARACTER_NAME}_identity_face_anchor")),
     ]
     payload = {
         "prompt_compiler": "h3_ref2va",
-        "reference_image_labels": ["E4U02手机闹钟", "幼年陆念", "陆念"],
+        "reference_image_labels": ["E4U02手机闹钟", f"{CHARACTER_ID}_{CHARACTER_NAME}_identity_face_anchor"],
     }
     preview = compile_reference_video_provider_prompt(
         source_prompt=PROMPT,
@@ -177,7 +162,7 @@ async def main() -> None:
     )
     # Six-section prompt is intentionally pre-authored; compilation must be idempotent.
     if preview.provider_prompt != PROMPT.strip():
-        raise RuntimeError("E4U02 v2 prompt changed during compilation")
+        raise RuntimeError("E4U02 v3 prompt changed during compilation")
 
     preview_sha = provider_prompt_sha256(preview.provider_prompt)
     runtime = compile_reference_video_provider_prompt(
@@ -208,9 +193,12 @@ async def main() -> None:
         "Never render any <d> content as on-screen text",
         "sole readable text allowed",
         "forbidden from appearing visually",
+        "CHARACTER IDENTITY LOCK",
+        "two ages of ONE PERSON",
+        "No face substitution",
     ):
         if required_rule not in runtime.provider_prompt:
-            raise RuntimeError(f"missing E4U02 v2 guard: {required_rule}")
+            raise RuntimeError(f"missing E4U02 v3 guard: {required_rule}")
 
     definition = json.loads(
         Path("scripts/experiments/autodl_minimax_h3_endpoint.json").read_text(encoding="utf-8")
@@ -229,7 +217,7 @@ async def main() -> None:
         prompt=runtime.provider_prompt,
         resource_type="reference_videos",
         resource_id=UNIT_ID,
-        reference_images=[phone, young, older],
+        reference_images=[phone, character_ref],
         aspect_ratio=ASPECT_RATIO,
         duration_seconds=DURATION_SECONDS,
         resolution=RESOLUTION,
@@ -250,7 +238,7 @@ async def main() -> None:
     report = {
         "status": "GENERATED_PENDING_VISUAL_REVIEW",
         "unit_id": UNIT_ID,
-        "repair_version": "v2",
+        "repair_version": "v3_identity_lock",
         "branch_head": os.environ.get("GITHUB_SHA"),
         "provider": "autodl",
         "model": MODEL,
@@ -260,7 +248,9 @@ async def main() -> None:
         "ffprobe_video_duration_seconds": probed_duration,
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
-        "reference_count": 3,
+        "reference_count": 2,
+        "character_identity_lock": f"{CHARACTER_ID}_{CHARACTER_NAME}",
+        "younger_variant_same_identity": True,
         "only_legal_visible_text": ONLY_VISIBLE_TEXT,
         "dialogue_visualization_forbidden": [DIALOGUE_1, DIALOGUE_2],
         "provider_prompt_chars": len(runtime.provider_prompt),
@@ -268,8 +258,7 @@ async def main() -> None:
         "preview_runtime_prompt_equal": True,
         "reference_sha256": {
             "phone": _sha256(phone),
-            "young_child": _sha256(young),
-            "older_child": _sha256(older),
+            "canonical_character_face_anchor": _sha256(character_ref),
         },
         "version": version,
         "version_duration_seconds": record.get("duration_seconds"),
@@ -277,11 +266,11 @@ async def main() -> None:
         "video_sha256": _sha256(output_path),
     }
     root.mkdir(parents=True, exist_ok=True)
-    (root / "E4U02_v2_live_report.json").write_text(
+    (root / "E4U02_v3_identity_live_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    (root / "E4U02_v2_final_provider_prompt.txt").write_text(
+    (root / "E4U02_v3_identity_final_provider_prompt.txt").write_text(
         runtime.provider_prompt,
         encoding="utf-8",
     )
