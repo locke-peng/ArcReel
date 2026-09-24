@@ -62,6 +62,8 @@ async def main() -> None:
         ("origin_openapi", "GET", urljoin(origin + "/", "openapi.json")),
         ("origin_v1_openapi", "GET", urljoin(origin + "/", "v1/openapi.json")),
         ("origin_docs", "GET", urljoin(origin + "/", "docs")),
+        ("docs_comfyui_api", "GET", urljoin(origin + "/", "docs/comfyui_api/")),
+        ("docs_comfyui_online", "GET", urljoin(origin + "/", "docs/comfyui_online/")),
         ("base_openapi", "GET", base_url.rstrip("/") + "/openapi.json"),
     ]
 
@@ -102,15 +104,11 @@ async def main() -> None:
                             if isinstance(paths, dict):
                                 row["openapi_paths"] = list(paths.keys())[:100]
                             row["interesting_fields"] = collect_interesting(body)[:200]
-                elif name == "origin_docs" and "text/html" in ctype.lower():
+                elif name in {"origin_docs", "docs_comfyui_api", "docs_comfyui_online"} and "text/html" in ctype.lower():
                     sanitized = response.text.replace(base_url, "<BASE_URL>").replace(origin, "<ORIGIN>")
-                    (Path("artifacts/e1u02-provider-probe") / "docs.sanitized.html").parent.mkdir(
-                        parents=True, exist_ok=True
-                    )
-                    (Path("artifacts/e1u02-provider-probe") / "docs.sanitized.html").write_text(
-                        sanitized,
-                        encoding="utf-8",
-                    )
+                    target = Path("artifacts/e1u02-provider-probe") / f"{name}.sanitized.html"
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(sanitized, encoding="utf-8")
                     lower = sanitized.lower()
                     markers = [
                         "ref_image_0",
