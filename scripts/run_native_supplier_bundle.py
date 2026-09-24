@@ -95,6 +95,9 @@ async def main() -> None:
     workflow_id = str(manifest["workflow_id"])
     duration = int(manifest["duration_seconds"])
     resolution = str(manifest["resolution"])
+    test_resolution = os.environ.get("SUPPLIER_TEST_RESOLUTION", "").strip()
+    if test_resolution:
+        resolution = test_resolution
     prompt = prompt_path.read_text(encoding="utf-8")
 
     prompt_sha = sha256_bytes(prompt.encode("utf-8"))
