@@ -281,6 +281,50 @@ def _replace_mentions(text: str, references: Sequence[H3Reference]) -> str:
     return _MENTION_RE.sub(repl, text)
 
 
+_SCREEN_TEXT_QUOTE_RE = re.compile(r'(?P<open>["“])(?P<text>.+?)(?P<close>["”])')
+_SCREEN_TEXT_HINTS = (
+    "屏", "界面", "标签", "标题", "字幕", "写着", "显示", "亮起", "弹出", "出现", "加载",
+)
+
+
+def _normalize_explicit_screen_text(text: str) -> str:
+    """Promote authored visual text literals to exact on-screen text instructions.
+
+    Audio lines are excluded. Asset mentions inside a quoted visual literal stay as
+    their authored human-readable names instead of leaking <Subject N> labels.
+    """
+
+    rendered: list[str] = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(("声音：", "声音:", "Sound:", "Audio:")):
+            rendered.append(line)
+            continue
+        if not any(hint in line for hint in _SCREEN_TEXT_HINTS):
+            rendered.append(line)
+            continue
+
+        exact_texts: list[str] = []
+
+        def repl(match: re.Match[str]) -> str:
+            literal = _MENTION_RE.sub(lambda item: item.group("name").strip(), match.group("text"))
+            literal = literal.strip()
+            if not literal:
+                return match.group(0)
+            exact_texts.append(literal)
+            return ""
+
+        normalized = _SCREEN_TEXT_QUOTE_RE.sub(repl, line)
+        normalized = re.sub(r"\s+([。！？!?，,])", r"\1", normalized).rstrip()
+        if exact_texts:
+            suffix = " ".join(
+                f'On-screen text: render exactly "{literal}".' for literal in exact_texts
+            )
+            normalized = f"{normalized} {suffix}".strip()
+        rendered.append(normalized)
+    return "\n".join(rendered)
+
+
 def _render_inline_dialogues(
     text: str,
     references: Sequence[H3Reference],
@@ -466,7 +510,8 @@ def compile_h3_ref2va_prompt(
         reference_image_labels=reference_image_labels,
         options=compile_options,
     )
-    body = _clean_body(_render_inline_dialogues(source_prompt, references, compile_options))
+    authored_body = _normalize_explicit_screen_text(source_prompt)
+    body = _clean_body(_render_inline_dialogues(authored_body, references, compile_options))
     if not body:
         body = "Maintain the referenced subjects and perform the requested action in one continuous shot."
 
