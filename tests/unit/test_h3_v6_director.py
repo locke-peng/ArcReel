@@ -264,7 +264,7 @@ def test_v33_visual_director_dimensions_survive_as_natural_english() -> None:
         "cool overhead key light with restrained side fill",
         "a cool desaturated technology-conference grade",
         "the main screen and the control console remain fixed",
-        "the shot cross-dissolves into the next view",
+        "The shot cross-dissolves into the next view",
         "Stable spatial anchors across the unit are",
         "At the opening, preserve the incoming continuity state",
         "By the end, establish the outgoing continuity state",
