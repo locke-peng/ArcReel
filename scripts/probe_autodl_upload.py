@@ -57,7 +57,18 @@ async def main() -> None:
                     row["hits"] = hits
                 if text:
                     marker_snippets = []
-                    for marker in ("cg_tool_upload", "uploadModel", "workflow_input", "comfyui/inputs", "large-model", "ref_image_0"):
+                    for marker in (
+                        "cg_tool_upload",
+                        "uploadModel",
+                        "workflow_input",
+                        "comfyui/inputs",
+                        "large-model",
+                        "ref_image_0",
+                        "before_upload",
+                        "/api/v1/file",
+                        "FileToken",
+                        "upload_host",
+                    ):
                         start = 0
                         while True:
                             pos = text.find(marker, start)
