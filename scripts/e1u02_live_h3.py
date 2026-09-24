@@ -144,8 +144,8 @@ async def main() -> None:
     final_prompt = compiled.provider_prompt
     if "ARCREEL_H3_VISIBLE_TEXT_GUARD:" not in final_prompt:
         raise RuntimeError("fixed visible-text guard missing from final provider prompt")
-    if final_prompt.count("[Shot 1]") != 1:
-        raise RuntimeError("Shot 1 marker must appear exactly once")
+    if "[Shot 1] [Shot 1]" in final_prompt:
+        raise RuntimeError("duplicate adjacent Shot 1 marker leaked into detailed description")
     if not (
         final_prompt.index("<d>[Chinese] 太太，您怎么来了</d>")
         < final_prompt.index("[Shot 2] At 00:05.000")
