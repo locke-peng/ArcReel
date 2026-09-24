@@ -1,0 +1,110 @@
+name: Supplier Test E12U06
+
+on:
+  push:
+    branches:
+      - delta/h3-native-compliance-ref2va-t2va
+
+permissions:
+  contents: read
+
+jobs:
+  supplier-e12u06:
+    if: contains(github.event.head_commit.message, '[supplier-e12u06]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+      MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
+      SUPPLIER_BUNDLE_DIR: /tmp/e12u06-bundle
+      SUPPLIER_OUTPUT_DIR: artifacts/supplier-e12u06
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify supplier secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MINIMAX_H3_API_KEY"
+          test -n "$MINIMAX_H3_BASE_URL"
+          echo "::add-mask::$MINIMAX_H3_BASE_URL"
+          echo "Supplier credentials are configured."
+
+      - name: Decrypt private E12U06 test bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=".github/supplier-bundles/E12U06"
+          WORK="/tmp/e12u06-secure"
+          mkdir -p "$WORK" "$SUPPLIER_BUNDLE_DIR"
+
+          tr -d '\r\n ' < "$SRC/cert.pem.b64" | base64 -d > "$WORK/cert.pem"
+          tr -d '\r\n ' < "$SRC/private.pem.enc.b64" | base64 -d > "$WORK/private.pem.enc"
+
+          cat "$SRC"/bundle.part.* | tr -d '\r\n ' | base64 -d > "$WORK/bundle.cms"
+          echo "2e3a5842981c7cfb3739c2694c7ffa1065907c1f368fba852f4eac62b58d0a01  $WORK/bundle.cms" | sha256sum -c -
+
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in "$WORK/private.pem.enc" \
+            -out "$WORK/private.pem" \
+            -pass env:MINIMAX_H3_API_KEY
+
+          openssl cms -decrypt -binary -inform DER \
+            -in "$WORK/bundle.cms" \
+            -recip "$WORK/cert.pem" \
+            -inkey "$WORK/private.pem" \
+            -out "$WORK/bundle.tar.gz"
+
+          tar -xzf "$WORK/bundle.tar.gz" -C "$SUPPLIER_BUNDLE_DIR"
+          rm -f "$WORK/private.pem" "$WORK/bundle.tar.gz" "$WORK/bundle.cms"
+
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path("/tmp/e12u06-bundle")
+          m=json.loads((root/"manifest.json").read_text())
+          assert m["unit_id"]=="E12U06"
+          assert m["prompt_sha256"]=="4a3dd869cf0f96c7ed5d4e9b7f67c56ec1df9ba1e5cfba554664bcea06b1edc0"
+          assert hashlib.sha256((root/"prompt.txt").read_bytes()).hexdigest()==m["prompt_sha256"]
+          ref=m["references"][0]
+          assert hashlib.sha256((root/ref["filename"]).read_bytes()).hexdigest()==ref["sha256"]
+          print("E12U06 encrypted bundle integrity PASS")
+          PY
+
+      - name: Submit exactly one E12U06 supplier task
+        run: uv run python scripts/run_native_supplier_bundle.py
+
+      - name: Probe generated E12U06 video
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          VIDEO="$SUPPLIER_OUTPUT_DIR/E12U06.mp4"
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
+            -of json "$VIDEO" > "$SUPPLIER_OUTPUT_DIR/ffprobe.json"
+
+          mkdir -p "$SUPPLIER_OUTPUT_DIR/frames"
+          for t in 0.5 2.5 4.5 5.5 7.5 9.5; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" -i "$VIDEO" -frames:v 1 \
+              "$SUPPLIER_OUTPUT_DIR/frames/frame_${t}.jpg"
+          done
+
+          ffmpeg -hide_banner -loglevel error -i "$VIDEO" -vn -acodec pcm_s16le \
+            "$SUPPLIER_OUTPUT_DIR/audio.wav" || true
+
+      - name: Upload E12U06 supplier evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-e12u06-evidence
+          path: artifacts/supplier-e12u06
+          if-no-files-found: warn
+          retention-days: 3
