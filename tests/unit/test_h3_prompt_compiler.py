@@ -159,3 +159,17 @@ def test_force_h3_without_reference_fails() -> None:
             request_assets=[],
             payload={"prompt_compiler": "h3_ref2va"},
         )
+
+def test_docpack_contract_accepts_15_second_upper_bound_with_stable_labels() -> None:
+    result = compile_h3_ref2va_prompt(
+        source_prompt="@[Room] wide shot. @[Hero] turns toward camera.",
+        duration_seconds=15,
+        reference_count=2,
+        reference_source_names=["Room", "Hero"],
+        reference_image_labels=["locked-room", "locked-hero"],
+        options={"reference_kinds": {"Room": "scene", "Hero": "character"}},
+    )
+    assert "<Subject 1>" in result
+    assert "<Subject 2>" in result
+    assert "[Shot 1]" in result
+

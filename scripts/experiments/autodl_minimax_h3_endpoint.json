@@ -1,0 +1,87 @@
+{
+  "kind": "declarative",
+  "schema_version": "1.0.0",
+  "meta": {
+    "name": "AutoDL MiniMax H3升级版",
+    "author": "Pollo",
+    "version": "1.0.0",
+    "description": "AutoDL ComfyUI 工作流 minimax_h3_zm_u24，支持 1–9 张参考图与最长 15 秒视频。",
+    "homepage": "https://autodl.art/large-model/comfyui/minimax_h3_zm_u24",
+    "hints": {
+      "base_url": "https://autodl.art",
+      "suggested_models": [
+        {
+          "id": "minimax_h3_zm_u24",
+          "label": "MiniMax H3 多图生视频 15 秒"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "headers": {
+      "Authorization": "{{ api_key }}"
+    }
+  },
+  "inputs": {
+    "reference_images": {
+      "source": "reference_images",
+      "encoding": "data_uri",
+      "required": true
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "url": "{{ base_url }}/api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u24",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "prompt": "{{ prompt }}",
+      "duration": "{{ duration }}",
+      "resolution": "{{ resolution }}",
+      "$each": {
+        "in": "inputs.reference_images",
+        "as": "image",
+        "key": "ref_image_{{ index }}",
+        "value": "{{ image }}"
+      }
+    },
+    "extract": {
+      "task_id": [
+        "$.data.task_id"
+      ],
+      "error": [
+        "$.msg"
+      ]
+    }
+  },
+  "poll": {
+    "method": "GET",
+    "url": "{{ base_url }}/api/v1/comfyui/comfyui_workflow/result/{{ task_id }}",
+    "extract": {
+      "status": [
+        "$.data.status"
+      ],
+      "video_url": [
+        "$.data.results[?(@.type == 'video')].url",
+        "$.data.results[0].url"
+      ],
+      "error": [
+        "$.data.message"
+      ]
+    }
+  },
+  "status_map": {
+    "queued": "queued",
+    "running": "running",
+    "success": "succeeded",
+    "completed": "succeeded",
+    "failed": "failed"
+  },
+  "capabilities": {
+    "text_to_video": false,
+    "max_reference_images": 9,
+    "max_prompt_chars": 500000,
+    "audio_track": "always_off"
+  }
+}

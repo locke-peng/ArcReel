@@ -1,0 +1,49 @@
+name: H3 Docpack Experiment
+
+on:
+  push:
+    branches:
+      - experiment/h3-docpack-v1-3b3bc527
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Compile changed Python
+        run: python -m py_compile lib/media_generator.py server/services/presentation_read_model.py
+
+      - name: Verify artifact claim guard is untouched
+        run: git diff --exit-code 3b3bc527197bad66ac0425094036ea86b0add7e8..HEAD -- lib/artifact_input_claims.py
+
+      - name: Run H3 prompt regressions
+        run: |
+          uv run pytest tests/unit/test_h3_prompt_compiler.py tests/unit/test_h3_preview_runtime_lock.py -q
+
+      - name: Run duration fallback regressions
+        run: |
+          uv run pytest \
+            tests/integration/server/services/test_presentation_read_model.py::test_video_duration_probe_falls_back_to_provider_result_metadata \
+            tests/integration/server/services/test_presentation_read_model.py::test_video_duration_probe_uses_legacy_requested_duration_only_as_fallback \
+            tests/integration/server/services/test_presentation_read_model.py::test_video_duration_probe_rejects_invalid_recorded_fallback \
+            -q

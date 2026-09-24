@@ -194,6 +194,8 @@ def _merge_result_provenance(version_metadata: dict[str, Any], result: "VideoGen
     """
     if result.seed is not None:
         version_metadata["seed"] = result.seed
+    if type(result.duration_seconds) is int and result.duration_seconds > 0:
+        version_metadata["provider_duration_seconds"] = result.duration_seconds
     version_metadata.update(result.provenance or {})
 
 
