@@ -1,6 +1,6 @@
 unit=E4U02
 repair=v3_identity_lock
-attempt=6
+attempt=7
 purpose=paid AutoDL MiniMax H3 acceptance retry after complete shared C03 identity-master binding and corrected final subtitle-avoid rule
 character_id=C03
 character_name=陆念
