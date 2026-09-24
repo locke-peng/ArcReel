@@ -1,0 +1,78 @@
+name: E1U02 Live MiniMax H3
+
+on:
+  push:
+    branches:
+      - fix/e1u02-h3-leakage-shot-subtitles-3b3bc527
+
+permissions:
+  contents: read
+
+jobs:
+  live-h3:
+    if: contains(github.event.head_commit.message, '[live-h3]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+      MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
+      E1U02_LIVE_OUT: artifacts/e1u02-live
+      E1U02_REF0_B64: "aHR0cHM6Ly9jZy1jb21meXVpLXByb2QudG9zLWNuLWJlaWppbmcudm9sY2VzLmNvbS9jb21meXVpL2lucHV0cy8yMDI2LzA5LzI0LzZhYmVhN2RlLWJlY2QtNDZmYS1iYjFlLTQ5OTIwZTY4ZWU1ZF93b3JrZmxvd19pbnB1dF9yZWZfaW1hZ2VfMF8xNzkwMTg2NDM0Nzc3ODEwNzg4LmpwZz9YLVRvcy1BbGdvcml0aG09VE9TNC1ITUFDLVNIQTI1NiZYLVRvcy1DcmVkZW50aWFsPUFLTFRNREU0Tm1KaVpESXlORFpoTkdRd05UaGlZV1ZoTkdJNE1EVXdNR0V4TVdRJTJGMjAyNjA5MjMlMkZjbi1iZWlqaW5nJTJGdG9zJTJGcmVxdWVzdCZYLVRvcy1EYXRlPTIwMjYwOTIzVDE4MDAzNFomWC1Ub3MtRXhwaXJlcz04NjQwMCZYLVRvcy1TaWduYXR1cmU9ZDU1ZWZhMTZjMzA2MjFkY2MyMjVhM2M2MWI1MjUwODQxYWViOThkNWRkZGRiYjFkYmVhZjg3MjY1YmY5MGJlZCZYLVRvcy1TaWduZWRIZWFkZXJzPWhvc3Q="
+      E1U02_REF1_B64: "aHR0cHM6Ly9jZy1jb21meXVpLXByb2QudG9zLWNuLWJlaWppbmcudm9sY2VzLmNvbS9jb21meXVpL2lucHV0cy8yMDI2LzA5LzI0LzRiN2Q4ODc5LTY1YTctNDQxNi04OWI1LTAxMmNjZjdkMWRkM193b3JrZmxvd19pbnB1dF9yZWZfaW1hZ2VfMV8xNzkwMTg2NDM0ODcxMTAyMjAzLmpwZz9YLVRvcy1BbGdvcml0aG09VE9TNC1ITUFDLVNIQTI1NiZYLVRvcy1DcmVkZW50aWFsPUFLTFRNREU0Tm1KaVpESXlORFpoTkdRd05UaGlZV1ZoTkdJNE1EVXdNR0V4TVdRJTJGMjAyNjA5MjMlMkZjbi1iZWlqaW5nJTJGdG9zJTJGcmVxdWVzdCZYLVRvcy1EYXRlPTIwMjYwOTIzVDE4MDAzNFomWC1Ub3MtRXhwaXJlcz04NjQwMCZYLVRvcy1TaWduYXR1cmU9OGJiZjZhZTA3Y2E0MzJhMzkxOTVkODI5ZDAyODVmOGMwYjNkN2I0YTk1MDBiYjAxOGFkYzg3N2NmZTc3MzlkZCZYLVRvcy1TaWduZWRIZWFkZXJzPWhvc3Q="
+      E1U02_REF2_B64: "aHR0cHM6Ly9jZy1jb21meXVpLXByb2QudG9zLWNuLWJlaWppbmcudm9sY2VzLmNvbS9jb21meXVpL2lucHV0cy8yMDI2LzA5LzI0L2MyNDQwOTQyLTgxNDAtNDc4Zi05NmYyLTRiZDMzYWY0NTg5NV93b3JrZmxvd19pbnB1dF9yZWZfaW1hZ2VfMl8xNzkwMTg2NDM0ODk4NDk2NTkzLmpwZz9YLVRvcy1BbGdvcml0aG09VE9TNC1ITUFDLVNIQTI1NiZYLVRvcy1DcmVkZW50aWFsPUFLTFRNREU0Tm1KaVpESXlORFpoTkdRd05UaGlZV1ZoTkdJNE1EVXdNR0V4TVdRJTJGMjAyNjA5MjMlMkZjbi1iZWlqaW5nJTJGdG9zJTJGcmVxdWVzdCZYLVRvcy1EYXRlPTIwMjYwOTIzVDE4MDAzNFomWC1Ub3MtRXhwaXJlcz04NjQwMCZYLVRvcy1TaWduYXR1cmU9YTU0ZjczNWE1ZmRlMjI4YTVkYjRmMGY0ZjExMTI1YWY0YzhkZGIwYjI0OWFiYmIwMGRmNDc1YWI4YmZjN2RhZCZYLVRvcy1TaWduZWRIZWFkZXJzPWhvc3Q="
+      E1U02_REF3_B64: "aHR0cHM6Ly9jZy1jb21meXVpLXByb2QudG9zLWNuLWJlaWppbmcudm9sY2VzLmNvbS9jb21meXVpL2lucHV0cy8yMDI2LzA5LzI0LzBiOGI0YmIyLTZmN2ItNDE2NS05OGJkLWUwMjUwNDZlOTJiOF93b3JrZmxvd19pbnB1dF9yZWZfaW1hZ2VfM18xNzkwMTg2NDM0OTY2NDYxODg1LmpwZz9YLVRvcy1BbGdvcml0aG09VE9TNC1ITUFDLVNIQTI1NiZYLVRvcy1DcmVkZW50aWFsPUFLTFRNREU0Tm1KaVpESXlORFpoTkdRd05UaGlZV1ZoTkdJNE1EVXdNR0V4TVdRJTJGMjAyNjA5MjMlMkZjbi1iZWlqaW5nJTJGdG9zJTJGcmVxdWVzdCZYLVRvcy1EYXRlPTIwMjYwOTIzVDE4MDAzNFomWC1Ub3MtRXhwaXJlcz04NjQwMCZYLVRvcy1TaWduYXR1cmU9YzgwZmJhMWEyMzI1MmNlMDUyMjg4M2M2OTM1ZTZjODI1NDFmZTY2NDI1MWUzM2RkZjQyNThmMzAzMmQzYmQ0NCZYLVRvcy1TaWduZWRIZWFkZXJzPWhvc3Q="
+      E1U02_REF4_B64: "aHR0cHM6Ly9jZy1jb21meXVpLXByb2QudG9zLWNuLWJlaWppbmcudm9sY2VzLmNvbS9jb21meXVpL2lucHV0cy8yMDI2LzA5LzI0LzMwYzQ3ZmU3LWYxZjItNGFkOC04ZjU2LWZlZDg3NGQ3YWIxY193b3JrZmxvd19pbnB1dF9yZWZfaW1hZ2VfNF8xNzkwMTg2NDM0NzA2NzUwOTgwLmpwZz9YLVRvcy1BbGdvcml0aG09VE9TNC1ITUFDLVNIQTI1NiZYLVRvcy1DcmVkZW50aWFsPUFLTFRNREU0Tm1KaVpESXlORFpoTkdRd05UaGlZV1ZoTkdJNE1EVXdNR0V4TVdRJTJGMjAyNjA5MjMlMkZjbi1iZWlqaW5nJTJGdG9zJTJGcmVxdWVzdCZYLVRvcy1EYXRlPTIwMjYwOTIzVDE4MDAzNFomWC1Ub3MtRXhwaXJlcz04NjQwMCZYLVRvcy1TaWduYXR1cmU9Y2ZjYmRhODY3NGE4YjliMTAzMDkyNmM2ODQwOWUzNTU4NmQ3OTlmZTE5OWVmMzFlMmZlYjQ0YjVjZTQwY2YzZSZYLVRvcy1TaWduZWRIZWFkZXJzPWhvc3Q="
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Verify live credentials are present
+        shell: bash
+        run: |
+          test -n "$MINIMAX_H3_API_KEY"
+          test -n "$MINIMAX_H3_BASE_URL"
+          echo "::add-mask::$MINIMAX_H3_BASE_URL"
+          echo "MiniMax H3 credentials are configured."
+
+      - name: Run real E1U02 MiniMax H3 generation through ArcReel
+        shell: bash
+        run: |
+          export E1U02_REF0="$(printf '%s' "$E1U02_REF0_B64" | base64 -d)"
+          export E1U02_REF1="$(printf '%s' "$E1U02_REF1_B64" | base64 -d)"
+          export E1U02_REF2="$(printf '%s' "$E1U02_REF2_B64" | base64 -d)"
+          export E1U02_REF3="$(printf '%s' "$E1U02_REF3_B64" | base64 -d)"
+          export E1U02_REF4="$(printf '%s' "$E1U02_REF4_B64" | base64 -d)"
+          uv run python scripts/e1u02_live_h3.py
+
+      - name: Probe generated video
+        run: |
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -show_entries stream=codec_name,width,height,r_frame_rate \
+            -of json artifacts/e1u02-live/E1U02_fixed_live.mp4 \
+            > artifacts/e1u02-live/ffprobe.json
+          cat artifacts/e1u02-live/live_test_summary.json
+
+      - name: Extract visual inspection frames
+        run: |
+          mkdir -p artifacts/e1u02-live/frames
+          for t in 1 4.5 6 9.5 11 13 14.5; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" \
+              -i artifacts/e1u02-live/E1U02_fixed_live.mp4 \
+              -frames:v 1 "artifacts/e1u02-live/frames/frame_${t}.jpg"
+          done
+
+      - name: Upload live test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e1u02-live-minimax-h3-evidence
+          path: artifacts/e1u02-live
+          if-no-files-found: warn
+          retention-days: 3
