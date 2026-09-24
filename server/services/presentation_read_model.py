@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,23 @@ DurationProbe = Callable[[Path], Awaitable[float | None]]
 ContentDigest = Callable[[Path], str]
 SettingsResolverFactory = Callable[[str, Path], TtsSettingsResolver]
 
+
+def _recorded_video_duration_seconds(record: Mapping[str, Any]) -> float | None:
+    """Return the best positive recorded duration when media probing is unavailable.
+
+    Provider-reported result metadata wins. duration_seconds is retained only as a
+    legacy compatibility fallback because older ArcReel versions stored the requested
+    duration but not a distinct provider-result duration.
+    """
+
+    for key in ("provider_duration_seconds", "duration_seconds"):
+        value = record.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        duration = float(value)
+        if math.isfinite(duration) and duration > 0:
+            return duration
+    return None
 
 class PresentationUnavailableError(ValueError):
     """Selected media cannot safely form a presentation."""
@@ -639,6 +657,8 @@ class PresentationReadModelService:
             raise PresentationUnavailableError("verified presentation media requires typed provenance")
         duration = await duration_probe(selected.path)
         if duration is None:
+            duration = _recorded_video_duration_seconds(selected.record)
+        if duration is None:
             raise PresentationUnavailableError(f"selected media duration is unavailable: {selected.relative_path}")
         try:
             observed_digest = content_digest or await asyncio.to_thread(self._content_digest, selected.path)
@@ -684,6 +704,8 @@ class PresentationReadModelService:
             episode = episode_snapshot.episode
             script_file = episode_snapshot.script_file
         duration = await self._video_duration_probe(selected.path)
+        if duration is None:
+            duration = _recorded_video_duration_seconds(selected.record)
         if duration is None:
             raise PresentationUnavailableError(f"selected media duration is unavailable: {selected.relative_path}")
         try:
