@@ -97,8 +97,10 @@ jobs:
           prompt_sha=hashlib.sha256((root/"prompt.txt").read_bytes()).hexdigest()
           assert prompt_sha=="4c3e7fdcb8aedf106779e2a926242a241a9bd1048b214123c9fb0ffe32586aed"
           m["prompt_sha256"]=prompt_sha
+          m["resolution"]="480p"
           manifest_path.write_text(json.dumps(m, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
           print("E12U06 v3 prompt override PASS:", prompt_sha)
+          print("E12U06 supplier test resolution:", m["resolution"])
           PY
 
       - name: Submit exactly one E12U06 supplier task
