@@ -43,9 +43,9 @@ def test_e4u02_v3_shots_bind_to_the_correct_age_reference_without_swapping() -> 
     assert "with <Picture 4> as the shared C03 identity master" in PROMPT
     assert "the SAME <Picture 4> identity master" in PROMPT
     assert "<Subject 2> and <Subject 3> are the SAME PERSON at two ages" in PROMPT
-    assert "never swap the two age references" in PROMPT
+    assert "Never swap, blend, replace, recast, or invent either face." in PROMPT
     assert "No face substitution" in PROMPT
-    assert "do not merge the two references into a new face" in PROMPT.lower()
+    assert "do not merge the references into a third face" in PROMPT.lower()
 
 
 def test_e4u02_v3_preserves_previous_text_and_dialogue_guards() -> None:
