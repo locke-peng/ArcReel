@@ -1,16 +1,16 @@
-name: Project H3 Prompt + Subtitle Regression
+name: H3 Native Compliance + Project Regression
 
 on:
   push:
     branches:
-      - fix/e1u02-h3-leakage-shot-subtitles-3b3bc527
+      - delta/h3-native-compliance-ref2va-t2va
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  e1u02-regression:
+  h3-native-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -27,6 +27,7 @@ jobs:
           uv run pytest \
             tests/unit/test_h3_prompt_compiler.py \
             tests/unit/test_h3_v6_director.py \
+            tests/unit/test_h3_native_compliance.py \
             tests/unit/test_h3_preview_runtime_lock.py \
             tests/unit/lib/test_speech_presentation.py \
             tests/unit/test_e1u02_imported_regression.py \
@@ -46,7 +47,11 @@ jobs:
             lib/artifact_planner.py \
             server/services/presentation_read_model.py \
             server/services/project_archive.py \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_v6_director.py \
             tests/unit/test_e1u02_imported_regression.py \
+            tests/unit/test_h3_native_compliance.py \
+            tests/unit/test_multi_unit_project_regression.py \
             tests/integration/server/services/test_project_archive_reference_video.py
 
       - name: Ruff delta
@@ -61,7 +66,11 @@ jobs:
             lib/artifact_planner.py \
             server/services/presentation_read_model.py \
             server/services/project_archive.py \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_v6_director.py \
             tests/unit/test_e1u02_imported_regression.py \
+            tests/unit/test_h3_native_compliance.py \
+            tests/unit/test_multi_unit_project_regression.py \
             tests/integration/server/services/test_project_archive_reference_video.py
 
       - name: Package tested ArcReel source
@@ -70,12 +79,12 @@ jobs:
             --exclude=.git \
             --exclude=.venv \
             --exclude='**/__pycache__' \
-            -czf /tmp/arcreel-e1u02-fixed-src.tar.gz .
+            -czf /tmp/arcreel-h3-native-compliance-src.tar.gz .
 
       - name: Upload tested ArcReel source
         uses: actions/upload-artifact@v4
         with:
-          name: arcreel-e1u02-fixed-src
-          path: /tmp/arcreel-e1u02-fixed-src.tar.gz
+          name: arcreel-h3-native-compliance-src
+          path: /tmp/arcreel-h3-native-compliance-src.tar.gz
           if-no-files-found: error
           retention-days: 3
