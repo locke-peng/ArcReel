@@ -1,3 +1,7 @@
+import inspect
+
+import scripts.experiments.run_e11u02_v3_deterministic_repair as repair_module
+
 from scripts.experiments.run_e11u02_v3_deterministic_repair import (
     DURATION_SECONDS,
     FPS,
@@ -74,10 +78,7 @@ def test_e11u02_v3_media_defocus_preserves_center_pair_zone() -> None:
 
 def test_e11u02_v3_is_deterministic_repair_not_new_provider_generation() -> None:
     # The repair module should have no provider imports or generation entry points.
-    import inspect
-    import scripts.experiments.run_e11u02_v3_deterministic_repair as module
-
-    source = inspect.getsource(module)
+    source = inspect.getsource(repair_module)
     assert "MediaGenerator" not in source
     assert "DeclarativeVideoBackend" not in source
     assert "MINIMAX_LIVE_API_KEY" not in source
