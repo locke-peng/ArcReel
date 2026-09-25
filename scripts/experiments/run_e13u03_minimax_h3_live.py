@@ -130,7 +130,7 @@ retention_analysis:
 detailed_description:
 LOG SEMANTIC CONTRACT — HIGHEST PRIORITY: Canonical only requires that system logs scroll rapidly; Canonical provides NO literal log strings. Therefore render the log state exclusively as moving horizontal light bars and rectangular row blocks. Do not invent code or text.
 IDENTITY CONTRACT — HIGHEST PRIORITY: preserve the exact canonical {C01_ID} eyes, brow line, face, hair, and skin tone.
-TEXT CONTRACT — HIGHEST PRIORITY: ZERO readable or glyph-like text. No Chinese, English, digits, code, punctuation strings, command lines, labels, captions, subtitles, watermarks, or pseudo-writing.
+TEXT CONTRACT — HIGHEST PRIORITY: ZERO readable text and ZERO glyph-like pseudo-text. No Chinese, English, digits, code, punctuation strings, command lines, labels, captions, subtitles, watermarks, or pseudo-writing.
 [Target Plate] 00:00-00:05. Tight technical close-up. The left two-thirds of frame show dark monitor rows made only from horizontal cyan-white light bars scrolling rapidly upward. The right third contains the woman's eyes and upper face in crisp focus; her gaze makes two small, precise scanning movements across the display. Very slight 0.15-meter push-in. The screen remains geometric and unreadable for the entire shot.
 [Extension] 00:05-00:10. Maintain the same geometric scrolling and identity with no new elements.
 
