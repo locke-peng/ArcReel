@@ -34,8 +34,10 @@ def test_e13u01_final_visual_prompt_has_no_dialogue_transcript() -> None:
     assert "<d>" not in FINAL_PROMPT
     assert "</d>" not in FINAL_PROMPT
     assert HOST_DIALOGUE not in FINAL_PROMPT
-    assert "<Audio 1>" in FINAL_PROMPT
+    assert "<Audio 1>" not in FINAL_PROMPT
     assert "AUDIO/TEXT SEPARATION" in FINAL_PROMPT
+    assert "POST-PRODUCTION AUDIO CONTRACT" in FINAL_PROMPT
+    assert "ArcReel post-production" in FINAL_PROMPT
 
 
 def test_e13u01_visible_text_whitelist_is_exact() -> None:
@@ -83,3 +85,11 @@ def test_e13u01_bridge_chunks_decode_to_pinned_asset(tmp_path) -> None:
     _decode_bridge(target)
     assert target.is_file()
     assert _sha256(target) == BRIDGE_SHA256
+
+
+def test_e13u01_final_visual_pass_stays_canonical_ten_seconds_without_fixed_15s_endpoint() -> None:
+    from scripts.experiments.run_e13u01_minimax_h3_live import DURATION_SECONDS, FINAL_VISUAL_MODEL
+
+    assert DURATION_SECONDS == 10
+    assert FINAL_VISUAL_MODEL == "minimax_h3_zm_u24"
+    assert "15-second" not in FINAL_PROMPT
