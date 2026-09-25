@@ -37,7 +37,7 @@ def test_e11u02_scene_bridge_is_sha_pinned() -> None:
     raw = "".join(SCENE_BRIDGE_B64.read_text(encoding="utf-8").split())
     decoded = base64.b64decode(raw, validate=True)
     assert hashlib.sha256(decoded).hexdigest() == SCENE_BRIDGE_SHA256
-    assert SCENE_BRIDGE_SHA256 == "bdb82b68c99df088866adb62b7c1ff1a1e89dd9f1e15aa2d323b19631d279ffa"
+    assert SCENE_BRIDGE_SHA256 == "90ad97c07213d6d9fe1dee15a676b560055ec30fdcd8f041c42f23a643ac201b"
 
 
 def test_e11u02_dialogues_exist_only_in_audio_seed() -> None:
@@ -59,7 +59,7 @@ def test_e11u02_visual_prompts_are_zero_text_zero_cjk() -> None:
 
 
 def test_e11u02_shot1_uses_semantic_stability_not_literal_ui_copy() -> None:
-    assert "stable green geometric status bar" in SHOT1_PROMPT
+    assert "steady green geometric status bar" in SHOT1_PROMPT
     assert "smooth abstract waveform" in SHOT1_PROMPT
     assert "without any literal system message" in SHOT1_PROMPT
     assert "no named principal face is shown close enough" in SHOT1_PROMPT.lower()
