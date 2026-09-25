@@ -1,7 +1,7 @@
 unit=E11U02
-attempt=v4-2
+attempt=v4-3
 scope=targeted Shot 3 only; reuse v2 Shot 1, v3 repaired Shot 2 and v2 soundtrack
-purpose=retry after replacing C04 rear anchor with exact SHA-pinned canonical bytes; production prompt and one-call repair architecture unchanged
+purpose=retry after Ruff-only import-order cleanup; canonical C04 anchor, visual prompt and one-call repair architecture unchanged
 duration_seconds=15
 shot_structure=5s reused + 5s reused + 5s repaired
 supplier_calls_this_attempt=1
