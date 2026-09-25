@@ -392,9 +392,11 @@ async def _generate(
     base_url: str,
     reference_images: list[Path],
 ) -> tuple[Path, int, dict[str, Any]]:
-    definition = json.loads(
-        Path("scripts/experiments/autodl_minimax_h3_endpoint.json").read_text(encoding="utf-8")
+    definition_text = await asyncio.to_thread(
+        Path("scripts/experiments/autodl_minimax_h3_endpoint.json").read_text,
+        encoding="utf-8",
     )
+    definition = json.loads(definition_text)
     backend = DeclarativeVideoBackend(
         api_key=api_key,
         base_url=base_url,
@@ -418,7 +420,8 @@ async def _generate(
     if not output_path.is_file() or output_path.stat().st_size <= 0:
         raise RuntimeError(f"provider returned no video artifact for {resource_id}")
     versions_path = project / "versions" / "versions.json"
-    versions = json.loads(versions_path.read_text(encoding="utf-8"))
+    versions_text = await asyncio.to_thread(versions_path.read_text, encoding="utf-8")
+    versions = json.loads(versions_text)
     record = versions["reference_videos"][resource_id]["versions"][-1]
     return output_path, version, record
 
