@@ -17,7 +17,7 @@ def test_e13u01_canonical_facts_are_locked() -> None:
     assert VISIBLE_TEXT_NAME == "沈知意"
     assert VISIBLE_TEXT_TITLE == "天枢联合创始人"
     assert HOST_DIALOGUE == "欢迎沈知意"
-    assert BRIDGE_SHA256 == "156f4429ec41493f5445dcfeadba9989b626413bc666d62291f3b026b70ec7b1"
+    assert BRIDGE_SHA256 == "fceffda195129d618ef9e7320c11409ab34663477335b24ef0f8b6eaecf22135"
 
 
 def test_e13u01_audio_seed_owns_dialogue() -> None:
