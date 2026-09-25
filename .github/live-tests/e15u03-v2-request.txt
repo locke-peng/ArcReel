@@ -1,5 +1,5 @@
 unit=E15U03
-attempt=v2-deterministic-timeline-1
+attempt=v2-deterministic-timeline-2
 scope=E15U03 only
 source_supplier_run=36009732060
 source_supplier_artifact=10812256991
@@ -11,3 +11,5 @@ target_timeline=5s+5s+5s
 canonical_visible_text=TIANSHU NEXT
 content_gates=Shot06 exact text and launch reveal; Shot07 audience/media full five seconds; Shot08 C01 solo backstage-to-stage entry full five seconds; no extra readable text; exact 15.000000s H264+AAC
 next_gate=representative validation set complete only after E15U03 v2 dense visual PASS
+
+retry_reason=Ruff-only failure fixed; timeline repair upgraded to retime both video and audio instead of frame padding
