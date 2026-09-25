@@ -1,0 +1,11 @@
+unit=E13U01
+attempt=1
+scope=identity-screen-continuity
+duration_seconds=10
+resolution=480p横
+aspect_ratio=16:9
+stage_source=accepted E12U06 v4 supplier artifact run 35999316411
+character_source=C01 canonical identity SHA 50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9
+visible_text_allowlist=沈知意|天枢联合创始人
+dialogue_delivery=post_production
+next_gate=E13U03 only after E13U01 content PASS
