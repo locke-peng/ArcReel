@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,7 +26,7 @@ ASPECT_RATIO = "16:9"
 RESOLUTION = "480p横"
 
 AUDIO_SEED_MODEL = "minimax_h3_zm_u24"
-FINAL_MODEL = "minimax_h3_image_audio_to_video_v2_15s"
+FINAL_VISUAL_MODEL = "minimax_h3_zm_u24"
 
 VISIBLE_TEXT_NAME = "沈知意"
 VISIBLE_TEXT_TITLE = "天枢联合创始人"
@@ -64,29 +65,26 @@ N/A"""
 FINAL_PROMPT = f"""subject_definitions:
 <Subject 1> is the exact summit identity-screen design derived from <Picture 1>. Its black LED background and the two approved white Chinese strings must be reproduced exactly: "{VISIBLE_TEXT_NAME}" and "{VISIBLE_TEXT_TITLE}". These are the only readable strings permitted anywhere in the complete target video.
 <Subject 2> is a continuity-and-identity reference board derived from <Picture 2>. Its LEFT panel is the authoritative E12U06 final-stage state: the stage-wing side door is open directly at the immediate stage edge, the threshold is short, the blue-black summit lighting is preserved, the main screen remains in its established position, and the rising white spotlight originates at the stage edge. Its RIGHT panel is canonical character {CHARACTER_ID} {CHARACTER_NAME} in her white professional suit; preserve this exact face, dark hair, hairline, eyes, brows, nose, mouth, cheek/jaw structure, skin tone, white suit silhouette, and recognizable identity.
-<Audio 1> is the synchronized source soundtrack. Reuse its host line and applause as audible sound only. Never transcribe, subtitle, caption, quote, or otherwise visualize any spoken content from <Audio 1>.
-
 summary:
-[reference generation + audio reuse] Create one continuous 10-second horizontal cinematic sequence in exactly two authored 5-second shots. SCREEN-TEXT LOCK — HIGHEST PRIORITY: [Shot 1] shows the exact two approved strings from <Picture 1>, "{VISIBLE_TEXT_NAME}" and "{VISIBLE_TEXT_TITLE}", and no other readable text, digits, logos, watermarks, glyphs, pseudo-text, captions, or subtitles. CHARACTER IDENTITY LOCK — HIGHEST PRIORITY: [Shot 2] depicts canonical {CHARACTER_ID} {CHARACTER_NAME} matching the RIGHT panel of <Picture 2>; never cast a different woman and never change her face. CONTINUITY LOCK — HIGHEST PRIORITY: [Shot 2] directly continues the LEFT panel of <Picture 2>, which is the accepted final spatial state of E12U06; preserve the same side door, immediate stage-edge threshold, stage geometry, screen location, blue-black lighting, and spotlight origin. AUDIO/TEXT SEPARATION — HIGHEST PRIORITY: copy <Audio 1> as audible sound while keeping all speech non-visual.
+[reference generation; canonical audio is delivered separately in ArcReel post-production] Create one continuous 10-second horizontal cinematic sequence in exactly two authored 5-second shots. SCREEN-TEXT LOCK — HIGHEST PRIORITY: [Shot 1] shows the exact two approved strings from <Picture 1>, "{VISIBLE_TEXT_NAME}" and "{VISIBLE_TEXT_TITLE}", and no other readable text, digits, logos, watermarks, glyphs, pseudo-text, captions, or subtitles. CHARACTER IDENTITY LOCK — HIGHEST PRIORITY: [Shot 2] depicts canonical {CHARACTER_ID} {CHARACTER_NAME} matching the RIGHT panel of <Picture 2>; never cast a different woman and never change her face. CONTINUITY LOCK — HIGHEST PRIORITY: [Shot 2] directly continues the LEFT panel of <Picture 2>, which is the accepted final spatial state of E12U06; preserve the same side door, immediate stage-edge threshold, stage geometry, screen location, blue-black lighting, and spotlight origin. AUDIO/TEXT SEPARATION — HIGHEST PRIORITY: this visual generation contains no dialogue transcript; canonical host speech and applause are muxed later in ArcReel post-production and must never be visualized.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - reproduce the black screen and exactly the two approved Chinese strings from <Picture 1>; do not invent a portrait, avatar, logo, third line, English translation, separator label, timestamp, progress indicator, or extra glyph.
 <Subject 2> LEFT panel (appears in [Shot 2]): fully_preserved spatial continuity - preserve the E12U06 stage-wing side door physically attached to the immediate stage edge, short threshold, dark wall panels, stage floor, main-screen position, blue accent light, and white spotlight source. Do not move the entrance into a corridor or separate backstage zone.
 <Subject 2> RIGHT panel (appears in [Shot 2]): fully_preserved character identity - canonical {CHARACTER_ID} {CHARACTER_NAME} must retain the same recognizable facial topology, hairstyle family, white professional suit, body proportions, and calm controlled presence.
-<Audio 1>: fully_copy - reuse the host line and applause as synchronized sound. Spoken words remain audio-only and never become visible text.
 
 detailed_description:
 GLOBAL VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: the complete 10-second video permits only two readable strings, exactly "{VISIBLE_TEXT_NAME}" and "{VISIBLE_TEXT_TITLE}". They may appear only on the giant summit screen in [Shot 1]. No other readable Chinese, English, digits, timestamps, captions, subtitles, lower-thirds, logos, watermarks, UI labels, glyph-like pseudo-writing, or dialogue transcription may appear anywhere.
 CHARACTER IDENTITY CONTRACT — HIGHEST PRIORITY: the woman in [Shot 2] is canonical {CHARACTER_ID} {CHARACTER_NAME} from the RIGHT panel of <Picture 2>. Preserve the exact face identity and white professional suit. No generic businesswoman, no alternate actress, no face drift, no additional principal person.
 E12U06 CONTINUITY CONTRACT — HIGHEST PRIORITY: [Shot 2] begins from the accepted E12U06 final spatial state shown in the LEFT panel of <Picture 2>. The open side door remains directly attached to the stage wing at the immediate stage edge; the threshold connects directly to the stage floor; the blue-black event lighting and spotlight source stay in the same physical positions. Do not create a long backstage corridor, detached doorway, lobby, or alternate stage.
-AUDIO/TEXT SEPARATION CONTRACT — HIGHEST PRIORITY: <Audio 1> supplies all target audio. Do not transcribe, quote, typeset, subtitle, caption, or visualize any spoken content from <Audio 1>. Keep the lower portion of every frame free of caption strips and graphic overlays.
+POST-PRODUCTION AUDIO CONTRACT — HIGHEST PRIORITY: no dialogue transcript is provided to this visual generation. Canonical host speech and applause are added only after H3 visual generation by ArcReel post-production mux. Do not infer, invent, typeset, subtitle, caption, or visualize any speech. Keep the lower portion of every frame free of caption strips and graphic overlays.
 
-[Shot 1] 00:00-00:05. Tight, centered 50mm view of the giant summit LED screen. The screen is black and displays exactly two clean white Chinese lines matching <Picture 1>: first line "{VISIBLE_TEXT_NAME}", second line "{VISIBLE_TEXT_TITLE}". Keep the typography stable and readable for the shot. No portrait, headshot, logo, decorative badge, English text, third line, digits, progress bars, or pseudo-text. Camera locked off. Follow the first five seconds of <Audio 1>: the off-screen host line is audible, then applause erupts. The spoken line itself never appears as subtitles.
+[Shot 1] 00:00-00:05. Tight, centered 50mm view of the giant summit LED screen. The screen is black and displays exactly two clean white Chinese lines matching <Picture 1>: first line "{VISIBLE_TEXT_NAME}", second line "{VISIBLE_TEXT_TITLE}". Keep the typography stable and readable for the shot. No portrait, headshot, logo, decorative badge, English text, third line, digits, progress bars, or pseudo-text. Camera locked off. The frame remains purely visual during H3 generation; canonical host speech and applause are added later in ArcReel post-production. Do not infer or display any subtitle from the absent dialogue transcript.
 
-[Shot 2] 00:05-00:10. Clean hard cut to the stage-wing side door and stage edge matching the LEFT panel of <Picture 2>. Canonical <Subject 2> {CHARACTER_NAME}, matching the RIGHT panel of <Picture 2>, steps out from the already-open side door and moves one to two controlled steps directly into the established white spotlight at the stage edge. Medium 35mm framing, eye level, slow 0.4-meter push-in. Her white suit catches the cool spotlight while the blue-black stage architecture remains unchanged. No other principal person enters frame. Any distant main-screen surface is either out of focus or shows only the same two approved strings; no new readable text. Applause from <Audio 1> continues naturally. End with {CHARACTER_NAME} fully readable as the same canonical woman, poised in the spotlight.
+[Shot 2] 00:05-00:10. Clean hard cut to the stage-wing side door and stage edge matching the LEFT panel of <Picture 2>. Canonical <Subject 2> {CHARACTER_NAME}, matching the RIGHT panel of <Picture 2>, steps out from the already-open side door and moves one to two controlled steps directly into the established white spotlight at the stage edge. Medium 35mm framing, eye level, slow 0.4-meter push-in. Her white suit catches the cool spotlight while the blue-black stage architecture remains unchanged. No other principal person enters frame. Any distant main-screen surface is either out of focus or shows only the same two approved strings; no new readable text. Canonical applause is added later in ArcReel post-production. End with {CHARACTER_NAME} fully readable as the same canonical woman, poised in the spotlight.
 
 overall_soundscape:
-<Audio 1> is reused as the synchronized soundtrack: one off-screen female host line in the first shot, followed by strong summit applause continuing through the entrance. No replacement dialogue is synthesized from this visual prompt.
+Final canonical host speech and summit applause are delivered separately in ArcReel post-production. This H3 visual pass receives no dialogue transcript and must not infer, synthesize, typeset, caption, or subtitle speech.
 
 non_diegetic_music:
 N/A
@@ -201,6 +199,45 @@ def _extract_audio(video: Path, audio: Path) -> None:
         raise RuntimeError("failed to extract E13U01 dialogue/applause audio seed")
 
 
+def _mux_canonical_audio(video: Path, audio: Path, raw_visual: Path) -> None:
+    """Preserve provider visual evidence, then mux the detached canonical audio."""
+    raw_visual.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(video, raw_visual)
+    muxed = video.with_name(f"{video.stem}_muxing.mp4")
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(raw_visual),
+            "-i",
+            str(audio),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-t",
+            str(DURATION_SECONDS),
+            "-movflags",
+            "+faststart",
+            str(muxed),
+        ],
+        check=True,
+    )
+    if not muxed.is_file() or muxed.stat().st_size <= 0:
+        raise RuntimeError("failed to mux canonical E13U01 soundtrack")
+    os.replace(muxed, video)
+
+
 def _assert_contracts() -> None:
     if f"<d>[Chinese] {HOST_DIALOGUE}</d>" not in AUDIO_SEED_PROMPT:
         raise RuntimeError("audio seed is missing the canonical host dialogue")
@@ -208,8 +245,8 @@ def _assert_contracts() -> None:
         raise RuntimeError("dialogue tag leaked into E13U01 final visual provider prompt")
     if HOST_DIALOGUE in FINAL_PROMPT:
         raise RuntimeError("host dialogue transcript leaked into E13U01 final visual provider prompt")
-    if "<Audio 1>" not in FINAL_PROMPT:
-        raise RuntimeError("E13U01 final prompt is missing <Audio 1>")
+    if "<Audio 1>" in FINAL_PROMPT:
+        raise RuntimeError("audio reference leaked into E13U01 visual-only provider prompt")
     if FINAL_PROMPT.rstrip().splitlines()[-1] != FINAL_AVOID_LINE:
         raise RuntimeError("E13U01 final avoid line is not the last provider-prompt line")
     for required in (
@@ -217,6 +254,7 @@ def _assert_contracts() -> None:
         "CHARACTER IDENTITY LOCK",
         "CONTINUITY LOCK",
         "AUDIO/TEXT SEPARATION",
+        "POST-PRODUCTION AUDIO CONTRACT",
         "E12U06 final spatial state",
         "C01",
         VISIBLE_TEXT_NAME,
@@ -317,39 +355,43 @@ async def main() -> None:
     final_prompt = FINAL_PROMPT.strip()
     final_video, final_version, final_record = await _generate(
         project=project,
-        model=FINAL_MODEL,
-        definition_path=Path("scripts/experiments/autodl_minimax_h3_image_audio_endpoint.json"),
+        model=FINAL_VISUAL_MODEL,
+        definition_path=Path("scripts/experiments/autodl_minimax_h3_endpoint.json"),
         prompt=final_prompt,
         resource_id=UNIT_ID,
         api_key=api_key,
         base_url=base_url,
-        start_image=screen,
-        end_image=bridge,
-        reference_audio_files=[seed_audio],
+        reference_images=[screen, bridge],
     )
 
     seed_duration = await probe_existing_video_duration_seconds(seed_video)
+    visual_provider_duration = await probe_existing_video_duration_seconds(final_video)
+    raw_visual = root / "E13U01_visual_provider_raw.mp4"
+    await asyncio.to_thread(_mux_canonical_audio, final_video, seed_audio, raw_visual)
     final_duration = await probe_existing_video_duration_seconds(final_video)
 
     report = {
         "status": "GENERATED_PENDING_VISUAL_REVIEW",
         "unit_id": UNIT_ID,
-        "repair_version": "v1_screen_identity_continuity_dialogue_detached",
+        "repair_version": "v1_screen_identity_continuity_postmux_dialogue_detached",
         "branch_head": os.environ.get("GITHUB_SHA"),
         "provider": "autodl",
         "audio_seed_model": AUDIO_SEED_MODEL,
-        "final_model": FINAL_MODEL,
+        "final_visual_model": FINAL_VISUAL_MODEL,
         "duration_requested_seconds": DURATION_SECONDS,
         "audio_seed_ffprobe_seconds": seed_duration,
-        "final_ffprobe_seconds": final_duration,
+        "visual_provider_ffprobe_seconds": visual_provider_duration,
+        "final_muxed_ffprobe_seconds": final_duration,
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
         "canonical_visible_text": [VISIBLE_TEXT_NAME, VISIBLE_TEXT_TITLE],
         "canonical_character": f"{CHARACTER_ID}_{CHARACTER_NAME}",
         "continuity_source": "accepted E12U06 v4 final-stage state embedded in LEFT bridge panel",
         "dialogue_detached_from_final_visual_prompt": True,
+        "postproduction_audio_mux": True,
         "final_prompt_contains_d_tag": "<d>" in final_prompt,
         "final_prompt_contains_host_dialogue": HOST_DIALOGUE in final_prompt,
+        "final_prompt_contains_audio_reference": "<Audio 1>" in final_prompt,
         "audio_seed_prompt_sha256": provider_prompt_sha256(seed_prompt),
         "final_provider_prompt_sha256": provider_prompt_sha256(final_prompt),
         "reference_sha256": {
@@ -367,8 +409,10 @@ async def main() -> None:
         "final": {
             "version": final_version,
             "provider_duration_seconds": final_record.get("provider_duration_seconds"),
-            "video_sha256": _sha256(final_video),
-            "video_size_bytes": final_video.stat().st_size,
+            "visual_provider_video_sha256": _sha256(raw_visual),
+            "visual_provider_video_size_bytes": raw_visual.stat().st_size,
+            "muxed_video_sha256": _sha256(final_video),
+            "muxed_video_size_bytes": final_video.stat().st_size,
         },
     }
 
