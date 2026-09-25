@@ -1,0 +1,10 @@
+unit=E13U01
+attempt=1
+repair=v2_deterministic_screen_h3_entry
+scope=E13U01 only
+purpose=paid E13U01 acceptance with deterministic exact 5s identity screen plus H3 C01 entrance plate and detached post-mux audio
+duration_seconds=10
+resolution=480p横
+aspect_ratio=16:9
+content_gates=exact screen text; exact 5s+5s timing; C01 identity; E12U06 stage continuity; no extra readable text; dialogue not visualized
+next_gate=E13U03 only after E13U01 content PASS
