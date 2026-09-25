@@ -70,7 +70,7 @@ summary:
 
 retention_analysis:
 <Subject 1> LEFT panel: fully_preserved spatial continuity - preserve the same open side door, short direct threshold, dark stage-wing wall, blue-black event lighting, stage-floor relationship, and white spotlight source. Do not create a corridor, lobby, detached doorway, stairs, or alternate venue.
-<Subject 1> RIGHT panel: fully_preserved character identity - preserve the canonical C01 woman's face, hairstyle family, white professional suit, body proportions, gray structured handbag, and calm controlled presence. No generic businesswoman, no alternate actress, no face substitution, no wardrobe replacement.
+<Subject 1> RIGHT panel: fully_preserved character identity - preserve the canonical C01 woman's face, hairstyle family, white professional suit, body proportions, gray structured handbag, and calm controlled presence. No face substitution. No generic businesswoman, no alternate actress, no wardrobe replacement.
 
 detailed_description:
 CONTINUITY CONTRACT — HIGHEST PRIORITY: the first frame begins at the same physical side-door/stage-edge state as the accepted previous unit. The doorway is already open and directly touches the stage edge. Keep the threshold short and the spotlight source in the same relationship to the door.
