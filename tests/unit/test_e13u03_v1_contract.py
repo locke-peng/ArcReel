@@ -86,7 +86,7 @@ def test_e13u03_shot3_uses_semantic_only_log_geometry() -> None:
     assert "Canonical provides NO literal log strings" in SHOT3_PROMPT
     assert "horizontal luminous bars" in SHOT3_PROMPT
     assert "Do not invent code or text" in SHOT3_PROMPT
-    assert "ZERO readable or glyph-like text" in SHOT3_PROMPT
+    assert "ZERO readable text and ZERO glyph-like pseudo-text" in SHOT3_PROMPT
 
 
 def test_e13u03_final_resolution_is_validation_resolution() -> None:
