@@ -1,0 +1,8 @@
+unit=E11U02
+attempt=v3
+scope=deterministic-postprocess-only
+source_run_id=36148270693
+source_video_sha256=edff353aa05833b3fb523f2ec48b7b58adbd6e7aba1bdccd71f5a0142dde5055
+purpose=reuse accepted v2 motion/audio; deterministically pixelate known readable-text risk surfaces in shot1 screens, moving shot2 badge label, and shot3 exit signage
+new_paid_provider_calls=0
+content_gates=zero readable text; preserve shot actions; preserve identity-safe framing; preserve 5s+5s+5s timing; preserve source audio
