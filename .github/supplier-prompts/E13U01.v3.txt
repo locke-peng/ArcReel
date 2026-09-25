@@ -1,0 +1,33 @@
+subject_definitions:
+<Subject 1> is the exact canonical identity-title screen artwork derived from <Picture 1>. Treat it as the full-frame opening composition itself, not as a card, poster, slide, or screen placed inside another decorative frame. Preserve the flat black field and exactly two readable text lines.
+<Subject 2> is the exact E12U06 v4 summit-stage continuity state derived from <Picture 2>. Preserve the same stage-wing door, immediate stage-edge threshold, wall panels, floor geometry, black-and-blue event lighting, and the same stage-side lighting rig. The spotlight is a live follow-spot and may pan to acquire the entering speaker.
+<Subject 3> is a clean identity anchor derived only from canonical character C01 Shen Zhiyi. The left portrait and right full-body view are the same woman. Preserve her exact face identity, dark low updo, eye spacing, brows, nose, mouth, cheek and jaw structure, skin tone, and white tailored trouser suit. She carries nothing onto the stage.
+
+summary:
+[reference generation] Create one continuous 10-second 16:9 summit reveal in two authored 5-second shots. Shot 1 is the exact edge-to-edge identity title from <Picture 1>. Shot 2 hard-cuts to a tighter view of the exact E12U06 v4 side door from <Picture 2>; C01 Shen Zhiyi from <Picture 3> steps through, and the live follow-spot sweeps onto her and locks to her face and torso before the unit ends.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - exact full-frame black title layout and exact two-line readable content.
+<Subject 2> (appears in [Shot 2]): fully_preserved - exact side-door architecture, short threshold, wall panels, floor, and cool summit lighting; the follow-spot direction may move naturally to track C01.
+<Subject 3> (appears in [Shot 2]): fully_preserved - exact C01 facial identity, low updo, white professional suit, body proportions, and calm professional presence.
+
+detailed_description:
+Live-action cinematic conference drama. The 00:05.000 cut is a direct continuation of the accepted E12U06 v4 space.
+
+VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: the complete target video may contain only these two readable strings, only in Shot 1:
+"沈知意"
+"天枢联合创始人"
+They appear as two centered lines exactly as in <Picture 1>. Do not add a slash. No other letters, numbers, logos, badges, captions, subtitles, lower-thirds, watermarks, timestamps, UI labels, pseudo-glyphs, decorative writing, or presentation graphics are allowed.
+
+DIALOGUE DELIVERY CONTRACT: do not synthesize or typeset host dialogue in this provider pass. The canonical host line will be added in post-production audio. No subtitle, caption, speech bubble, dialogue card, or transcription may appear.
+
+[Shot 1] 00:00-00:05. Start directly on <Subject 1>. The black LED display surface fills the complete frame edge-to-edge from the first frame. No bezel, wall, stage, colorful surround, presentation template, decorative shape, portrait, or other object is visible. The exact two-line title is already fully resolved at 00:00 and remains stable and readable for the full five seconds. Static camera.
+
+[Shot 2] At 00:05.000, hard cut to a tight stage-wing medium shot based on <Subject 2>. Frame the open side door and C01; crop the main LED screen completely out of view. The door occupies the left third and the short threshold connects directly to the stage floor. At 00:05.0 <Subject 3> appears at the threshold. From 00:05.5 to 00:06.8 she takes two measured steps forward. At the same time the existing white follow-spot visibly pans left across the floor and wall toward her, rather than remaining fixed in the background. By 00:07.0 the spotlight reaches her. By 00:07.5 her face, shoulders, torso, and white suit are clearly inside the brightest spotlight core. From 00:08.0 through 00:10.0 she stops in that light and holds a calm three-quarter pose, face clearly readable at medium-shot scale for identity review. The camera performs only a subtle slow push. Keep the door, wall panels, threshold, and floor identical to <Picture 2>. No main-screen loading blocks are visible because the main screen is outside this Shot 2 composition. No handbag, no second entrant, no corridor, no audience cutaway, no third identity.
+
+overall_soundscape:
+Shot 1: tense summit-room hush followed by applause rising under the identity reveal. Shot 2: applause continues with realistic room ambience and two subtle footsteps. No synthesized spoken words in this provider pass.
+
+non_diegetic_music:
+N/A
+Avoid: BGM, subtitles, captions, dialogue transcription, speech bubbles, lower-thirds, watermarks, logos, timestamps, pseudo-text, presentation borders, loading blocks in Shot 2, and any readable text except the two approved Shot 1 strings.
