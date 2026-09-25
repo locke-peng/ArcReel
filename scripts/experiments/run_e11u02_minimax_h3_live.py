@@ -33,7 +33,7 @@ DIALOGUE_2 = "明天见真章"
 DIALOGUE_3 = "陆氏会合作吗"
 
 SCENE_BRIDGE_B64 = Path("scripts/experiments/fixtures/e11u02/E11U02_scene_bridge.jpg.b64")
-SCENE_BRIDGE_SHA256 = "bdb82b68c99df088866adb62b7c1ff1a1e89dd9f1e15aa2d323b19631d279ffa"
+SCENE_BRIDGE_SHA256 = "90ad97c07213d6d9fe1dee15a676b560055ec30fdcd8f041c42f23a643ac201b"
 
 ZERO_TEXT_AVOID = (
     "Avoid: readable text, letters, digits, subtitles, captions, dialogue transcription, "
