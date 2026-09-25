@@ -1,0 +1,136 @@
+name: E13U01 v4 Deterministic Production Finalize
+
+on:
+  push:
+    branches:
+      - test/e13u01-h3-v1-identity-screen-continuity
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e13u01-v4-finalize:
+    if: contains(github.event.head_commit.message, '[e13u01-v4-finalize]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      V3_RUN_ID: "36083640179"
+      V3_VIDEO_SHA256: "685e3510157aa610422ec6b3060c8ba6c645f305723b1cd4e5dd0223d13f907f"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project and media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          uv sync
+
+      - name: Run v4 deterministic contract tests
+        run: |
+          uv run pytest tests/unit/test_e13u01_v4_compositor.py -q
+          uv run python -m py_compile scripts/experiments/postprocess_e13u01_v4.py
+
+      - name: Download accepted E13U01 v3 provider evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: supplier-e13u01-v3-evidence
+          path: /tmp/e13-v3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.V3_RUN_ID }}
+
+      - name: Verify v3 supplier source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE="$(find /tmp/e13-v3 -type f -name 'E13U01.mp4' -print -quit)"
+          test -n "$SOURCE"
+          echo "$V3_VIDEO_SHA256  $SOURCE" | sha256sum -c -
+          echo "SOURCE_VIDEO=$SOURCE" >> "$GITHUB_ENV"
+
+      - name: Assemble E13U01 v4 final Unit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/e13u01-v4
+          uv run python scripts/experiments/postprocess_e13u01_v4.py \
+            --source "$SOURCE_VIDEO" \
+            --output artifacts/e13u01-v4/E13U01.mp4 \
+            --evidence-dir artifacts/e13u01-v4
+
+      - name: Probe final media and dense sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          VIDEO=artifacts/e13u01-v4/E13U01.mp4
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
+            -of json "$VIDEO" > artifacts/e13u01-v4/ffprobe.json
+
+          mkdir -p artifacts/e13u01-v4/frames
+          for t in 0.25 0.75 1.25 1.75 2.25 2.75 3.25 3.75 4.25 4.75 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" -i "$VIDEO" -frames:v 1 \
+              "artifacts/e13u01-v4/frames/frame_${t}.jpg"
+          done
+
+          uv run python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          from PIL import Image
+
+          root=Path("artifacts/e13u01-v4")
+          files=sorted((root/"frames").glob("frame_*.jpg"),key=lambda p:float(p.stem.split("_",1)[1]))
+          W,H=432,240
+          cols=4
+          rows=(len(files)+cols-1)//cols
+          sheet=Image.new("RGB",(W*cols,H*rows),"black")
+          for i,p in enumerate(files):
+              im=Image.open(p).convert("RGB").resize((W,H))
+              sheet.paste(im,((i%cols)*W,(i//cols)*H))
+          sheet.save(root/"E13U01_v4_dense_contact_sheet.jpg",quality=92)
+
+          video=root/"E13U01.mp4"
+          summary={
+              "unit_id":"E13U01",
+              "production_version":"v4-hybrid",
+              "source_provider_run":36083640179,
+              "source_provider_video_sha256":"685e3510157aa610422ec6b3060c8ba6c645f305723b1cd4e5dd0223d13f907f",
+              "canonical_c01_source_sha256":"50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9",
+              "screen_strings":["沈知意","天枢联合创始人"],
+              "shot_cut_seconds":5.0,
+              "dialogue_delivery":"post_production",
+              "new_paid_provider_task":False,
+              "final_video_sha256":hashlib.sha256(video.read_bytes()).hexdigest(),
+          }
+          (root/"E13U01_v4_summary.json").write_text(
+              json.dumps(summary,ensure_ascii=False,indent=2)+"\n",encoding="utf-8"
+          )
+          print(json.dumps(summary,ensure_ascii=False))
+          PY
+
+      - name: Upload E13U01 v4 final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e13u01-v4-final-evidence
+          path: artifacts/e13u01-v4
+          if-no-files-found: error
+          retention-days: 7
