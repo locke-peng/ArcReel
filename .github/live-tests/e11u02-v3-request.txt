@@ -1,0 +1,11 @@
+unit=E11U02
+attempt=v3-1
+scope=targeted Shot 2 only; reuse accepted v2 Shot 1, Shot 3 and soundtrack
+purpose=remove persistent readable badge text by removing all badge/summit/credential semantics from the visual prompt and generating only a featureless gray polymer token on a plain black cord
+duration_seconds=15
+shot_structure=5s reused + 5s repaired + 5s reused
+supplier_calls_this_attempt=1
+provider_resolution=480p横
+final_resolution=864x480
+content_gates=Shot2 blank featureless token; no readable text; hands-only identity-safe framing; canonical placement action; dialogue remains audio-only; final exact 15s
+next_gate=E15U03 only after E11U02 content PASS
