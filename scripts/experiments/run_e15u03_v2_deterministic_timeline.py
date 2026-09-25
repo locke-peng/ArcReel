@@ -1,9 +1,9 @@
 """Deterministic E15U03 timeline repair over the accepted MiniMax H3 supplier video.
 
-The supplier render has correct content and identity but its second visual beat ends early.
-This module never recalls the provider. It verifies exact upstream bytes, re-times the
-three authored beats to 5s+5s+5s, preserves the original soundtrack, and emits a new
-15.000000-second final MP4 for dense content review.
+The supplier render has correct content and C01 identity but its authored visual cuts land at
+frame 118 (~4.9167s) and frame 222 (9.25s), so Shot 07 is too short. This stage never recalls
+the provider. It verifies exact upstream bytes and deterministically retimes both picture and
+sound so the three canonical beats occupy exactly 5s + 5s + 5s.
 """
 
 from __future__ import annotations
@@ -37,11 +37,9 @@ WIDTH = 864
 HEIGHT = 480
 SHOT_SECONDS = 5
 DURATION_SECONDS = 15
+TARGET_SHOT_FRAMES = FPS * SHOT_SECONDS
 
-# Dense visual review of the exact supplier bytes finds hard cuts at:
-#   frame 118 / 24 = 4.916666... s  (Shot 06 -> Shot 07)
-#   frame 222 / 24 = 9.25 s           (Shot 07 -> Shot 08)
-# Frame 222 is the first backstage-entry frame.
+# Hard cuts measured on the exact supplier bytes.
 SHOT1_SOURCE_END_FRAME = 118
 SHOT2_SOURCE_START_FRAME = 118
 SHOT2_SOURCE_END_FRAME = 222
@@ -51,10 +49,18 @@ SHOT3_SOURCE_END_FRAME = 342
 SHOT1_SOURCE_FRAMES = SHOT1_SOURCE_END_FRAME
 SHOT2_SOURCE_FRAMES = SHOT2_SOURCE_END_FRAME - SHOT2_SOURCE_START_FRAME
 SHOT3_SOURCE_FRAMES = SHOT3_SOURCE_END_FRAME - SHOT3_SOURCE_START_FRAME
-TARGET_SHOT_FRAMES = FPS * SHOT_SECONDS
 
-SHOT1_PAD_FRAMES = TARGET_SHOT_FRAMES - SHOT1_SOURCE_FRAMES
-SHOT2_PAD_FRAMES = TARGET_SHOT_FRAMES - SHOT2_SOURCE_FRAMES
+SHOT1_SOURCE_SECONDS = SHOT1_SOURCE_FRAMES / FPS
+SHOT2_SOURCE_SECONDS = SHOT2_SOURCE_FRAMES / FPS
+SHOT3_SOURCE_SECONDS = SHOT3_SOURCE_FRAMES / FPS
+
+SHOT1_VIDEO_PTS_FACTOR = SHOT_SECONDS / SHOT1_SOURCE_SECONDS
+SHOT2_VIDEO_PTS_FACTOR = SHOT_SECONDS / SHOT2_SOURCE_SECONDS
+SHOT3_VIDEO_PTS_FACTOR = SHOT_SECONDS / SHOT3_SOURCE_SECONDS
+
+SHOT1_AUDIO_TEMPO = SHOT1_SOURCE_SECONDS / SHOT_SECONDS
+SHOT2_AUDIO_TEMPO = SHOT2_SOURCE_SECONDS / SHOT_SECONDS
+SHOT3_AUDIO_TEMPO = SHOT3_SOURCE_SECONDS / SHOT_SECONDS
 
 CANONICAL_VISIBLE_TEXT = ("TIANSHU NEXT",)
 
@@ -130,19 +136,24 @@ def _verify_upstream(upstream_dir: Path) -> tuple[Path, Path]:
 def _author_exact_timeline(source_video: Path, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    shot1_pad = SHOT1_PAD_FRAMES / FPS
-    shot2_pad = SHOT2_PAD_FRAMES / FPS
+    cut1 = SHOT1_SOURCE_END_FRAME / FPS
+    cut2 = SHOT2_SOURCE_END_FRAME / FPS
+    shot3_end = SHOT3_SOURCE_END_FRAME / FPS
 
     filter_complex = (
-        "[0:v]split=3[s0][s1][s2];"
-        f"[s0]trim=start_frame=0:end_frame={SHOT1_SOURCE_END_FRAME},"
-        f"setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration={shot1_pad:.9f}[v0];"
-        f"[s1]trim=start_frame={SHOT2_SOURCE_START_FRAME}:end_frame={SHOT2_SOURCE_END_FRAME},"
-        f"setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration={shot2_pad:.9f}[v1];"
-        f"[s2]trim=start_frame={SHOT3_SOURCE_START_FRAME}:end_frame={SHOT3_SOURCE_END_FRAME},"
-        "setpts=PTS-STARTPTS[v2];"
-        "[v0][v1][v2]concat=n=3:v=1:a=0[v];"
-        f"[0:a]atrim=start=0:end={DURATION_SECONDS},asetpts=PTS-STARTPTS[a]"
+        f"[0:v]trim=start=0:end={cut1:.9f},"
+        f"setpts=(PTS-STARTPTS)*{SHOT1_VIDEO_PTS_FACTOR:.12f},fps={FPS}[v0];"
+        f"[0:a]atrim=start=0:end={cut1:.9f},asetpts=PTS-STARTPTS,"
+        f"atempo={SHOT1_AUDIO_TEMPO:.12f}[a0];"
+        f"[0:v]trim=start={cut1:.9f}:end={cut2:.9f},"
+        f"setpts=(PTS-STARTPTS)*{SHOT2_VIDEO_PTS_FACTOR:.12f},fps={FPS}[v1];"
+        f"[0:a]atrim=start={cut1:.9f}:end={cut2:.9f},asetpts=PTS-STARTPTS,"
+        f"atempo={SHOT2_AUDIO_TEMPO:.12f}[a1];"
+        f"[0:v]trim=start={cut2:.9f}:end={shot3_end:.9f},"
+        f"setpts=(PTS-STARTPTS)*{SHOT3_VIDEO_PTS_FACTOR:.12f},fps={FPS}[v2];"
+        f"[0:a]atrim=start={cut2:.9f}:end={shot3_end:.9f},asetpts=PTS-STARTPTS,"
+        f"atempo={SHOT3_AUDIO_TEMPO:.12f}[a2];"
+        "[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[v][a]"
     )
 
     _run(
@@ -171,6 +182,10 @@ def _author_exact_timeline(source_video: Path, output: Path) -> None:
         "aac",
         "-b:a",
         "128k",
+        "-ar",
+        "32000",
+        "-ac",
+        "2",
         "-t",
         str(DURATION_SECONDS),
         "-movflags",
@@ -219,7 +234,7 @@ def main() -> None:
     report = {
         "status": "DETERMINISTIC_TIMELINE_REPAIR_PENDING_VISUAL_REVIEW",
         "unit_id": UNIT_ID,
-        "repair_version": "v2_deterministic_5_5_5_timeline",
+        "repair_version": "v2_deterministic_5_5_5_av_retime",
         "provider_recalled": False,
         "source_supplier_run_id": SOURCE_SUPPLIER_RUN_ID,
         "source_supplier_artifact_id": SOURCE_SUPPLIER_ARTIFACT_ID,
@@ -238,17 +253,23 @@ def main() -> None:
         "source_frame_counts": {
             "shot1": SHOT1_SOURCE_FRAMES,
             "shot2": SHOT2_SOURCE_FRAMES,
-            "shot3_used": SHOT3_SOURCE_FRAMES,
+            "shot3": SHOT3_SOURCE_FRAMES,
         },
         "target_frame_counts": {
             "shot1": TARGET_SHOT_FRAMES,
             "shot2": TARGET_SHOT_FRAMES,
             "shot3": TARGET_SHOT_FRAMES,
         },
-        "pad_frames": {
-            "shot1_clone_last": SHOT1_PAD_FRAMES,
-            "shot2_clone_last": SHOT2_PAD_FRAMES,
-        },
+        "video_pts_factors": [
+            SHOT1_VIDEO_PTS_FACTOR,
+            SHOT2_VIDEO_PTS_FACTOR,
+            SHOT3_VIDEO_PTS_FACTOR,
+        ],
+        "audio_atempo_factors": [
+            SHOT1_AUDIO_TEMPO,
+            SHOT2_AUDIO_TEMPO,
+            SHOT3_AUDIO_TEMPO,
+        ],
         "final_probe": probe,
         "final_video_sha256": _sha256(final_video),
         "final_video_size_bytes": final_video.stat().st_size,
