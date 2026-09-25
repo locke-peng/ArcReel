@@ -1,7 +1,7 @@
 unit=E13U01
-attempt=3
+attempt=4
 scope=E13U01 only
-purpose=paid AutoDL MiniMax H3 acceptance retry after async-safe lint cleanup; prompt semantics unchanged
+purpose=paid AutoDL MiniMax H3 acceptance retry after exact bridge payload repair; prompt semantics unchanged
 duration_seconds=10
 resolution=480p横
 aspect_ratio=16:9
