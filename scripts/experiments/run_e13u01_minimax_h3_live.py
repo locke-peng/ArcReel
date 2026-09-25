@@ -34,7 +34,7 @@ HOST_DIALOGUE = "欢迎沈知意"
 CHARACTER_ID = "C01"
 CHARACTER_NAME = "沈知意"
 BRIDGE_B64 = Path(".github/live-tests/e13u01_stage_c01_bridge.jpg.b64")
-BRIDGE_SHA256 = "156f4429ec41493f5445dcfeadba9989b626413bc666d62291f3b026b70ec7b1"
+BRIDGE_SHA256 = "fceffda195129d618ef9e7320c11409ab34663477335b24ef0f8b6eaecf22135"
 
 FINAL_AVOID_LINE = (
     "Avoid: BGM, subtitles, captions, dialogue transcription, speech bubbles, lower-thirds, "
