@@ -1,7 +1,7 @@
 unit=E13U03
-attempt=2
+attempt=3
 scope=E13U03 only
-purpose=paid supplier acceptance retry after shot3 zero-text contract wording alignment; architecture unchanged
+purpose=paid supplier acceptance retry after contract assertion alignment; production architecture unchanged
 duration_seconds=15
 shot_structure=5s+5s+5s
 provider_resolution=480p横
