@@ -3,7 +3,9 @@ from scripts.experiments.run_e13u01_minimax_h3_live import (
     BRIDGE_SHA256,
     CHARACTER_ID,
     CHARACTER_NAME,
+    DURATION_SECONDS,
     FINAL_AVOID_LINE,
+    FINAL_VISUAL_MODEL,
     FINAL_PROMPT,
     HOST_DIALOGUE,
     VISIBLE_TEXT_NAME,
@@ -88,8 +90,6 @@ def test_e13u01_bridge_chunks_decode_to_pinned_asset(tmp_path) -> None:
 
 
 def test_e13u01_final_visual_pass_stays_canonical_ten_seconds_without_fixed_15s_endpoint() -> None:
-    from scripts.experiments.run_e13u01_minimax_h3_live import DURATION_SECONDS, FINAL_VISUAL_MODEL
-
     assert DURATION_SECONDS == 10
     assert FINAL_VISUAL_MODEL == "minimax_h3_zm_u24"
     assert "15-second" not in FINAL_PROMPT
