@@ -3,12 +3,14 @@ from scripts.experiments.run_e13u03_minimax_h3_live import (
     C01_BRIDGE_SHA256,
     C01_ID,
     C03_ID,
+    C03_REF,
     C03_REF_SHA256,
     DIALOGUE,
     DURATION_SECONDS,
     FINAL_HEIGHT,
     FINAL_WIDTH,
     MODEL,
+    SCENE_BRIDGE,
     SCENE_BRIDGE_SHA256,
     SHOT1_PROMPT,
     SHOT2_PROMPT,
@@ -17,8 +19,6 @@ from scripts.experiments.run_e13u03_minimax_h3_live import (
     ZERO_TEXT_AVOID,
     _assert_contracts,
     _sha256,
-    C03_REF,
-    SCENE_BRIDGE,
 )
 
 
