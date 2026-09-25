@@ -6,16 +6,20 @@ from scripts.experiments.run_e15u03_v2_deterministic_timeline import (
     DURATION_SECONDS,
     FPS,
     HEIGHT,
-    SHOT1_PAD_FRAMES,
+    SHOT1_AUDIO_TEMPO,
     SHOT1_SOURCE_END_FRAME,
     SHOT1_SOURCE_FRAMES,
-    SHOT2_PAD_FRAMES,
+    SHOT1_VIDEO_PTS_FACTOR,
+    SHOT2_AUDIO_TEMPO,
     SHOT2_SOURCE_END_FRAME,
     SHOT2_SOURCE_FRAMES,
     SHOT2_SOURCE_START_FRAME,
+    SHOT2_VIDEO_PTS_FACTOR,
+    SHOT3_AUDIO_TEMPO,
     SHOT3_SOURCE_END_FRAME,
     SHOT3_SOURCE_FRAMES,
     SHOT3_SOURCE_START_FRAME,
+    SHOT3_VIDEO_PTS_FACTOR,
     SHOT_SECONDS,
     SOURCE_C01_IDENTITY_SHA256,
     SOURCE_PROMPT_SHA256,
@@ -46,7 +50,7 @@ def test_e15u03_v2_reference_identity_chain_is_pinned() -> None:
         "87d54ccd76abd21e2a03e83036cac6af9469b6de50614a44c67196d0e8b9674a",
         "50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9",
     )
-    assert SOURCE_C01_IDENTITY_SHA256 == SOURCE_REFERENCE_SHA256[1]
+    assert SOURCE_REFERENCE_SHA256[1] == SOURCE_C01_IDENTITY_SHA256
 
 
 def test_e15u03_v2_detected_source_cuts_are_exact() -> None:
@@ -61,14 +65,15 @@ def test_e15u03_v2_detected_source_cuts_are_exact() -> None:
     assert SHOT3_SOURCE_FRAMES == 120
 
 
-def test_e15u03_v2_retimes_each_authored_beat_to_exact_five_seconds() -> None:
+def test_e15u03_v2_retimes_all_three_beats_to_five_seconds() -> None:
     assert SHOT_SECONDS == 5
     assert TARGET_SHOT_FRAMES == 120
-    assert SHOT1_PAD_FRAMES == 2
-    assert SHOT2_PAD_FRAMES == 16
-    assert SHOT1_SOURCE_FRAMES + SHOT1_PAD_FRAMES == TARGET_SHOT_FRAMES
-    assert SHOT2_SOURCE_FRAMES + SHOT2_PAD_FRAMES == TARGET_SHOT_FRAMES
-    assert SHOT3_SOURCE_FRAMES == TARGET_SHOT_FRAMES
+    assert SHOT1_VIDEO_PTS_FACTOR > 1.0
+    assert SHOT2_VIDEO_PTS_FACTOR > SHOT1_VIDEO_PTS_FACTOR
+    assert SHOT3_VIDEO_PTS_FACTOR == 1.0
+    assert 0.9 < SHOT1_AUDIO_TEMPO < 1.0
+    assert 0.8 < SHOT2_AUDIO_TEMPO < SHOT1_AUDIO_TEMPO
+    assert SHOT3_AUDIO_TEMPO == 1.0
     assert TARGET_SHOT_FRAMES * 3 == FPS * DURATION_SECONDS
 
 
@@ -85,3 +90,5 @@ def test_e15u03_v2_is_deterministic_timeline_repair_not_provider_generation() ->
     assert "DeclarativeVideoBackend" not in source
     assert "MINIMAX_LIVE_API_KEY" not in source
     assert '"provider_recalled": False' in source
+    assert "atempo=" in source
+    assert "setpts=(PTS-STARTPTS)" in source
