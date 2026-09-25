@@ -55,7 +55,8 @@ def test_e11u02_v3_masks_stay_inside_delivery_frame() -> None:
         assert mask.start >= 0
         assert mask.end <= EXPECTED_DURATION_SECONDS
         assert mask.start < mask.end
-        assert mask.x >= 0 and mask.y >= 0
+        assert mask.x >= 0
+        assert mask.y >= 0
         assert mask.x + mask.width <= EXPECTED_WIDTH
         assert mask.y + mask.height <= EXPECTED_HEIGHT
         assert mask.block >= 2
