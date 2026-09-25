@@ -237,7 +237,8 @@ async def _generate(
     end_image: Path | None = None,
     reference_audio_files: list[Path] | None = None,
 ) -> tuple[Path, int, dict[str, Any]]:
-    definition = json.loads(definition_path.read_text(encoding="utf-8"))
+    definition_text = await asyncio.to_thread(definition_path.read_text, encoding="utf-8")
+    definition = json.loads(definition_text)
     backend = DeclarativeVideoBackend(
         api_key=api_key,
         base_url=base_url,
