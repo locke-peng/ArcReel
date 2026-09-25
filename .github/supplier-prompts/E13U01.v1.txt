@@ -1,0 +1,33 @@
+subject_definitions:
+<Subject 1> is the exact E12U06 v4 summit-stage continuity state derived from <Picture 1>. Preserve the same stage-wing door, its immediate physical connection to the stage edge, the same floor geometry, main-screen placement, black-and-blue event lighting, and the rising spotlight position.
+<Subject 2> is the canonical identity-title screen artwork derived from <Picture 2>. Preserve the artwork as a flat black LED-screen state with exactly two readable text lines and no additional readable marks.
+<Subject 3> is canonical character C01 Shen Zhiyi derived from <Picture 3>. Preserve her exact face identity, dark hair in the same low updo, eye spacing, brows, nose, mouth, cheek and jaw structure, skin tone, white tailored trouser suit, and restrained professional presence. Do not substitute another woman.
+
+summary:
+[reference generation] Create one continuous 10-second 16:9 summit reveal in two authored 5-second shots. Shot 1 resolves the E12U06 loading screen into the exact canonical identity title. Shot 2 cuts to the same stage-wing side door and shows C01 Shen Zhiyi entering directly from that door into the existing spotlight. The event space must read as a direct continuation of E12U06 v4, not a redesigned venue.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - keep the E12U06 v4 summit architecture, main-screen location, immediate stage-edge side door, floor, lighting family, and spotlight geometry.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the screen contains exactly the two approved lines from the reference artwork, centered and clearly readable, with no extra text.
+<Subject 3> (appears in [Shot 2]): fully_preserved - C01 facial identity and white professional suit remain locked to the canonical character reference.
+
+detailed_description:
+The sequence is live-action cinematic conference drama with restrained camera movement, high-end event lighting, cool black-blue ambience, and a clean white spotlight. CONTINUITY IS HIGHEST PRIORITY: the physical side door, short threshold, stage floor, main screen, and lighting must remain the same environment established by <Picture 1>.
+
+VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: the complete target video may contain only these two readable strings, and only on the main LED screen in Shot 1:
+"沈知意"
+"天枢联合创始人"
+The two strings are presented as two centered lines exactly as shown in <Picture 2>. Do not add a slash between them. No other letters, numbers, logos, badges, captions, subtitles, lower-thirds, watermarks, timestamps, UI labels, pseudo-glyphs, or decorative writing may appear anywhere in either shot. When Shot 2 begins, any visible portion of the main screen should remain clean black or preserve only the same approved title without adding new marks.
+
+DIALOGUE DELIVERY CONTRACT: do not synthesize or typeset host dialogue in this provider pass. The canonical host line will be added in post-production audio. The generated picture must contain no subtitle, caption, speech bubble, dialogue card, or transcription.
+
+[Shot 1] 00:00-00:05. A tight centered 50mm static view of the summit main LED screen in the same venue. The previous geometric loading state resolves cleanly into <Subject 2>. Keep the background pure black and preserve the exact two-line title from the reference artwork. The title is the only readable content in frame. Hold long enough to make both lines legible. No portrait, headshot, logo, border, badge, icon, extra identifier, or additional UI appears.
+
+[Shot 2] At 00:05.000, make a clean hard cut to a centered medium 35mm view matching <Subject 1>. The stage-wing side door is already open at the immediate stage edge, with the same short threshold and the same spotlight rising from the stage edge. <Subject 3> steps through that exact doorway and moves two to three measured steps into the spotlight. She is the only featured person in this shot. Preserve her canonical face and white tailored trouser suit from <Picture 3>. No handbag is carried on stage. Her posture is calm and composed; she looks toward the audience, not toward camera. The camera makes a restrained slow push of about 0.4 meters. Do not redesign the door, add a corridor, relocate the screen, introduce another entrant, or create a third identity.
+
+overall_soundscape:
+Shot 1 begins with the summit room settling into a tense quiet, then applause rises as the title resolves. Shot 2 continues applause and realistic room ambience with subtle footsteps on the stage floor. No synthesized spoken words are required in this provider pass.
+
+non_diegetic_music:
+N/A
+Avoid: BGM, subtitles, captions, dialogue transcription, speech bubbles, lower-thirds, watermarks, logos, timestamps, pseudo-text, and any readable text except the two approved screen strings.
