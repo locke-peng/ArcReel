@@ -8,6 +8,8 @@ from scripts.experiments.run_e13u01_minimax_h3_live import (
     HOST_DIALOGUE,
     VISIBLE_TEXT_NAME,
     VISIBLE_TEXT_TITLE,
+    _decode_bridge,
+    _sha256,
 )
 
 
@@ -74,3 +76,10 @@ def test_e13u01_timeline_is_exactly_two_five_second_shots() -> None:
 
 def test_e13u01_final_avoid_line_is_last() -> None:
     assert FINAL_PROMPT.rstrip().splitlines()[-1] == FINAL_AVOID_LINE
+
+
+def test_e13u01_bridge_chunks_decode_to_pinned_asset(tmp_path) -> None:
+    target = tmp_path / "bridge.jpg"
+    _decode_bridge(target)
+    assert target.is_file()
+    assert _sha256(target) == BRIDGE_SHA256
