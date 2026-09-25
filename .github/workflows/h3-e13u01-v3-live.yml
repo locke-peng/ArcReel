@@ -1,0 +1,245 @@
+name: H3 E13U01 v3 Follow-Spot Supplier Test
+
+on:
+  push:
+    branches:
+      - test/e13u01-h3-v1-identity-screen-continuity
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e13u01-v3-live:
+    if: contains(github.event.head_commit.message, '[supplier-e13u01-v3]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      MINIMAX_H3_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY }}
+      MINIMAX_H3_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL }}
+      SUPPLIER_BUNDLE_DIR: /tmp/e13u01-v3-bundle
+      SUPPLIER_OUTPUT_DIR: artifacts/supplier-e13u01-v3
+      SUPPLIER_TEST_RESOLUTION: 480p横
+      E12_ACCEPTED_RUN_ID: "35999316411"
+      E12_ACCEPTED_VIDEO_SHA256: "eae4c6d8531b0be0be65108d2689cf091149abce52afa8ba84e44cad2dec7782"
+      E15_ASSET_COMMIT: "a5c192427d47c94fe9e60c9c0e5ca62aa35b4be8"
+      C01_CANONICAL_SHA256: "50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies and media tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          uv sync
+
+      - name: E13U01 v3 preflight contract
+        run: |
+          uv run pytest tests/unit/test_e13u01_v3_contract.py -q
+          uv run python -m py_compile scripts/experiments/run_native_supplier_bundle.py
+
+      - name: Verify supplier secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MINIMAX_H3_API_KEY"
+          test -n "$MINIMAX_H3_BASE_URL"
+          echo "::add-mask::$MINIMAX_H3_BASE_URL"
+
+      - name: Download accepted E12U06 v4 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: supplier-e12u06-evidence
+          path: /tmp/e12-evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.E12_ACCEPTED_RUN_ID }}
+
+      - name: Recover exact canonical C01 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/e15-source
+          SEC=/tmp/e15-secure
+          DEC=/tmp/e15-decrypted
+          mkdir -p "$SRC" "$SEC" "$DEC" /tmp/e13-assets
+
+          git fetch --no-tags origin "$E15_ASSET_COMMIT"
+          for f in cert.pem.b64 private.pem.enc.b64 bundle.part.00 bundle.part.01 bundle.part.02 bundle.part.03 bundle.part.04 bundle.part.05 bundle.part.06 bundle.part.07 bundle.part.08; do
+            git show "$E15_ASSET_COMMIT:.github/supplier-bundles/E15U03/$f" > "$SRC/$f"
+          done
+
+          tr -d '\r\n ' < "$SRC/cert.pem.b64" | base64 -d > "$SEC/cert.pem"
+          tr -d '\r\n ' < "$SRC/private.pem.enc.b64" | base64 -d > "$SEC/private.pem.enc"
+          cat "$SRC"/bundle.part.* | tr -d '\r\n ' | base64 -d > "$SEC/bundle.cms"
+          echo "7162bf8c9b0d552868d8e35072a726bc08ecaecb2d1a009047e21288c2db20e3  $SEC/bundle.cms" | sha256sum -c -
+
+          openssl enc -d -aes-256-cbc -pbkdf2 -in "$SEC/private.pem.enc" -out "$SEC/private.pem" -pass env:MINIMAX_H3_API_KEY
+          openssl cms -decrypt -binary -inform DER -in "$SEC/bundle.cms" -recip "$SEC/cert.pem" -inkey "$SEC/private.pem" -out "$SEC/bundle.tar.gz"
+          tar -xzf "$SEC/bundle.tar.gz" -C "$DEC"
+          rm -f "$SEC/private.pem" "$SEC/bundle.tar.gz" "$SEC/bundle.cms"
+
+          uv run python - <<'PY'
+          import hashlib, json, os, shutil
+          from pathlib import Path
+          root=Path("/tmp/e15-decrypted")
+          m=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
+          wanted=os.environ["C01_CANONICAL_SHA256"]
+          ref=next((r for r in m["references"] if r["sha256"]==wanted),None)
+          if not ref:
+              raise SystemExit("C01 canonical asset missing")
+          src=root/ref["filename"]
+          assert hashlib.sha256(src.read_bytes()).hexdigest()==wanted
+          shutil.copy2(src,"/tmp/e13-assets/C01_board.png")
+          print("C01 canonical source PASS",wanted)
+          PY
+
+      - name: Derive clean C01 anchor and E12 continuity references
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$SUPPLIER_BUNDLE_DIR"
+          E12_VIDEO="$(find /tmp/e12-evidence -type f -name 'E12U06.mp4' -print -quit)"
+          test -n "$E12_VIDEO"
+          echo "$E12_ACCEPTED_VIDEO_SHA256  $E12_VIDEO" | sha256sum -c -
+
+          ffmpeg -hide_banner -loglevel error -ss 9.5 -i "$E12_VIDEO" -frames:v 1 /tmp/e13-assets/stage_continuity.jpg
+          ffmpeg -hide_banner -loglevel error -ss 4.5 -i "$E12_VIDEO" -frames:v 1 /tmp/e13-assets/screen_source.jpg
+
+          uv run python - <<'PY'
+          import hashlib, os, subprocess
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+          board_path=Path("/tmp/e13-assets/C01_board.png")
+          board=Image.open(board_path).convert("RGB")
+          if board.size != (1086,1448):
+              raise SystemExit(f"unexpected C01 board dimensions: {board.size}")
+
+          face=board.crop((0,0,480,640))
+          body=board.crop((480,0,690,640))
+          canvas=Image.new("RGB",(1280,720),(238,238,238))
+          face2=ImageOps.fit(face,(640,720),method=Image.Resampling.LANCZOS,centering=(0.48,0.42))
+          body2=ImageOps.contain(body,(520,680),method=Image.Resampling.LANCZOS)
+          canvas.paste(face2,(0,0))
+          canvas.paste(body2,(640+(640-body2.width)//2,(720-body2.height)//2))
+          clean=Path("/tmp/e13-assets/C01_clean_identity_anchor.png")
+          canvas.save(clean)
+
+          src=Image.open("/tmp/e13-assets/screen_source.jpg").convert("RGB")
+          draw=ImageDraw.Draw(src)
+          draw.rectangle((0,0,src.width,src.height),fill=(0,0,0))
+          font_path=subprocess.check_output(
+              ["bash","-lc","fc-match -f '%{file}' 'Noto Sans CJK SC' | head -n1"],
+              text=True,
+          ).strip()
+          f1=ImageFont.truetype(font_path,74)
+          f2=ImageFont.truetype(font_path,46)
+          for value,font,y in [("沈知意",f1,155),("天枢联合创始人",f2,285)]:
+              box=draw.textbbox((0,0),value,font=font)
+              x=(src.width-(box[2]-box[0]))//2
+              draw.text((x,y),value,font=font,fill=(245,245,245))
+          screen=Path("/tmp/e13-assets/E13U01_screen_anchor.png")
+          src.save(screen)
+
+          def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          print("C01 source SHA",sha(board_path))
+          print("C01 clean anchor SHA",sha(clean))
+          print("screen anchor SHA",sha(screen))
+          PY
+
+          cp /tmp/e13-assets/E13U01_screen_anchor.png "$SUPPLIER_BUNDLE_DIR/screen_anchor.png"
+          cp /tmp/e13-assets/stage_continuity.jpg "$SUPPLIER_BUNDLE_DIR/stage_continuity.jpg"
+          cp /tmp/e13-assets/C01_clean_identity_anchor.png "$SUPPLIER_BUNDLE_DIR/C01_clean_identity_anchor.png"
+          cp .github/supplier-prompts/E13U01.v3.txt "$SUPPLIER_BUNDLE_DIR/prompt.txt"
+
+          uv run python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+
+          root=Path("/tmp/e13u01-v3-bundle")
+          def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
+
+          refs=[]
+          for filename,role in [
+              ("screen_anchor.png","canonical_identity_screen_full_frame"),
+              ("stage_continuity.jpg","E12U06_v4_stage_continuity"),
+              ("C01_clean_identity_anchor.png","C01_clean_identity_anchor"),
+          ]:
+              p=root/filename
+              refs.append({"filename":filename,"role":role,"sha256":sha(p),"size_bytes":p.stat().st_size})
+
+          manifest={
+              "unit_id":"E13U01",
+              "workflow_id":"minimax_h3_zm_u24",
+              "duration_seconds":10,
+              "resolution":"480p横",
+              "prompt_sha256":sha(root/"prompt.txt"),
+              "canonical_c01_source_sha256":"50893f22ed6e38bd3764f088ec2cd7e1f5ccecaaadd707e0d63ee2e217782bb9",
+              "accepted_e12u06_video_sha256":"eae4c6d8531b0be0be65108d2689cf091149abce52afa8ba84e44cad2dec7782",
+              "references":refs,
+          }
+          (root/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          out=Path("artifacts/supplier-e13u01-v3")
+          out.mkdir(parents=True,exist_ok=True)
+          (out/"input_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(manifest,ensure_ascii=False))
+          PY
+
+      - name: Submit exactly one E13U01 v3 supplier task
+        run: uv run python scripts/experiments/run_native_supplier_bundle.py
+
+      - name: Probe and densely sample E13U01 v3
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          VIDEO="$SUPPLIER_OUTPUT_DIR/E13U01.mp4"
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json "$VIDEO" > "$SUPPLIER_OUTPUT_DIR/ffprobe.json"
+          mkdir -p "$SUPPLIER_OUTPUT_DIR/frames"
+          for t in 0.25 0.75 1.25 1.75 2.25 2.75 3.25 3.75 4.25 4.75 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75; do
+            ffmpeg -hide_banner -loglevel error -ss "$t" -i "$VIDEO" -frames:v 1 "$SUPPLIER_OUTPUT_DIR/frames/frame_${t}.jpg"
+          done
+
+          uv run python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path("artifacts/supplier-e13u01-v3/frames")
+          files=sorted(root.glob("frame_*.jpg"),key=lambda p:float(p.stem.split("_",1)[1]))
+          imgs=[Image.open(p).convert("RGB") for p in files]
+          W,H=432,240
+          cols=4
+          rows=(len(imgs)+cols-1)//cols
+          sheet=Image.new("RGB",(W*cols,H*rows),"black")
+          for i,img in enumerate(imgs):
+              sheet.paste(img.resize((W,H)),((i%cols)*W,(i//cols)*H))
+          sheet.save("artifacts/supplier-e13u01-v3/E13U01_v3_dense_contact_sheet.jpg",quality=92)
+          PY
+
+          ffmpeg -hide_banner -loglevel error -i "$VIDEO" -vn -acodec pcm_s16le "$SUPPLIER_OUTPUT_DIR/audio.wav" || true
+
+      - name: Upload E13U01 v3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-e13u01-v3-evidence
+          path: artifacts/supplier-e13u01-v3
+          if-no-files-found: warn
+          retention-days: 5
