@@ -1,0 +1,10 @@
+unit=E11U02
+attempt=v3-deterministic-repair-1
+scope=E11U02 only
+source_supplier_run=36148270693
+source_supplier_artifact=10870732082
+source_supplier_head=e3d5e8abd053442c5981ca76ff4e57a6a84beae4
+purpose=repair exact paid v2 supplier outputs deterministically: scrub non-canonical screen text surfaces, defocus hallucinated guest-badge typography, defocus incidental media badges/exit sign while preserving C02/C04 rear silhouettes and canonical 5s+5s+5s timeline
+provider_recalled=false
+content_gates=shot1 stable physical model state; shot2 badge placement with zero readable invented typography; shot3 summit media entry with no readable supporting text; dialogue audio preserved; exact 15s final
+next_gate=E15U03 only after E11U02 v3 dense visual PASS
