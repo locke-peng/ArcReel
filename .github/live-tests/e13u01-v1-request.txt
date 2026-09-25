@@ -1,7 +1,7 @@
 unit=E13U01
-attempt=6
+attempt=7
 scope=E13U01 only
-purpose=paid E13U01 acceptance with canonical 10s visual-only Ref2VA plus ArcReel post-production audio mux
+purpose=paid E13U01 acceptance retry after lint-only import ordering; prompt and 10s post-mux architecture unchanged
 duration_seconds=10
 resolution=480p横
 aspect_ratio=16:9
