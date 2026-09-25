@@ -1,0 +1,10 @@
+unit=E13U03
+attempt=1
+scope=E13U03 only
+purpose=paid supplier acceptance for three authored 5s plates with C03 school reaction, C01 summit console operation, semantic-only unreadable logs, and dialogue-detached audio
+duration_seconds=15
+shot_structure=5s+5s+5s
+provider_resolution=480p横
+final_resolution=864x480
+content_gates=C03 identity; school scene; C01 identity; summit console continuity; dialogue audio-only; no readable log text; exact three-shot timing
+next_gate=E11U02 or remaining representative unit only after E13U03 content PASS
