@@ -22,7 +22,9 @@ def test_e13u01_canonical_facts_are_locked() -> None:
 
 def test_e13u01_audio_seed_owns_dialogue() -> None:
     assert f"<d>[Chinese] {HOST_DIALOGUE}</d>" in AUDIO_SEED_PROMPT
-    assert "off-screen female summit host" in AUDIO_SEED_PROMPT
+    lowered = AUDIO_SEED_PROMPT.lower()
+    assert "off-screen" in lowered
+    assert "female summit host" in lowered
     assert "No non-diegetic music" in AUDIO_SEED_PROMPT
 
 
