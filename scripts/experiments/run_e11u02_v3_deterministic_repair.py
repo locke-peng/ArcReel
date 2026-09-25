@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import os
 import shutil
@@ -122,11 +123,7 @@ def _require_hash(path: Path, expected: str, label: str) -> None:
 def _shot2_rect_for(t: float) -> tuple[int, int, int, int] | None:
     if t < SHOT2_LABEL_KEYFRAMES[0][0]:
         return None
-    for (t0, r0), (t1, r1) in zip(
-        SHOT2_LABEL_KEYFRAMES,
-        SHOT2_LABEL_KEYFRAMES[1:],
-        strict=True,
-    ):
+    for (t0, r0), (t1, r1) in itertools.pairwise(SHOT2_LABEL_KEYFRAMES):
         if t0 <= t <= t1:
             if r0 is None and r1 is None:
                 return None
@@ -138,7 +135,7 @@ def _shot2_rect_for(t: float) -> tuple[int, int, int, int] | None:
                 return r1
             alpha = (t - t0) / (t1 - t0)
             return tuple(
-                int(round(r0[idx] * (1.0 - alpha) + r1[idx] * alpha))
+                round(r0[idx] * (1.0 - alpha) + r1[idx] * alpha)
                 for idx in range(4)
             )
     return SHOT2_LABEL_KEYFRAMES[-1][1]
@@ -228,12 +225,12 @@ def _shot3_defocus_mask() -> Image.Image:
 
     left_span = SHOT3_LEFT_FEATHER_END - SHOT3_LEFT_FULL
     for x in range(SHOT3_LEFT_FULL, SHOT3_LEFT_FEATHER_END):
-        value = int(round(255 * (SHOT3_LEFT_FEATHER_END - x) / left_span))
+        value = round(255 * (SHOT3_LEFT_FEATHER_END - x) / left_span)
         draw.line((x, 0, x, HEIGHT), fill=value)
 
     right_span = SHOT3_RIGHT_FULL - SHOT3_RIGHT_FEATHER_START
     for x in range(SHOT3_RIGHT_FEATHER_START, SHOT3_RIGHT_FULL):
-        value = int(round(255 * (x - SHOT3_RIGHT_FEATHER_START) / right_span))
+        value = round(255 * (x - SHOT3_RIGHT_FEATHER_START) / right_span)
         draw.line((x, 0, x, HEIGHT), fill=value)
 
     draw.rectangle(SHOT3_EXIT_SIGN_RECT, fill=255)
