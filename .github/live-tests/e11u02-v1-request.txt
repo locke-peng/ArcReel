@@ -1,7 +1,7 @@
 unit=E11U02
-attempt=1
+attempt=2
 scope=E11U02 only
-purpose=paid supplier acceptance for three authored 5s beats with identity-safe framing where canonical face assets are unavailable, dialogue-detached audio, blank guest badge, and zero readable text
+purpose=paid supplier acceptance retry after static fixture-hash and assertion alignment; production prompts and architecture unchanged
 duration_seconds=15
 shot_structure=5s+5s+5s
 provider_resolution=480p横
