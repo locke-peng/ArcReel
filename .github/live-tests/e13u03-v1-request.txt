@@ -1,7 +1,7 @@
 unit=E13U03
-attempt=1
+attempt=2
 scope=E13U03 only
-purpose=paid supplier acceptance for three authored 5s plates with C03 school reaction, C01 summit console operation, semantic-only unreadable logs, and dialogue-detached audio
+purpose=paid supplier acceptance retry after shot3 zero-text contract wording alignment; architecture unchanged
 duration_seconds=15
 shot_structure=5s+5s+5s
 provider_resolution=480p横
