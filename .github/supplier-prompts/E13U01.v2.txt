@@ -1,0 +1,33 @@
+subject_definitions:
+<Subject 1> is the exact canonical identity-title screen artwork derived from <Picture 1>. Treat <Picture 1> as the full-frame opening composition itself, not as a card, poster, slide, or screen placed inside another decorative frame. Preserve the flat black field and exactly two readable text lines.
+<Subject 2> is the exact E12U06 v4 summit-stage continuity state derived from <Picture 2>. Preserve the same stage-wing door, its immediate physical connection to the stage edge, the same short threshold, floor geometry, main-screen position, black-and-blue event lighting, and spotlight origin.
+<Subject 3> is a clean identity anchor derived only from canonical character C01 Shen Zhiyi. The left portrait and right full-body view are the same woman. Preserve her exact face identity, dark low updo, eye spacing, brows, nose, mouth, cheek and jaw structure, skin tone, and white tailored trouser suit. Ignore the handbag from the full-body source; she carries nothing onto the stage.
+
+summary:
+[reference generation] Create one continuous 10-second 16:9 summit reveal in two authored 5-second shots. Shot 1 begins already on the exact full-frame identity title from <Picture 1>, edge-to-edge black with no decorative surround. Shot 2 hard-cuts to the exact E12U06 v4 stage-wing geometry from <Picture 2>; C01 Shen Zhiyi from <Picture 3> steps through that same side door and reaches the brightest core of the established spotlight before the unit ends.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - use its edge-to-edge black layout and exact two-line readable title; do not reinterpret it as a framed graphic, presentation card, poster, or UI panel.
+<Subject 2> (appears in [Shot 2]): fully_preserved - keep the E12U06 v4 side door, short threshold, stage floor, main screen, cool lighting family, and spotlight geometry.
+<Subject 3> (appears in [Shot 2]): fully_preserved - C01 facial identity, low updo, and white professional suit remain locked to the clean reference; do not substitute another woman.
+
+detailed_description:
+The sequence is live-action cinematic conference drama with restrained movement, black-blue event lighting, and a clean white spotlight. The cut at 00:05.000 is a direct continuation of the accepted E12U06 v4 space.
+
+VISIBLE-TEXT CONTRACT — HIGHEST PRIORITY: the complete target video may contain only these two readable strings, and only as the identity title on the main LED screen:
+"沈知意"
+"天枢联合创始人"
+The strings appear as two centered lines exactly as in <Picture 1>. Do not add a slash. Do not create any other letters, numbers, logos, badges, captions, subtitles, lower-thirds, watermarks, timestamps, UI labels, pseudo-glyphs, decorative writing, or presentation graphics.
+
+DIALOGUE DELIVERY CONTRACT: do not synthesize or typeset host dialogue in this provider pass. The canonical host line will be added in post-production audio. No subtitle, caption, speech bubble, dialogue card, or transcription may appear.
+
+[Shot 1] 00:00-00:05. Start directly on <Subject 1>. The camera view is filled edge-to-edge by the black LED display surface; there is no visible white border, colorful surround, presentation template, decorative shape, bezel, wall, portrait, or stage scenery around it. The exact two-line title is already fully resolved at frame one, centered, stable, and legible. Hold it with a static 50mm-equivalent view for the full five seconds. Nothing else enters the frame.
+
+[Shot 2] At 00:05.000, hard cut to <Subject 2>. Use a tighter medium 50mm stage-edge composition than the prior unit: the open side door occupies the left third, the existing spotlight core occupies the center-right, and only a limited part of the main screen remains in the background. <Subject 3> is the only featured person. At 00:05.0 she is visible at the doorway threshold. From 00:05.5 to 00:08.3 she takes three calm, measured steps directly from the short threshold toward the spotlight. By 00:08.5 her face and upper body are inside the brightest core of the white spotlight. From 00:09.0 to 00:10.0 she slows and holds a composed three-quarter standing position inside the spotlight so her canonical face is clearly visible for identity review. She looks toward the audience, not at camera. The camera performs only a restrained slow push and must not remain so wide that her face becomes unreadable. No handbag, no second entrant, no corridor redesign, no extra person, and no third identity.
+
+overall_soundscape:
+Shot 1 begins with a tense summit-room hush and applause rising under the reveal. Shot 2 continues applause, realistic room ambience, and three subtle footsteps. No synthesized spoken words are required in this provider pass.
+
+non_diegetic_music:
+N/A
+Avoid: BGM, subtitles, captions, dialogue transcription, speech bubbles, lower-thirds, watermarks, logos, timestamps, pseudo-text, decorative presentation borders, and any readable text except the two approved screen strings.
