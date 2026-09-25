@@ -1,8 +1,8 @@
 unit=E13U01
-attempt=1
+attempt=2
 repair=v2_deterministic_screen_h3_entry
 scope=E13U01 only
-purpose=paid E13U01 acceptance with deterministic exact 5s identity screen plus H3 C01 entrance plate and detached post-mux audio
+purpose=paid E13U01 v2 retry after identity-contract assertion cleanup; deterministic screen + H3 entrance architecture unchanged
 duration_seconds=10
 resolution=480p横
 aspect_ratio=16:9
