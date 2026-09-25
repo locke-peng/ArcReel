@@ -1,7 +1,7 @@
 unit=E13U01
-attempt=1
+attempt=2
 scope=E13U01 only
-purpose=paid AutoDL MiniMax H3 acceptance for exact identity screen, C01 identity, E12U06 stage continuity, and dialogue-detached audio
+purpose=paid AutoDL MiniMax H3 acceptance retry after static contract assertion cleanup; prompt unchanged
 duration_seconds=10
 resolution=480p横
 aspect_ratio=16:9
