@@ -1,7 +1,7 @@
 unit=E13U01
-attempt=5
+attempt=6
 scope=E13U01 only
-purpose=paid AutoDL MiniMax H3 acceptance retry with chunked exact bridge and pre-spend SHA decode test
+purpose=paid E13U01 acceptance with canonical 10s visual-only Ref2VA plus ArcReel post-production audio mux
 duration_seconds=10
 resolution=480p横
 aspect_ratio=16:9
