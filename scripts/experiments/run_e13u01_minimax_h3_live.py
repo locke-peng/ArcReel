@@ -33,7 +33,7 @@ HOST_DIALOGUE = "欢迎沈知意"
 
 CHARACTER_ID = "C01"
 CHARACTER_NAME = "沈知意"
-BRIDGE_B64 = Path(".github/live-tests/e13u01_stage_c01_bridge.jpg.b64")
+BRIDGE_B64_PART_GLOB = "e13u01_stage_c01_bridge.jpg.b64.part.*"
 BRIDGE_SHA256 = "fceffda195129d618ef9e7320c11409ab34663477335b24ef0f8b6eaecf22135"
 
 FINAL_AVOID_LINE = (
@@ -130,7 +130,10 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def _decode_bridge(path: Path) -> None:
-    raw = "".join(BRIDGE_B64.read_text(encoding="utf-8").split())
+    parts = sorted(Path(".github/live-tests").glob(BRIDGE_B64_PART_GLOB))
+    if not parts:
+        raise RuntimeError("E13U01 bridge chunks are missing")
+    raw = "".join("".join(part.read_text(encoding="utf-8").split()) for part in parts)
     data = base64.b64decode(raw, validate=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
