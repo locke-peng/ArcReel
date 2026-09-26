@@ -165,5 +165,6 @@ def test_provider_success_writes_phase2_root_evidence(tmp_path: Path) -> None:
     assert sidecar.is_file()
     assert chain.nodes[0].stage == "provider_output"
     assert chain.nodes[0].artifact_sha256
-    assert "provider_prompt_sha256" not in sidecar.read_text(encoding="utf-8")
-    # Prompt hash is committed inside metadata_sha256 without leaking prompt text.
+    payload = sidecar.read_text(encoding="utf-8")
+    assert "provider_prompt_sha256" in payload
+    assert "zero-text visual prompt" not in payload
