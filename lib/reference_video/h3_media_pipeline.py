@@ -259,6 +259,27 @@ class EvidenceChain:
                 )
             seen.add(node.artifact_sha256)
 
+    @classmethod
+    def from_json(cls, value: str) -> "EvidenceChain":
+        try:
+            raw = json.loads(value)
+            unit_id = str(raw["unit_id"])
+            nodes = tuple(
+                EvidenceNode(
+                    stage=str(item["stage"]),
+                    artifact_sha256=str(item["artifact_sha256"]),
+                    parent_sha256=tuple(str(parent) for parent in item.get("parent_sha256") or ()),
+                    metadata_sha256=str(item["metadata_sha256"]),
+                    metadata=dict(item.get("metadata") or {}),
+                )
+                for item in raw["nodes"]
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise H3MediaPipelineError("malformed H3 evidence chain") from exc
+        chain = cls(unit_id=unit_id, nodes=nodes)
+        chain.validate()
+        return chain
+
     def to_json(self) -> str:
         self.validate()
         return json.dumps(
