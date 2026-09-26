@@ -41,6 +41,7 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media,
     stage_provider_media_for_task,
 )
+from lib.reference_video.h3_media_pipeline import write_provider_evidence_chain
 from lib.reference_video.h3_prompt_execution import (
     assert_provider_prompt_matches_preview,
     compile_reference_video_provider_prompt,
@@ -791,6 +792,20 @@ async def execute_reference_video_task(
             poll_timeout_seconds=poll_timeout_seconds,
             warnings=warnings,
         )
+
+        if h3_compilation_applies:
+            evidence_path = project_path / "reference_videos" / "evidence" / f"{resource_id}.json"
+            await asyncio.to_thread(
+                write_provider_evidence_chain,
+                unit_id=resource_id,
+                provider_output=output_path,
+                provider_prompt=provider_prompt,
+                provider_id=video.provider_model.provider_id,
+                model_id=video.backend_model,
+                requested_resolution=resolution,
+                requested_duration_seconds=effective_duration,
+                output_path=evidence_path,
+            )
 
         async def _finalize() -> dict[str, Any]:
             return await finalize_reference_video_unit(
