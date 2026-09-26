@@ -3626,6 +3626,27 @@ async def _execute_character_derivative_task_proxy(
     return await execute_character_derivative_task(project_name, resource_id, payload, user_id=user_id, task_id=task_id)
 
 
+async def _execute_h3_media_repair_task_proxy(
+    project_name: str,
+    resource_id: str,
+    payload: dict[str, Any],
+    *,
+    user_id: str,
+    task_id: str | None = None,
+) -> dict[str, Any]:
+    """Lazy proxy: deterministic H3 repair is a local post-provider task."""
+
+    from server.services.h3_media_repair_tasks import execute_h3_media_repair_task
+
+    return await execute_h3_media_repair_task(
+        project_name,
+        resource_id,
+        payload,
+        user_id=user_id,
+        task_id=task_id,
+    )
+
+
 async def _execute_image_edit_task_proxy(
     project_name: str,
     resource_id: str,
@@ -3651,6 +3672,7 @@ _TASK_EXECUTORS = {
     "product": execute_product_task,
     "grid": execute_grid_task,
     "reference_video": _execute_reference_video_task_proxy,
+    "h3_media_repair": _execute_h3_media_repair_task_proxy,
     "image_edit": _execute_image_edit_task_proxy,
     DERIVATIVE_TASK_TYPE: _execute_character_derivative_task_proxy,
 }
