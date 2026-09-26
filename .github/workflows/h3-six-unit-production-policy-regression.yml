@@ -8,8 +8,10 @@ on:
     paths:
       - "lib/reference_video/h3_production_policy.py"
       - "lib/video_prompt_compilers/h3_director_compiler.py"
+      - "lib/reference_video/h3_media_pipeline.py"
       - "tests/unit/test_h3_six_unit_production_policy.py"
       - "tests/unit/test_h3_v6_director.py"
+      - "tests/unit/test_h3_phase2_media_pipeline.py"
       - ".github/workflows/h3-six-unit-production-policy-regression.yml"
 
 jobs:
@@ -25,11 +27,13 @@ jobs:
         run: pip install -e . pytest pytest-asyncio pytest-timeout ruff
       - name: Six-unit golden policy regression
         run: pytest -q tests/unit/test_h3_six_unit_production_policy.py
+      - name: Phase 2 media QA repair evidence regression
+        run: pytest -q tests/unit/test_h3_phase2_media_pipeline.py
       - name: H3 V6 compiler compatibility
         run: pytest -q tests/unit/test_h3_v6_director.py tests/unit/test_h3_prompt_compiler.py
       - name: Compile
-        run: python -m py_compile lib/reference_video/h3_production_policy.py lib/video_prompt_compilers/h3_director_compiler.py
+        run: python -m py_compile lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/video_prompt_compilers/h3_director_compiler.py
       - name: Ruff
         run: |
-          ruff check lib/reference_video/h3_production_policy.py tests/unit/test_h3_six_unit_production_policy.py
+          ruff check lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py tests/unit/test_h3_six_unit_production_policy.py tests/unit/test_h3_phase2_media_pipeline.py
           ruff check --select I lib/video_prompt_compilers/h3_director_compiler.py
