@@ -7,9 +7,9 @@ reclassify failures or choose actions, and provider recall is disabled by defaul
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 from lib.reference_video.h3_production_policy import H3RepairDecision
 
