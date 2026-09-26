@@ -11,29 +11,34 @@ on:
       - ".github/workflows/h3-phase3-production-policy.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   phase3-policy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
-      - name: Install focused test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest ruff
+      - name: Install ArcReel dependencies
+        run: uv sync
 
       - name: Phase 3 policy unit tests
-        run: |
-          pytest -q tests/unit/lib/reference_video/test_h3_production_policy.py
+        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_production_policy.py
 
       - name: Compile
-        run: |
-          python -m py_compile lib/reference_video/h3_production_policy.py
+        run: uv run python -m py_compile lib/reference_video/h3_production_policy.py tests/unit/lib/reference_video/test_h3_production_policy.py
 
       - name: Ruff
-        run: |
-          ruff check lib/reference_video/h3_production_policy.py tests/unit/lib/reference_video/test_h3_production_policy.py
+        run: uv run ruff check lib/reference_video/h3_production_policy.py tests/unit/lib/reference_video/test_h3_production_policy.py
