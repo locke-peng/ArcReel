@@ -18,6 +18,11 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal
 
+from lib.reference_video.h3_production_policy import (
+    H3ProductionPolicyError,
+    validate_h3_canonical_unit,
+)
+
 H3_MIN_DURATION_SECONDS = 4
 H3_MAX_DURATION_SECONDS = 15
 H3_MAX_REFERENCE_IMAGES = 9
@@ -566,6 +571,11 @@ def compile_h3_director_prompt(
     bundle = CanonicalDirectorBundle.resolve(canonical_director, unit_id=unit_id)
     unit = bundle.unit
     registries = bundle.registries
+
+    try:
+        validate_h3_canonical_unit(unit, provider_duration_seconds=duration)
+    except H3ProductionPolicyError as exc:
+        raise H3DirectorCompileError(str(exc)) from exc
 
     unit_duration = unit.get("duration_sec")
     if isinstance(unit_duration, (int, float)) and not isinstance(unit_duration, bool):
