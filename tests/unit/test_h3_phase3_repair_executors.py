@@ -10,6 +10,8 @@ from lib.reference_video.h3_media_pipeline import (
     H3MediaPipelineError,
     RepairAction,
     RepairRegion,
+    RepairRegionKeyframe,
+    RepairRegionTrack,
     RepairRequest,
     TimelineSegment,
 )
@@ -147,3 +149,49 @@ def test_phase3_module_has_no_provider_or_secret_dependency() -> None:
     assert "DeclarativeVideoBackend" not in source
     assert "MINIMAX" not in source
     assert "API_KEY" not in source
+
+
+
+def test_phase3_keyframed_weighted_pixel_sanitization(tmp_path: Path) -> None:
+    source = tmp_path / "source.mp4"
+    output = tmp_path / "tracked.mp4"
+    _make_av_fixture(source, seconds=2)
+    request = RepairRequest(
+        action=RepairAction.DETERMINISTIC_PIXEL_SANITIZATION,
+        source_path=source,
+        output_path=output,
+        region_tracks=(
+            RepairRegionTrack(
+                shot_id="S1",
+                start_sec=0,
+                end_sec=2,
+                keyframes=(
+                    RepairRegionKeyframe(0, 10, 10, 80, 60),
+                    RepairRegionKeyframe(2, 120, 50, 80, 60),
+                ),
+                blur_radius=12,
+                opacity=0.6,
+            ),
+        ),
+    )
+    execute_pixel_sanitization(request)
+    assert output.is_file()
+    assert abs(_probe_duration(output) - 2) < 0.15
+
+
+def test_phase3_evidence_chain_allows_multiple_immutable_roots(tmp_path: Path) -> None:
+    provider_a = tmp_path / "provider_a.bin"
+    provider_b = tmp_path / "provider_b.bin"
+    canonical = tmp_path / "canonical.bin"
+    provider_a.write_bytes(b"a")
+    provider_b.write_bytes(b"b")
+    canonical.write_bytes(b"c")
+    chain = EvidenceChain(
+        unit_id="TEST",
+        nodes=(
+            EvidenceNode.create(stage="provider_output", artifact_path=provider_a),
+            EvidenceNode.create(stage="provider_output", artifact_path=provider_b),
+            EvidenceNode.create(stage="canonical_asset", artifact_path=canonical),
+        ),
+    )
+    chain.validate()
