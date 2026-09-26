@@ -1,1 +1,1 @@
-Phase 3 real supplier evidence migration regression. Provider calls must remain zero.\nretry=2; repository uv sync environment; provider_calls=0\nretry=3; uv-run compile/lint/migration; provider_calls=0\n
+Phase 3 real supplier evidence migration regression. Provider calls must remain zero.\nretry=2; repository uv sync environment; provider_calls=0\nretry=3; uv-run compile/lint/migration; provider_calls=0\nretry=4; pairwise lint fix; provider_calls=0\n
