@@ -20,7 +20,6 @@ from lib.reference_video.h3_repair_executors import (
     execute_pixel_sanitization,
 )
 
-
 pytestmark = pytest.mark.skipif(
     shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
     reason="Phase 3 media executor regression requires ffmpeg/ffprobe",
