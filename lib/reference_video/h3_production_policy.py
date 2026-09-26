@@ -96,11 +96,14 @@ def validate_h3_canonical_unit(
             raise H3ProductionPolicyError(f"{shot_id}: shot end must be greater than start")
 
         declared = shot.get("duration_sec")
-        if isinstance(declared, (int, float)) and not isinstance(declared, bool):
-            if abs(float(declared) - (end - start)) > 1e-6:
-                raise H3ProductionPolicyError(
-                    f"{shot_id}: duration_sec does not match start_sec/end_sec"
-                )
+        if (
+            isinstance(declared, (int, float))
+            and not isinstance(declared, bool)
+            and abs(float(declared) - (end - start)) > 1e-6
+        ):
+            raise H3ProductionPolicyError(
+                f"{shot_id}: duration_sec does not match start_sec/end_sec"
+            )
         cursor = end
 
         for screen in _sequence(shot.get("screen_text")):
