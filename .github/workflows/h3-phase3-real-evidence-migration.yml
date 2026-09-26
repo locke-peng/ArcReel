@@ -1,0 +1,103 @@
+name: H3 Phase 3 Real Evidence Migration
+
+on:
+  push:
+    branches:
+      - feat/h3-six-unit-regression-pipeline-validator
+    paths:
+      - .github/live-tests/phase3-real-evidence-migration-request.txt
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  phase3-real-evidence-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install media and Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install pillow pytest ruff
+
+      - name: Phase 3 executor regression
+        run: pytest -q tests/unit/test_h3_phase3_repair_executors.py
+
+      - name: Compile migration surface
+        run: |
+          python -m py_compile             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_executors.py             scripts/experiments/run_h3_phase3_real_evidence_migration.py             tests/unit/test_h3_phase3_repair_executors.py
+
+      - name: Ruff migration surface
+        run: |
+          ruff check             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_executors.py             scripts/experiments/run_h3_phase3_real_evidence_migration.py             tests/unit/test_h3_phase3_repair_executors.py
+
+      - name: Download immutable E11U02 paid v2 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: e11u02-v2-zero-text-physical-state-evidence
+          path: upstream/E11U02
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36148270693
+
+      - name: Download immutable E15U03 paid supplier evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: supplier-e15u03-evidence
+          path: upstream/E15U03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36009732060
+
+      - name: Download immutable E13U01 v2 supplier evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: e13u01-v2-deterministic-screen-identity-continuity-evidence
+          path: upstream/E13U01
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36098803663
+
+      - name: Run real-evidence migration through production executors
+        run: |
+          python scripts/experiments/run_h3_phase3_real_evidence_migration.py             --e11-dir upstream/E11U02             --e15-dir upstream/E15U03             --e13-dir upstream/E13U01             --output-dir phase3_artifacts
+
+      - name: Extract dense migration review frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          for UNIT in E11U02 E15U03 E13U01; do
+            VIDEO="phase3_artifacts/$UNIT/$UNIT.mp4"
+            mkdir -p "phase3_artifacts/$UNIT/review_frames"
+            if [ "$UNIT" = "E13U01" ]; then
+              TIMES="0.25 0.75 1.25 1.75 2.25 2.75 3.25 3.75 4.25 4.75 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75"
+            else
+              TIMES="0.25 0.75 1.25 1.75 2.25 2.75 3.25 3.75 4.25 4.75 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75 10.25 10.75 11.25 11.75 12.25 12.75 13.25 13.75 14.25 14.75"
+            fi
+            for T in $TIMES; do
+              ffmpeg -hide_banner -loglevel error -ss "$T" -i "$VIDEO" -frames:v 1                 "phase3_artifacts/$UNIT/review_frames/frame_${T}.png"
+            done
+          done
+
+      - name: Assert no provider dependency in migration runner
+        run: |
+          ! grep -Eq 'MediaGenerator|DeclarativeVideoBackend|MINIMAX|API_KEY'             scripts/experiments/run_h3_phase3_real_evidence_migration.py
+
+      - name: Upload Phase 3 real-evidence migration evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: h3-phase3-real-evidence-migration
+          path: phase3_artifacts
+          if-no-files-found: error
+          retention-days: 14
