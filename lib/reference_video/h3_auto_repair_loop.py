@@ -6,9 +6,9 @@ to the existing Phase 3 classifier/planner/executor chain.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from lib.reference_video.h3_failure_classifier import classify_h3_media_finding
 from lib.reference_video.h3_production_policy import (
