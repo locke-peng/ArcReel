@@ -84,7 +84,7 @@ class H3EvidenceRecord:
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
-    def sealed(self) -> "H3EvidenceRecord":
+    def sealed(self) -> H3EvidenceRecord:
         return replace(self, record_sha256=self.compute_sha256())
 
     def verify(self) -> None:
