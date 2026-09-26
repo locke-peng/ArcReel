@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
 from lib.reference_video.h3_media_pipeline import (
     EvidenceChain,
     EvidenceNode,
