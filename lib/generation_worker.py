@@ -263,6 +263,7 @@ class CapacityTable:
         image_max = _read_int_env("IMAGE_MAX_WORKERS", 5, minimum=1)
         video_max = _read_int_env("VIDEO_MAX_WORKERS", 3, minimum=1)
         audio_max = _read_int_env("AUDIO_MAX_WORKERS", 10, minimum=1)
+        local_max = _read_int_env("LOCAL_MAX_WORKERS", 2, minimum=1)
         # 无用户配置的装载路径：每条 lane 取声明默认（若有）→ 否则全局默认
         limits = {
             pid: cls._lane_limits(
@@ -273,7 +274,10 @@ class CapacityTable:
             )
             for pid, meta in PROVIDER_REGISTRY.items()
         }
-        return cls(_limits=limits, _defaults={"image": image_max, "video": video_max, "audio": audio_max, "text": 1})
+        return cls(
+            _limits=limits,
+            _defaults={"image": image_max, "video": video_max, "audio": audio_max, "text": 1, "local": local_max},
+        )
 
     @classmethod
     async def from_db(cls) -> CapacityTable:
@@ -288,6 +292,7 @@ class CapacityTable:
         default_image = _read_int_env("IMAGE_MAX_WORKERS", 5, minimum=1)
         default_video = _read_int_env("VIDEO_MAX_WORKERS", 3, minimum=1)
         default_audio = _read_int_env("AUDIO_MAX_WORKERS", 10, minimum=1)
+        default_local = _read_int_env("LOCAL_MAX_WORKERS", 2, minimum=1)
 
         limits: dict[str, dict[str, int]] = {}
         async with safe_session_factory() as session:
@@ -341,7 +346,13 @@ class CapacityTable:
         logger.info("从 DB 加载供应商容量表: %s", limits)
         return cls(
             _limits=limits,
-            _defaults={"image": default_image, "video": default_video, "audio": default_audio, "text": 1},
+            _defaults={
+                "image": default_image,
+                "video": default_video,
+                "audio": default_audio,
+                "text": 1,
+                "local": default_local,
+            },
         )
 
 
@@ -471,6 +482,9 @@ async def _extract_provider(task: dict[str, Any]) -> str:
     再按同一最新状态物化请求。
     解析失败（未配置供应商）时回退到 DEFAULT_PROVIDER 仅供限流，不阻断认领。
     """
+    if task.get("task_type") == "h3_media_repair":
+        return "local"
+
     project_name = task.get("project_name")
     raw_payload = task.get("payload")
     payload = raw_payload if isinstance(raw_payload, dict) else {}
@@ -544,7 +558,7 @@ class GenerationWorker:
         slots: SlotTable | None = None,
         provider_projection: ProviderProjection = _extract_provider,
         executor: TaskExecutor = _execute_task,
-        lanes: tuple[str, ...] = ("image", "video", "audio", "text"),
+        lanes: tuple[str, ...] = ("image", "video", "audio", "text", "local"),
         settle_interrupted_calls: InterruptedCallSettler | None = None,
     ):
         self.queue = queue or get_generation_queue()
