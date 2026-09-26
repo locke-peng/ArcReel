@@ -20,9 +20,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install test dependencies
-        run: pip install pytest ruff
+        run: pip install -e . pytest pytest-asyncio pytest-timeout ruff
       - name: Six-unit golden policy regression
         run: pytest -q tests/unit/test_h3_six_unit_production_policy.py
       - name: H3 V6 compiler compatibility
