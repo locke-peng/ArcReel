@@ -35,7 +35,7 @@ jobs:
 
       - name: Production repair integration tests
         run: |
-          uv run pytest -q             tests/unit/lib/reference_video/test_h3_production_policy.py             tests/unit/test_h3_phase3_repair_executors.py             tests/unit/lib/test_generation_worker_h3_local_lane.py             tests/integration/server/services/test_h3_media_repair_task.py
+          uv run pytest -q             tests/unit/test_h3_six_unit_production_policy.py             tests/unit/test_h3_phase3_repair_executors.py             tests/unit/lib/test_generation_worker_h3_local_lane.py             tests/integration/server/services/test_h3_media_repair_task.py
 
       - name: Compile production integration surface
         run: |
