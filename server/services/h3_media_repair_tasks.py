@@ -87,7 +87,7 @@ async def execute_h3_media_repair_task(
     current_path = project_path / resource_relative_path("reference_videos", resource_id)
     evidence_path = project_path / "reference_videos" / "evidence" / f"{resource_id}.json"
 
-    if not current_path.is_file():
+    if not await asyncio.to_thread(current_path.is_file):
         raise H3MediaPipelineError(f"current reference video is missing: {resource_id}")
 
     source_sha256 = await asyncio.to_thread(sha256_file, current_path)
@@ -129,7 +129,7 @@ async def execute_h3_media_repair_task(
             metadata=plan.evidence_metadata(),
         )
         evidence_json = updated_chain.to_json()
-        repaired_sha256 = sha256_file(staged_path)
+        repaired_sha256 = await asyncio.to_thread(sha256_file, staged_path)
 
         def _select_only_if_source_is_still_current() -> bool:
             return current_path.is_file() and sha256_file(current_path) == source_sha256
