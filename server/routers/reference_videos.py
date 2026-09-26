@@ -45,6 +45,8 @@ from lib.path_safety import PathTraversalError, safe_join
 from lib.project_change_hints import project_change_source
 from lib.project_manager import get_project_manager, is_reference_video_project
 from lib.reference_video import derive_references_from_text
+from lib.reference_video.h3_media_pipeline import H3MediaPipelineError, sha256_file
+from lib.reference_video.h3_repair_task import H3RepairTaskPlan
 from lib.reference_video.request_projection import (
     ReferenceRequestOptions,
     ReferenceUnitRequestProjection,
@@ -150,6 +152,23 @@ class GenerateUnitRequest(BaseModel):
             narration_delivery=self.narration_delivery,
             confirmed_request_duration_seconds=self.confirmed_request_duration_seconds,
         )
+
+
+
+class H3MediaRepairRequest(BaseModel):
+    """Post-provider deterministic repair plan produced by dense QA/review."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    observations: list[dict[str, Any]]
+    action: Literal[
+        "deterministic_pixel_sanitization",
+        "deterministic_av_retime",
+    ] | None = None
+    regions: list[dict[str, Any]] = Field(default_factory=list)
+    region_tracks: list[dict[str, Any]] = Field(default_factory=list)
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ProviderPromptPreviewRequest(GenerateUnitRequest):
@@ -886,6 +905,75 @@ async def generate_units_batch(
     payload["task_ids_by_unit"] = {item.resource_id: item.task_id for item in enqueued}
     payload["deduped"] = bool(enqueued) and all(item.deduped for item in enqueued)
     return payload
+
+
+
+@router.post(
+    "/episodes/{episode}/units/{unit_id}/media-repair",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def repair_unit_media(
+    project_name: str,
+    episode: int,
+    unit_id: str,
+    user: CurrentUser,
+    _t: Translator,
+    req: H3MediaRepairRequest,
+) -> dict[str, Any]:
+    """Queue a local deterministic repair against the reviewed H3 provider artifact.
+
+    This endpoint never calls a provider. Semantic observations are rejected by the
+    shared planner and must return to the normal regeneration/review flow.
+    """
+
+    _project, script, script_file = _load_episode_script(project_name, episode, _t)
+    _find_unit(script, unit_id, _t)
+    payload = req.model_dump(exclude_none=True)
+
+    try:
+        plan = H3RepairTaskPlan.from_payload(payload)
+    except H3MediaPipelineError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    project_path = get_project_manager().get_project_path(project_name)
+    current_path = project_path / resource_relative_path("reference_videos", unit_id)
+    evidence_path = project_path / "reference_videos" / "evidence" / f"{unit_id}.json"
+    if not current_path.is_file():
+        raise HTTPException(status_code=409, detail="current reference video is missing")
+    if not evidence_path.is_file():
+        raise HTTPException(status_code=409, detail="H3 provider evidence root is missing")
+
+    current_sha256 = await asyncio.to_thread(sha256_file, current_path)
+    if current_sha256 != plan.expected_source_sha256:
+        raise HTTPException(
+            status_code=409,
+            detail="current video changed after QA; refresh review evidence before repair",
+        )
+
+    queue = get_generation_queue()
+    try:
+        enqueued = await queue.enqueue_task(
+            project_name=project_name,
+            task_type="h3_media_repair",
+            media_type="local",
+            resource_id=unit_id,
+            payload=payload,
+            script_file=script_file,
+            source="webui",
+            user_id=user.id,
+            provider_id="local",
+        )
+    except Exception as exc:
+        logger.exception("H3 media repair enqueue failed unit_id=%s", unit_id)
+        raise HTTPException(status_code=409, detail=_t("internal_server_error")) from exc
+
+    return {
+        "task_id": enqueued["task_id"],
+        "deduped": bool(enqueued.get("deduped")),
+        "unit_id": unit_id,
+        "repair_action": plan.action.value,
+        "provider_recalled": False,
+    }
 
 
 @router.post("/episodes/{episode}/units/{unit_id}/upload-video")
