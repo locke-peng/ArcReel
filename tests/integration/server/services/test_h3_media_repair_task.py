@@ -204,3 +204,56 @@ async def test_production_h3_repair_fails_closed_when_reviewed_source_changed(
             user_id="u1",
             task_id="repair-stale",
         )
+
+
+@pytest.mark.asyncio
+async def test_reference_video_repair_endpoint_queues_only_local_lane(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_path = tmp_path / "demo"
+    current = project_path / "reference_videos" / "E1U1.mp4"
+    _make_video(current)
+    source_sha256 = sha256_file(current)
+    evidence = project_path / "reference_videos" / "evidence" / "E1U1.json"
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    evidence.write_text("{}", encoding="utf-8")
+
+    from server.routers import reference_videos as router
+
+    monkeypatch.setattr(
+        router,
+        "_load_episode_script",
+        lambda *_args, **_kwargs: ({}, {"video_units": [{"unit_id": "E1U1"}]}, "episode.json"),
+    )
+    monkeypatch.setattr(
+        router,
+        "_find_unit",
+        lambda *_args, **_kwargs: {"unit_id": "E1U1"},
+    )
+    fake_pm = SimpleNamespace(get_project_path=lambda _project_name: project_path)
+    monkeypatch.setattr(router, "get_project_manager", lambda: fake_pm)
+
+    captured: dict = {}
+
+    class FakeQueue:
+        async def enqueue_task(self, **kwargs):
+            captured.update(kwargs)
+            return {"task_id": "repair-task-1", "deduped": False}
+
+    monkeypatch.setattr(router, "get_generation_queue", FakeQueue)
+
+    response = await router.repair_unit_media(
+        project_name="demo",
+        episode=1,
+        unit_id="E1U1",
+        user=SimpleNamespace(id="u1"),
+        _t=lambda key, **_params: key,
+        req=router.H3MediaRepairRequest(**_pixel_payload(source_sha256)),
+    )
+
+    assert response["task_id"] == "repair-task-1"
+    assert response["provider_recalled"] is False
+    assert captured["task_type"] == "h3_media_repair"
+    assert captured["media_type"] == "local"
+    assert captured["provider_id"] == "local"
