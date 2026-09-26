@@ -1318,6 +1318,16 @@ class GenerationWorker:
                     await self.queue.mark_task_cancelled(task_id, cancelled_by="user")
                 continue
 
+            # local repair 没有 provider job 可 resume。它的提交阶段本身是原子的，但 worker
+            # 终态可能在进程退出前来不及落库；自动重跑会与已经选中的修复版本发生 source-SHA
+            # 冲突。标记失败，让调用方按当前 Evidence Chain 重新审片/提交即可，且不会产生费用。
+            if media_type == "local":
+                logger.warning("孤儿 local running → [restart_lost]: %s", task_id)
+                rows = await self.queue.mark_task_failed(task_id, encode_failure("restart_lost_local"))
+                if rows == 0:
+                    await self.queue.mark_task_cancelled(task_id, cancelled_by="user")
+                continue
+
             checkpoint = None
             if task_type in ("video", "reference_video"):
                 resume_state, checkpoint = classify_video_resume_state(task)
