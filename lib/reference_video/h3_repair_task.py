@@ -56,6 +56,28 @@ def _int(item: Mapping[str, Any], key: str) -> int:
     return value
 
 
+def _repair_track(item: Mapping[str, Any]) -> RepairRegionTrack:
+    keyframes = tuple(
+        RepairRegionKeyframe(
+            time_sec=_float(keyframe, "time_sec"),
+            x=_int(keyframe, "x"),
+            y=_int(keyframe, "y"),
+            width=_int(keyframe, "width"),
+            height=_int(keyframe, "height"),
+            enabled=bool(keyframe.get("enabled", True)),
+        )
+        for keyframe in _mapping_list(item.get("keyframes"), field="region_tracks[].keyframes")
+    )
+    return RepairRegionTrack(
+        shot_id=str(item.get("shot_id") or ""),
+        start_sec=_float(item, "start_sec"),
+        end_sec=_float(item, "end_sec"),
+        keyframes=keyframes,
+        blur_radius=float(item.get("blur_radius", 18.0)),
+        opacity=float(item.get("opacity", 1.0)),
+    )
+
+
 @dataclass(frozen=True)
 class H3RepairTaskPlan:
     expected_source_sha256: str
@@ -123,29 +145,10 @@ class H3RepairTaskPlan:
             for item in _mapping_list(payload.get("regions"), field="regions")
         ]
 
-        tracks: list[RepairRegionTrack] = []
-        for item in _mapping_list(payload.get("region_tracks"), field="region_tracks"):
-            keyframes = tuple(
-                RepairRegionKeyframe(
-                    time_sec=_float(keyframe, "time_sec"),
-                    x=_int(keyframe, "x"),
-                    y=_int(keyframe, "y"),
-                    width=_int(keyframe, "width"),
-                    height=_int(keyframe, "height"),
-                    enabled=bool(keyframe.get("enabled", True)),
-                )
-                for keyframe in _mapping_list(item.get("keyframes"), field="region_tracks[].keyframes")
-            )
-            tracks.append(
-                RepairRegionTrack(
-                    shot_id=str(item.get("shot_id") or ""),
-                    start_sec=_float(item, "start_sec"),
-                    end_sec=_float(item, "end_sec"),
-                    keyframes=keyframes,
-                    blur_radius=float(item.get("blur_radius", 18.0)),
-                    opacity=float(item.get("opacity", 1.0)),
-                )
-            )
+        tracks = [
+            _repair_track(item)
+            for item in _mapping_list(payload.get("region_tracks"), field="region_tracks")
+        ]
 
         timeline = tuple(
             TimelineSegment(
