@@ -20,19 +20,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install media and Python dependencies
+      - name: Install media and repository dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          python -m pip install --upgrade pip
-          python -m pip install pillow pytest ruff
+          uv sync
 
       - name: Phase 3 executor regression
-        run: pytest -q tests/unit/test_h3_phase3_repair_executors.py
+        run: uv run pytest -q tests/unit/test_h3_phase3_repair_executors.py
 
       - name: Compile migration surface
         run: |
