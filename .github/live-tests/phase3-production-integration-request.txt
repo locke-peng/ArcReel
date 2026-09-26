@@ -1,1 +1,1 @@
-Phase 3 production integration regression. Local deterministic repair only; provider_calls=0.\n
+Phase 3 production integration regression. Local deterministic repair only; provider_calls=0.\nretry=2; corrected test path; local lane integration included.\n
