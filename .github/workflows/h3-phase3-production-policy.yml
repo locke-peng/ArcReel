@@ -7,6 +7,7 @@ on:
     paths:
       - "lib/reference_video/h3_production_policy.py"
       - "tests/unit/lib/reference_video/test_h3_production_policy.py"
+      - "tests/unit/test_e12u06_contract.py"
       - "docs/experiments/h3-phase3-production-policy.md"
       - ".github/workflows/h3-phase3-production-policy.yml"
   workflow_dispatch:
@@ -34,11 +35,21 @@ jobs:
       - name: Install ArcReel dependencies
         run: uv sync
 
-      - name: Phase 3 policy unit tests
+      - name: Phase 3 production policy gate
         run: uv run pytest -q tests/unit/lib/reference_video/test_h3_production_policy.py
 
+      - name: Six representative unit joint regression
+        run: |
+          uv run pytest -q             tests/unit/test_e12u06_contract.py             tests/unit/test_e4u02_v4_dialogue_detached.py             tests/unit/test_e13u01_v2_contract.py             tests/unit/test_e13u03_v1_contract.py             tests/unit/test_e11u02_v3_repair_contract.py             tests/unit/test_e15u03_v2_timeline_contract.py
+
+      - name: H3 compiler and preview/runtime regression
+        run: |
+          uv run pytest -q             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_preview_runtime_lock.py
+
       - name: Compile
-        run: uv run python -m py_compile lib/reference_video/h3_production_policy.py tests/unit/lib/reference_video/test_h3_production_policy.py
+        run: |
+          uv run python -m py_compile             lib/reference_video/h3_production_policy.py             tests/unit/lib/reference_video/test_h3_production_policy.py             tests/unit/test_e12u06_contract.py
 
       - name: Ruff
-        run: uv run ruff check lib/reference_video/h3_production_policy.py tests/unit/lib/reference_video/test_h3_production_policy.py
+        run: |
+          uv run ruff check             lib/reference_video/h3_production_policy.py             tests/unit/lib/reference_video/test_h3_production_policy.py             tests/unit/test_e12u06_contract.py
