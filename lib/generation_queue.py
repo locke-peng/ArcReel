@@ -79,7 +79,7 @@ class ActiveTaskRequestConflict(RuntimeError):
         self.existing_task_id = existing_task_id
         super().__init__(
             f"resource '{resource_id}' already has active task '{existing_task_id}' "
-            "with a different narration delivery request"
+            "with different request facts"
         )
 
 
@@ -117,6 +117,19 @@ def _narration_request_facts(task_type: str, payload: dict[str, Any] | None) -> 
     from lib.narration_delivery import NarrationDeliveryRequestOptions
 
     return NarrationDeliveryRequestOptions.from_payload(payload or {}, key=key).to_payload()
+
+
+
+
+def _h3_repair_request_facts(
+    task_type: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """A repair plan is immutable request evidence; active-task reuse requires exact equality."""
+
+    if task_type != "h3_media_repair":
+        return None
+    return dict(payload or {})
 
 
 
@@ -472,6 +485,7 @@ class GenerationQueue:
         requested_facts = _narration_request_facts(task_type, payload)
         text_request_facts = _text_request_facts(task_type, payload)
         reference_prompt_request_facts = _reference_prompt_request_facts(task_type, payload)
+        h3_repair_request_facts = _h3_repair_request_facts(task_type, payload)
 
         def _guard_deduped(existing_payload: dict[str, Any], existing_task_id: str) -> None:
             if requested_facts is not None and _narration_request_facts(task_type, existing_payload) != requested_facts:
@@ -485,6 +499,12 @@ class GenerationQueue:
                 reference_prompt_request_facts is not None
                 and _reference_prompt_request_facts(task_type, existing_payload)
                 != reference_prompt_request_facts
+            ):
+                raise ActiveTaskRequestConflict(resource_id=resource_id, existing_task_id=existing_task_id)
+            if (
+                h3_repair_request_facts is not None
+                and _h3_repair_request_facts(task_type, existing_payload)
+                != h3_repair_request_facts
             ):
                 raise ActiveTaskRequestConflict(resource_id=resource_id, existing_task_id=existing_task_id)
 
