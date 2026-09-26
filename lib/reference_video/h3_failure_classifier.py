@@ -34,10 +34,7 @@ def classify_h3_media_finding(finding: MediaQAFinding) -> H3MediaFailure:
     failure_class = finding.failure_class
     if failure_class is None:
         matches = {_TAG_CLASS_MAP[tag] for tag in finding.tags if tag in _TAG_CLASS_MAP}
-        if len(matches) == 1:
-            failure_class = matches.pop()
-        else:
-            failure_class = H3FailureClass.UNKNOWN
+        failure_class = matches.pop() if len(matches) == 1 else H3FailureClass.UNKNOWN
 
     return H3MediaFailure(
         failure_class=failure_class,
