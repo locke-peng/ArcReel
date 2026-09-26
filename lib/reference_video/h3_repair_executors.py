@@ -7,6 +7,7 @@ timeline segments, and exact text must be supplied by the validated RepairReques
 
 from __future__ import annotations
 
+import itertools
 import json
 import subprocess
 import tempfile
@@ -136,7 +137,7 @@ def _track_region_at(track: RepairRegionTrack, *, t: float) -> RepairRegion | No
             track.shot_id, track.start_sec, track.end_sec,
             item.x, item.y, item.width, item.height, track.blur_radius, track.opacity
         )
-    for left, right in zip(keyframes, keyframes[1:], strict=False):
+    for left, right in itertools.pairwise(keyframes):
         if left.time_sec <= t <= right.time_sec:
             if not left.enabled and not right.enabled:
                 return None
