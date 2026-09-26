@@ -39,11 +39,11 @@ jobs:
 
       - name: Compile migration surface
         run: |
-          python -m py_compile             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_executors.py             scripts/experiments/run_h3_phase3_real_evidence_migration.py             tests/unit/test_h3_phase3_repair_executors.py
+          uv run python -m py_compile lib/reference_video/h3_media_pipeline.py lib/reference_video/h3_repair_executors.py scripts/experiments/run_h3_phase3_real_evidence_migration.py tests/unit/test_h3_phase3_repair_executors.py
 
       - name: Ruff migration surface
         run: |
-          ruff check             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_executors.py             scripts/experiments/run_h3_phase3_real_evidence_migration.py             tests/unit/test_h3_phase3_repair_executors.py
+          uv run ruff check lib/reference_video/h3_media_pipeline.py lib/reference_video/h3_repair_executors.py scripts/experiments/run_h3_phase3_real_evidence_migration.py tests/unit/test_h3_phase3_repair_executors.py
 
       - name: Download immutable E11U02 paid v2 evidence
         uses: actions/download-artifact@v4
@@ -74,7 +74,7 @@ jobs:
 
       - name: Run real-evidence migration through production executors
         run: |
-          python scripts/experiments/run_h3_phase3_real_evidence_migration.py             --e11-dir upstream/E11U02             --e15-dir upstream/E15U03             --e13-dir upstream/E13U01             --output-dir phase3_artifacts
+          uv run python scripts/experiments/run_h3_phase3_real_evidence_migration.py --e11-dir upstream/E11U02 --e15-dir upstream/E15U03 --e13-dir upstream/E13U01 --output-dir phase3_artifacts
 
       - name: Extract dense migration review frames
         shell: bash
