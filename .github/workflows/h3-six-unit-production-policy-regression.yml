@@ -1,0 +1,33 @@
+name: H3 Six-Unit Production Policy Regression
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/h3-six-unit-regression-pipeline-validator
+    paths:
+      - "lib/reference_video/h3_production_policy.py"
+      - "lib/video_prompt_compilers/h3_director_compiler.py"
+      - "tests/unit/test_h3_six_unit_production_policy.py"
+      - "tests/unit/test_h3_v6_director.py"
+      - ".github/workflows/h3-six-unit-production-policy-regression.yml"
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install pytest ruff
+      - name: Six-unit golden policy regression
+        run: pytest -q tests/unit/test_h3_six_unit_production_policy.py
+      - name: H3 V6 compiler compatibility
+        run: pytest -q tests/unit/test_h3_v6_director.py tests/unit/test_h3_prompt_compiler.py
+      - name: Compile
+        run: python -m py_compile lib/reference_video/h3_production_policy.py lib/video_prompt_compilers/h3_director_compiler.py
+      - name: Ruff
+        run: ruff check lib/reference_video/h3_production_policy.py lib/video_prompt_compilers/h3_director_compiler.py tests/unit/test_h3_six_unit_production_policy.py
