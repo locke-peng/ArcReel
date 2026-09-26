@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   phase3-policy:
@@ -65,3 +66,81 @@ jobs:
       - name: Ruff
         run: |
           uv run ruff check             lib/reference_video/h3_production_policy.py             tests/unit/lib/reference_video/test_h3_production_policy.py             tests/unit/test_e12u06_contract.py
+
+  deterministic-media-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download accepted E11U02 supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e11u02-v2-zero-text-physical-state-evidence
+          path: upstream_e11u02
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36148270693
+
+      - name: Replay E11U02 deterministic surface repair
+        run: |
+          uv run python scripts/experiments/run_e11u02_v3_deterministic_repair.py \
+            --upstream-dir upstream_e11u02 \
+            --output-dir replay_artifacts/E11U02
+
+      - name: Download accepted E15U03 supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: supplier-e15u03-evidence
+          path: upstream_e15u03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36009732060
+
+      - name: Replay E15U03 deterministic A/V timeline repair
+        run: |
+          uv run python scripts/experiments/run_e15u03_v2_deterministic_timeline.py \
+            --upstream-dir upstream_e15u03 \
+            --output-dir replay_artifacts/E15U03
+
+      - name: Probe replayed MP4 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for UNIT in E11U02 E15U03; do
+            VIDEO="replay_artifacts/${UNIT}/project/reference_videos/${UNIT}.mp4"
+            test -s "${VIDEO}"
+            DURATION="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "${VIDEO}")"
+            WIDTH="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "${VIDEO}")"
+            HEIGHT="$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "${VIDEO}")"
+            AUDIO_COUNT="$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "${VIDEO}" | wc -l)"
+            uv run python -c "d=float('${DURATION}'); assert abs(d-15.0) <= 0.05, d"
+            test "${WIDTH}" = "864"
+            test "${HEIGHT}" = "480"
+            test "${AUDIO_COUNT}" -ge 1
+            echo "${UNIT}: duration=${DURATION}, resolution=${WIDTH}x${HEIGHT}, audio_streams=${AUDIO_COUNT}"
+          done
+
+      - name: Upload Phase 3 media replay evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase3-deterministic-media-replay
+          path: replay_artifacts
+          if-no-files-found: error
+          retention-days: 14
