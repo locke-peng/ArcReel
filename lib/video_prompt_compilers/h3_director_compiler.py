@@ -13,9 +13,9 @@ This module is intentionally stdlib-only.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-import re
 from typing import Any, Literal
 
 from lib.reference_video.h3_production_policy import (
