@@ -39,6 +39,12 @@ def _atomic_write_text(path: Path, value: str) -> None:
         temp_path.unlink(missing_ok=True)
 
 
+
+def _allocate_staging_path(current_path: Path, resource_id: str) -> Path:
+    staged_path = await asyncio.to_thread(_allocate_staging_path, current_path, resource_id)
+    return staged_path
+
+
 def _current_version(versions: VersionManager, resource_id: str) -> int:
     history = versions.get_versions("reference_videos", resource_id) or {}
     value = history.get("current_version")
@@ -112,7 +118,7 @@ async def execute_h3_media_repair_task(
     try:
         request = plan.to_request(current_path, staged_path)
         await run_noninterruptible_sync(execute_deterministic_repair, request)
-        if not staged_path.is_file():
+        if not await asyncio.to_thread(staged_path.is_file):
             raise H3MediaPipelineError("deterministic repair completed without an output file")
 
         updated_chain = await asyncio.to_thread(
@@ -165,4 +171,4 @@ async def execute_h3_media_repair_task(
             "provider_recalled": False,
         }
     finally:
-        staged_path.unlink(missing_ok=True)
+        await asyncio.to_thread(staged_path.unlink, missing_ok=True)
