@@ -67,6 +67,28 @@ class RepairRegion:
     y: int
     width: int
     height: int
+    blur_radius: float = 18.0
+    opacity: float = 1.0
+
+
+@dataclass(frozen=True)
+class RepairRegionKeyframe:
+    time_sec: float
+    x: int
+    y: int
+    width: int
+    height: int
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class RepairRegionTrack:
+    shot_id: str
+    start_sec: float
+    end_sec: float
+    keyframes: tuple[RepairRegionKeyframe, ...]
+    blur_radius: float = 18.0
+    opacity: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -82,6 +104,7 @@ class RepairRequest:
     source_path: Path
     output_path: Path
     regions: tuple[RepairRegion, ...] = ()
+    region_tracks: tuple[RepairRegionTrack, ...] = ()
     timeline: tuple[TimelineSegment, ...] = ()
     exact_text: tuple[str, ...] = ()
 
@@ -112,7 +135,7 @@ def validate_repair_request(request: RepairRequest) -> None:
         raise H3MediaPipelineError("repair output must not overwrite immutable source evidence")
 
     if request.action == RepairAction.DETERMINISTIC_PIXEL_SANITIZATION:
-        if not request.regions:
+        if not request.regions and not request.region_tracks:
             raise H3MediaPipelineError("pixel sanitization requires explicit bounded regions")
         for region in request.regions:
             if region.start_sec < 0 or region.end_sec <= region.start_sec:
@@ -121,6 +144,28 @@ def validate_repair_request(request: RepairRequest) -> None:
                 raise H3MediaPipelineError("repair region geometry must be non-negative")
             if region.width == 0 or region.height == 0:
                 raise H3MediaPipelineError("repair region must have non-zero area")
+            if region.blur_radius <= 0:
+                raise H3MediaPipelineError("repair region blur radius must be positive")
+            if not 0 < region.opacity <= 1:
+                raise H3MediaPipelineError("repair region opacity must be in (0, 1]")
+        for track in request.region_tracks:
+            if track.start_sec < 0 or track.end_sec <= track.start_sec:
+                raise H3MediaPipelineError("repair track requires a positive time interval")
+            if track.blur_radius <= 0:
+                raise H3MediaPipelineError("repair track blur radius must be positive")
+            if not 0 < track.opacity <= 1:
+                raise H3MediaPipelineError("repair track opacity must be in (0, 1]")
+            if not track.keyframes:
+                raise H3MediaPipelineError("repair track requires keyframes")
+            cursor = -1.0
+            for keyframe in track.keyframes:
+                if keyframe.time_sec < cursor:
+                    raise H3MediaPipelineError("repair track keyframes must be time ordered")
+                if min(keyframe.x, keyframe.y, keyframe.width, keyframe.height) < 0:
+                    raise H3MediaPipelineError("repair track geometry must be non-negative")
+                if keyframe.enabled and (keyframe.width == 0 or keyframe.height == 0):
+                    raise H3MediaPipelineError("enabled repair track keyframe must have non-zero area")
+                cursor = keyframe.time_sec
 
     elif request.action == RepairAction.DETERMINISTIC_AV_RETIME:
         if not request.timeline:
