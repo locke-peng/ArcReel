@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Install ArcReel dependencies
         run: uv sync
 
@@ -45,6 +48,15 @@ jobs:
       - name: H3 compiler and preview/runtime regression
         run: |
           uv run pytest -q             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Reference Video and H3 subsystem regression
+        run: |
+          uv run pytest -q \
+            tests/unit/lib/reference_video \
+            tests/integration/lib/reference_video \
+            tests/unit/test_h3_v6_director.py \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_preview_runtime_lock.py
 
       - name: Compile
         run: |
