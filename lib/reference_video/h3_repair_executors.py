@@ -367,6 +367,7 @@ class VisualAuthoringSegment:
     source_start_sec: float
     source_end_sec: float
     target_duration_sec: float
+    fade_in_sec: float = 0.0
 
 
 def execute_sequence_authoring(
@@ -389,7 +390,21 @@ def execute_sequence_authoring(
             raise H3MediaPipelineError(f"sequence visual source is missing: {segment.source_path}")
         if segment.source_end_sec <= segment.source_start_sec or segment.target_duration_sec <= 0:
             raise H3MediaPipelineError("sequence segment durations must be positive")
-        args.extend(("-i", str(segment.source_path)))
+        if segment.source_path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            args.extend(
+                (
+                    "-loop",
+                    "1",
+                    "-framerate",
+                    str(fps),
+                    "-t",
+                    f"{segment.source_end_sec:.6f}",
+                    "-i",
+                    str(segment.source_path),
+                )
+            )
+        else:
+            args.extend(("-i", str(segment.source_path)))
     args.extend(("-i", str(audio_path)))
 
     filters: list[str] = []
@@ -397,11 +412,12 @@ def execute_sequence_authoring(
     for index, segment in enumerate(segments):
         source_duration = segment.source_end_sec - segment.source_start_sec
         pts_factor = segment.target_duration_sec / source_duration
+        fade = f",fade=t=in:st=0:d={segment.fade_in_sec:.6f}" if segment.fade_in_sec > 0 else ""
         filters.append(
             f"[{index}:v]trim=start={segment.source_start_sec:.9f}:end={segment.source_end_sec:.9f},"
             f"setpts=(PTS-STARTPTS)*{pts_factor:.12f},"
             f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height},format=yuv420p,fps={fps}[v{index}]"
+            f"crop={width}:{height},format=yuv420p,fps={fps}{fade}[v{index}]"
         )
         labels.append(f"[v{index}]")
     filters.append("".join(labels) + f"concat=n={len(segments)}:v=1:a=0[v]")
