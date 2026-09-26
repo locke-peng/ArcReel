@@ -1,0 +1,136 @@
+name: H3 Phase 4 Auto Repair Loop
+
+on:
+  push:
+    branches:
+      - phase4/h3-auto-repair-loop
+    paths:
+      - "lib/reference_video/media_qa_schema.py"
+      - "lib/reference_video/h3_failure_classifier.py"
+      - "lib/reference_video/h3_repair_executor.py"
+      - "lib/reference_video/cut_detector.py"
+      - "lib/reference_video/evidence_schema.py"
+      - "lib/reference_video/h3_production_policy.py"
+      - "scripts/experiments/run_phase4_auto_repair_e2e.py"
+      - "tests/unit/lib/reference_video/test_h3_auto_repair_loop.py"
+      - ".github/workflows/h3-phase4-auto-repair-loop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  software-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Phase 4 auto-repair primitive tests
+        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_auto_repair_loop.py
+
+      - name: Phase 3 repair planner regression
+        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_production_policy.py
+
+      - name: Six representative Unit joint regression
+        run: |
+          uv run pytest -q             tests/unit/test_e12u06_contract.py             tests/unit/test_e4u02_v4_dialogue_detached.py             tests/unit/test_e13u01_v2_contract.py             tests/unit/test_e13u03_v1_contract.py             tests/unit/test_e11u02_v3_repair_contract.py             tests/unit/test_e15u03_v2_timeline_contract.py
+
+      - name: H3 compiler and preview/runtime regression
+        run: |
+          uv run pytest -q             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Reference Video and H3 subsystem regression
+        run: |
+          uv run pytest -q             tests/unit/lib/reference_video             tests/integration/lib/reference_video             tests/unit/test_h3_v6_director.py             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Compile
+        run: |
+          uv run python -m py_compile             lib/reference_video/media_qa_schema.py             lib/reference_video/h3_failure_classifier.py             lib/reference_video/h3_repair_executor.py             lib/reference_video/cut_detector.py             lib/reference_video/evidence_schema.py             scripts/experiments/run_phase4_auto_repair_e2e.py             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py
+
+      - name: Ruff
+        run: |
+          uv run ruff check             lib/reference_video/media_qa_schema.py             lib/reference_video/h3_failure_classifier.py             lib/reference_video/h3_repair_executor.py             lib/reference_video/cut_detector.py             lib/reference_video/evidence_schema.py             scripts/experiments/run_phase4_auto_repair_e2e.py             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py
+
+  existing-evidence-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E11U02 accepted supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e11u02-v2-zero-text-physical-state-evidence
+          path: upstream_e11u02
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36148270693
+
+      - name: Download E15U03 accepted supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: supplier-e15u03-evidence
+          path: upstream_e15u03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36009732060
+
+      - name: Run Phase 4 auto-repair end-to-end replay
+        run: |
+          uv run python scripts/experiments/run_phase4_auto_repair_e2e.py             --e11-upstream-dir upstream_e11u02             --e15-upstream-dir upstream_e15u03             --output-dir phase4_evidence
+
+      - name: Assert no provider recall and FINAL PASS
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("phase4_evidence/phase4_auto_repair_e2e_summary.json").read_text())
+          assert data["status"] == "FINAL_PASS"
+          assert data["provider_recalled"] is False
+          assert all(unit["provider_recalled"] is False for unit in data["units"])
+          assert all(unit["byte_identity_with_phase3_accepted_replay"] is True for unit in data["units"])
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload Phase 4 auto-repair evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-auto-repair-loop-e2e-evidence
+          path: phase4_evidence
+          if-no-files-found: error
+          retention-days: 14
