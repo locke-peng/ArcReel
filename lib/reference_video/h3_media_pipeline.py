@@ -242,9 +242,16 @@ class EvidenceChain:
 
     def validate(self) -> None:
         seen: set[str] = set()
+        root_stages = {"provider_output", "canonical_asset"}
         for index, node in enumerate(self.nodes):
-            if index and not node.parent_sha256:
-                raise H3MediaPipelineError(f"{node.stage}: derived evidence node requires parent hash")
+            if not node.parent_sha256:
+                if node.stage not in root_stages:
+                    raise H3MediaPipelineError(
+                        f"{node.stage}: only immutable provider/canonical assets may be evidence roots"
+                    )
+                if index == 0:
+                    seen.add(node.artifact_sha256)
+                    continue
             missing = set(node.parent_sha256) - seen
             if missing:
                 raise H3MediaPipelineError(
