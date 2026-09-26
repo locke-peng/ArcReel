@@ -39,9 +39,16 @@ def _atomic_write_text(path: Path, value: str) -> None:
         temp_path.unlink(missing_ok=True)
 
 
-
 def _allocate_staging_path(current_path: Path, resource_id: str) -> Path:
-    staged_path = await asyncio.to_thread(_allocate_staging_path, current_path, resource_id)
+    current_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, staged_name = tempfile.mkstemp(
+        prefix=f".{resource_id}.h3-repair.",
+        suffix=".mp4",
+        dir=current_path.parent,
+    )
+    os.close(fd)
+    staged_path = Path(staged_name)
+    staged_path.unlink(missing_ok=True)
     return staged_path
 
 
@@ -58,9 +65,7 @@ def _load_evidence(path: Path, *, unit_id: str) -> EvidenceChain:
         raise H3MediaPipelineError("H3 provider evidence root is missing; repair is fail-closed")
     chain = EvidenceChain.from_json(path.read_text(encoding="utf-8"))
     if chain.unit_id != unit_id:
-        raise H3MediaPipelineError(
-            f"H3 evidence unit mismatch: {chain.unit_id!r} != {unit_id!r}"
-        )
+        raise H3MediaPipelineError(f"H3 evidence unit mismatch: {chain.unit_id!r} != {unit_id!r}")
     return chain
 
 
@@ -79,7 +84,7 @@ async def execute_h3_media_repair_task(
     planner contract before media execution.
     """
 
-    del user_id
+    del user_id, task_id
     plan = H3RepairTaskPlan.from_payload(payload)
 
     pm = get_project_manager()
@@ -104,16 +109,7 @@ async def execute_h3_media_repair_task(
 
     versions = VersionManager(project_path)
     expected_current_version = await asyncio.to_thread(_current_version, versions, resource_id)
-
-    current_path.parent.mkdir(parents=True, exist_ok=True)
-    fd, staged_name = tempfile.mkstemp(
-        prefix=f".{resource_id}.h3-repair.",
-        suffix=".mp4",
-        dir=current_path.parent,
-    )
-    os.close(fd)
-    staged_path = Path(staged_name)
-    staged_path.unlink(missing_ok=True)
+    staged_path = await asyncio.to_thread(_allocate_staging_path, current_path, resource_id)
 
     try:
         request = plan.to_request(current_path, staged_path)
