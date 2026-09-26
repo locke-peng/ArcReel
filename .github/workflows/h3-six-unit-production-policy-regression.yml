@@ -7,7 +7,8 @@ on:
       - feat/h3-six-unit-regression-pipeline-validator
     paths:
       - "lib/reference_video/h3_production_policy.py"
-      - "lib/video_prompt_compilers/h3_director_compiler.py server/services/reference_video_tasks.py"
+      - "lib/video_prompt_compilers/h3_director_compiler.py"
+      - "server/services/reference_video_tasks.py"
       - "lib/reference_video/h3_media_pipeline.py"
       - "tests/unit/test_h3_six_unit_production_policy.py"
       - "tests/unit/test_h3_v6_director.py"
@@ -32,7 +33,7 @@ jobs:
       - name: H3 V6 compiler compatibility
         run: pytest -q tests/unit/test_h3_v6_director.py tests/unit/test_h3_prompt_compiler.py
       - name: Compile
-        run: python -m py_compile lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/video_prompt_compilers/h3_director_compiler.py
+        run: python -m py_compile lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/video_prompt_compilers/h3_director_compiler.py server/services/reference_video_tasks.py
       - name: Ruff
         run: |
           ruff check lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py tests/unit/test_h3_six_unit_production_policy.py tests/unit/test_h3_phase2_media_pipeline.py
