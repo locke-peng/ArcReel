@@ -163,6 +163,7 @@ class EvidenceNode:
     artifact_sha256: str
     parent_sha256: tuple[str, ...]
     metadata_sha256: str
+    metadata: Mapping[str, Any]
 
     @classmethod
     def create(
@@ -173,8 +174,9 @@ class EvidenceNode:
         parent_sha256: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
     ) -> "EvidenceNode":
+        normalized_metadata = dict(metadata or {})
         canonical_metadata = json.dumps(
-            dict(metadata or {}),
+            normalized_metadata,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -184,6 +186,7 @@ class EvidenceNode:
             artifact_sha256=sha256_file(artifact_path),
             parent_sha256=tuple(parent_sha256),
             metadata_sha256=hashlib.sha256(canonical_metadata).hexdigest(),
+            metadata=normalized_metadata,
         )
 
 
