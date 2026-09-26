@@ -1,0 +1,50 @@
+name: H3 Phase 3 Production Integration
+
+on:
+  push:
+    branches:
+      - feat/h3-six-unit-regression-pipeline-validator
+    paths:
+      - .github/live-tests/phase3-production-integration-request.txt
+
+permissions:
+  contents: read
+
+jobs:
+  phase3-production-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install repository and media dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          uv sync
+
+      - name: Production repair integration tests
+        run: |
+          uv run pytest -q             tests/unit/lib/reference_video/test_h3_production_policy.py             tests/unit/test_h3_phase3_repair_executors.py             tests/unit/lib/test_generation_worker_h3_local_lane.py             tests/integration/server/services/test_h3_media_repair_task.py
+
+      - name: Compile production integration surface
+        run: |
+          uv run python -m py_compile             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_task.py             lib/reference_video/h3_repair_executors.py             lib/generation_worker.py             lib/generation_queue.py             server/services/h3_media_repair_tasks.py             server/services/generation_tasks.py             server/routers/reference_videos.py
+
+      - name: Ruff production integration surface
+        run: |
+          uv run ruff check             lib/reference_video/h3_media_pipeline.py             lib/reference_video/h3_repair_task.py             lib/reference_video/h3_repair_executors.py             lib/generation_worker.py             lib/generation_queue.py             server/services/h3_media_repair_tasks.py             server/services/generation_tasks.py             server/routers/reference_videos.py             tests/unit/lib/test_generation_worker_h3_local_lane.py             tests/integration/server/services/test_h3_media_repair_task.py
+
+      - name: Assert repair worker has no provider client dependency
+        run: |
+          ! grep -Eq 'MediaGenerator|video_backend|MINIMAX|API_KEY|generate_video_async'             server/services/h3_media_repair_tasks.py
