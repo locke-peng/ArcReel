@@ -69,12 +69,12 @@ from server.services.narration_delivery_tasks import (
     prepare_current_reference_video_request_options,
     tts_task_in_progress,
 )
+from server.services.reference_video_prompt_preview import preview_reference_video_provider_prompt
 from server.services.reference_video_tasks import (
     apply_unit_video_assets,
     default_unit_duration,
     resolve_project_duration_context,
 )
-from server.services.reference_video_prompt_preview import preview_reference_video_provider_prompt
 from server.services.upload_finalize import (
     UploadValidationError,
     commit_manual_video_upload,
