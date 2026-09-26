@@ -20,7 +20,8 @@ def test_e12u06_prompt_keeps_screen_state_semantic_only() -> None:
     prompt = e12.PROMPT
     assert "blank geometric placeholders" in prompt
     assert "empty horizontal bars" in prompt
-    assert "no readable language, names, titles, portraits, headshots, logos, letters, numbers" in prompt
+    assert "readable language, names, titles, portraits, headshots, logos, letters, numbers" in prompt
+    assert "glyph-like marks" in prompt
     assert "no readable characters or portrait imagery" in prompt
 
 
