@@ -314,6 +314,11 @@ async def _derive_execution_model_for_enqueue(
     但失败时返回 ``None``（不强行回 DEFAULT_PROVIDER）——让任务走 ``provider_id IS NULL``
     兜底分支，由 worker claim 后做二次校验，比硬塞一个可能错误的 provider 安全。
     """
+    if task_type == "h3_media_repair":
+        from lib.config.resolver import ProviderModel
+
+        return ProviderModel("local", ""), None
+
     is_text = media_type == "text"
     is_video = media_type == "video" or task_type in ("video", "reference_video")
     is_audio = media_type == "audio" or task_type == "tts"
