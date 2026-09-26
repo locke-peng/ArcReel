@@ -13,7 +13,7 @@ on:
       - "lib/reference_video/h3_repair_executors.py"
       - "tests/unit/test_h3_six_unit_production_policy.py"
       - "tests/unit/test_h3_v6_director.py"
-      - "tests/unit/test_h3_phase2_media_pipeline.py tests/unit/test_h3_phase3_repair_executors.py"
+      - "tests/unit/test_h3_phase2_media_pipeline.py"
       - "tests/unit/test_h3_phase3_repair_executors.py"
       - ".github/workflows/h3-six-unit-production-policy-regression.yml"
 
@@ -40,5 +40,5 @@ jobs:
         run: python -m py_compile lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/reference_video/h3_repair_executors.py lib/video_prompt_compilers/h3_director_compiler.py server/services/reference_video_tasks.py
       - name: Ruff
         run: |
-          ruff check lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/reference_video/h3_repair_executors.py tests/unit/test_h3_six_unit_production_policy.py tests/unit/test_h3_phase2_media_pipeline.py
+          ruff check lib/reference_video/h3_production_policy.py lib/reference_video/h3_media_pipeline.py lib/reference_video/h3_repair_executors.py tests/unit/test_h3_six_unit_production_policy.py tests/unit/test_h3_phase2_media_pipeline.py tests/unit/test_h3_phase3_repair_executors.py
           ruff check --select I lib/video_prompt_compilers/h3_director_compiler.py server/services/reference_video_tasks.py
