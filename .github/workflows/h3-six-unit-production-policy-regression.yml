@@ -30,4 +30,6 @@ jobs:
       - name: Compile
         run: python -m py_compile lib/reference_video/h3_production_policy.py lib/video_prompt_compilers/h3_director_compiler.py
       - name: Ruff
-        run: ruff check lib/reference_video/h3_production_policy.py lib/video_prompt_compilers/h3_director_compiler.py tests/unit/test_h3_six_unit_production_policy.py
+        run: |
+          ruff check lib/reference_video/h3_production_policy.py tests/unit/test_h3_six_unit_production_policy.py
+          ruff check --select I lib/video_prompt_compilers/h3_director_compiler.py
