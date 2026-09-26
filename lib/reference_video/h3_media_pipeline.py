@@ -145,6 +145,10 @@ def validate_repair_request(request: RepairRequest) -> None:
         )
 
 
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -207,3 +211,33 @@ class EvidenceChain:
             ensure_ascii=False,
             indent=2,
         )
+
+
+def write_provider_evidence_chain(
+    *,
+    unit_id: str,
+    provider_output: Path,
+    provider_prompt: str,
+    provider_id: str,
+    model_id: str | None,
+    requested_resolution: str | None,
+    requested_duration_seconds: int,
+    output_path: Path,
+) -> EvidenceChain:
+    """Persist the immutable Phase-2 root node immediately after provider success."""
+
+    node = EvidenceNode.create(
+        stage="provider_output",
+        artifact_path=provider_output,
+        metadata={
+            "provider_id": provider_id,
+            "model_id": model_id,
+            "provider_prompt_sha256": sha256_text(provider_prompt),
+            "requested_resolution": requested_resolution,
+            "requested_duration_seconds": requested_duration_seconds,
+        },
+    )
+    chain = EvidenceChain(unit_id=unit_id, nodes=(node,))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(chain.to_json(), encoding="utf-8")
+    return chain
