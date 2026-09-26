@@ -260,7 +260,7 @@ class EvidenceChain:
             seen.add(node.artifact_sha256)
 
     @classmethod
-    def from_json(cls, value: str) -> "EvidenceChain":
+    def from_json(cls, value: str) -> EvidenceChain:
         try:
             raw = json.loads(value)
             unit_id = str(raw["unit_id"])
