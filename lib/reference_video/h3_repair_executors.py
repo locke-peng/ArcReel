@@ -20,6 +20,7 @@ from lib.reference_video.h3_media_pipeline import (
     H3MediaPipelineError,
     RepairAction,
     RepairRegion,
+    RepairRegionTrack,
     RepairRequest,
     sha256_file,
     validate_repair_request,
@@ -122,6 +123,66 @@ def _active_regions(
     return tuple(region for region in regions if region.start_sec <= t < region.end_sec)
 
 
+def _track_region_at(track: RepairRegionTrack, *, t: float) -> RepairRegion | None:
+    if not track.start_sec <= t < track.end_sec:
+        return None
+    keyframes = track.keyframes
+    if t <= keyframes[0].time_sec:
+        item = keyframes[0]
+        if not item.enabled:
+            return None
+        return RepairRegion(
+            track.shot_id, track.start_sec, track.end_sec,
+            item.x, item.y, item.width, item.height, track.blur_radius, track.opacity
+        )
+    for left, right in zip(keyframes, keyframes[1:], strict=False):
+        if left.time_sec <= t <= right.time_sec:
+            if not left.enabled and not right.enabled:
+                return None
+            if not left.enabled:
+                item = right
+                return RepairRegion(
+                    track.shot_id, track.start_sec, track.end_sec,
+                    item.x, item.y, item.width, item.height, track.blur_radius, track.opacity
+                )
+            if not right.enabled:
+                item = left
+                return RepairRegion(
+                    track.shot_id, track.start_sec, track.end_sec,
+                    item.x, item.y, item.width, item.height, track.blur_radius, track.opacity
+                )
+            span = right.time_sec - left.time_sec
+            alpha = 1.0 if span == 0 else (t - left.time_sec) / span
+            values = tuple(
+                round(a * (1.0 - alpha) + b * alpha)
+                for a, b in zip(
+                    (left.x, left.y, left.width, left.height),
+                    (right.x, right.y, right.width, right.height),
+                    strict=True,
+                )
+            )
+            return RepairRegion(
+                track.shot_id, track.start_sec, track.end_sec,
+                *values, track.blur_radius, track.opacity
+            )
+    item = keyframes[-1]
+    if not item.enabled:
+        return None
+    return RepairRegion(
+        track.shot_id, track.start_sec, track.end_sec,
+        item.x, item.y, item.width, item.height, track.blur_radius, track.opacity
+    )
+
+
+def _sanitize_region(image: Image.Image, region: RepairRegion) -> None:
+    rect = (region.x, region.y, region.x + region.width, region.y + region.height)
+    original = image.crop(rect)
+    blurred = original.filter(ImageFilter.GaussianBlur(radius=region.blur_radius))
+    if region.opacity < 1:
+        blurred = Image.blend(original, blurred, region.opacity)
+    image.paste(blurred, rect[:2])
+
+
 def execute_pixel_sanitization(request: RepairRequest, *, fps: int = FPS) -> Path:
     validate_repair_request(request)
     if request.action != RepairAction.DETERMINISTIC_PIXEL_SANITIZATION:
@@ -133,9 +194,12 @@ def execute_pixel_sanitization(request: RepairRequest, *, fps: int = FPS) -> Pat
         for index, frame_path in enumerate(sorted(frames.glob("frame_*.png"))):
             image = Image.open(frame_path).convert("RGB")
             for region in _active_regions(request.regions, frame_index=index, fps=fps):
-                rect = (region.x, region.y, region.x + region.width, region.y + region.height)
-                crop = image.crop(rect).filter(ImageFilter.GaussianBlur(radius=18))
-                image.paste(crop, rect[:2])
+                _sanitize_region(image, region)
+            t = index / fps
+            for track in request.region_tracks:
+                region = _track_region_at(track, t=t)
+                if region is not None:
+                    _sanitize_region(image, region)
             image.save(frame_path, format="PNG")
         _encode_frames(request.source_path, frames, request.output_path, fps=fps)
     return request.output_path
