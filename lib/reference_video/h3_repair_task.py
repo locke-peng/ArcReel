@@ -8,9 +8,10 @@ never infers story facts and never permits semantic regeneration.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from lib.reference_video.h3_media_pipeline import (
     H3MediaPipelineError,
@@ -65,7 +66,7 @@ class H3RepairTaskPlan:
     timeline: tuple[TimelineSegment, ...] = ()
 
     @classmethod
-    def from_payload(cls, payload: Mapping[str, Any]) -> "H3RepairTaskPlan":
+    def from_payload(cls, payload: Mapping[str, Any]) -> H3RepairTaskPlan:
         expected = str(payload.get("expected_source_sha256") or "").lower()
         if not _SHA256_RE.fullmatch(expected):
             raise H3MediaPipelineError("expected_source_sha256 must be a lowercase SHA-256 digest")
@@ -107,42 +108,40 @@ class H3RepairTaskPlan:
                     f"decision {decision.action.value}"
                 )
 
-        regions: list[RepairRegion] = []
-        for item in _mapping_list(payload.get("regions"), field="regions"):
-            regions.append(
-                RepairRegion(
-                    shot_id=str(item.get("shot_id") or ""),
-                    start_sec=_float(item, "start_sec"),
-                    end_sec=_float(item, "end_sec"),
-                    x=_int(item, "x"),
-                    y=_int(item, "y"),
-                    width=_int(item, "width"),
-                    height=_int(item, "height"),
-                    blur_radius=float(item.get("blur_radius", 18.0)),
-                    opacity=float(item.get("opacity", 1.0)),
-                )
+        regions = [
+            RepairRegion(
+                shot_id=str(item.get("shot_id") or ""),
+                start_sec=_float(item, "start_sec"),
+                end_sec=_float(item, "end_sec"),
+                x=_int(item, "x"),
+                y=_int(item, "y"),
+                width=_int(item, "width"),
+                height=_int(item, "height"),
+                blur_radius=float(item.get("blur_radius", 18.0)),
+                opacity=float(item.get("opacity", 1.0)),
             )
+            for item in _mapping_list(payload.get("regions"), field="regions")
+        ]
 
         tracks: list[RepairRegionTrack] = []
         for item in _mapping_list(payload.get("region_tracks"), field="region_tracks"):
-            keyframes: list[RepairRegionKeyframe] = []
-            for keyframe in _mapping_list(item.get("keyframes"), field="region_tracks[].keyframes"):
-                keyframes.append(
-                    RepairRegionKeyframe(
-                        time_sec=_float(keyframe, "time_sec"),
-                        x=_int(keyframe, "x"),
-                        y=_int(keyframe, "y"),
-                        width=_int(keyframe, "width"),
-                        height=_int(keyframe, "height"),
-                        enabled=bool(keyframe.get("enabled", True)),
-                    )
+            keyframes = tuple(
+                RepairRegionKeyframe(
+                    time_sec=_float(keyframe, "time_sec"),
+                    x=_int(keyframe, "x"),
+                    y=_int(keyframe, "y"),
+                    width=_int(keyframe, "width"),
+                    height=_int(keyframe, "height"),
+                    enabled=bool(keyframe.get("enabled", True)),
                 )
+                for keyframe in _mapping_list(item.get("keyframes"), field="region_tracks[].keyframes")
+            )
             tracks.append(
                 RepairRegionTrack(
                     shot_id=str(item.get("shot_id") or ""),
                     start_sec=_float(item, "start_sec"),
                     end_sec=_float(item, "end_sec"),
-                    keyframes=tuple(keyframes),
+                    keyframes=keyframes,
                     blur_radius=float(item.get("blur_radius", 18.0)),
                     opacity=float(item.get("opacity", 1.0)),
                 )
