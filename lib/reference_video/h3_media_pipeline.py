@@ -173,7 +173,7 @@ class EvidenceNode:
         artifact_path: Path,
         parent_sha256: Sequence[str] = (),
         metadata: Mapping[str, Any] | None = None,
-    ) -> "EvidenceNode":
+    ) -> EvidenceNode:
         normalized_metadata = dict(metadata or {})
         canonical_metadata = json.dumps(
             normalized_metadata,
