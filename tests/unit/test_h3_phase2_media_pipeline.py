@@ -13,6 +13,7 @@ from lib.reference_video.h3_media_pipeline import (
     TimelineSegment,
     classify_media_observations,
     validate_repair_request,
+    write_provider_evidence_chain,
 )
 from lib.reference_video.h3_production_policy import MediaIssueCode, RepairAction
 
@@ -145,3 +146,24 @@ def test_evidence_chain_is_hash_linked_and_rejects_unknown_parent(tmp_path: Path
     )
     with pytest.raises(H3MediaPipelineError, match="parent hash"):
         bad.validate()
+
+
+def test_provider_success_writes_phase2_root_evidence(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mp4"
+    provider.write_bytes(b"paid-provider-output")
+    sidecar = tmp_path / "evidence" / "E13U03.json"
+    chain = write_provider_evidence_chain(
+        unit_id="E13U03",
+        provider_output=provider,
+        provider_prompt="zero-text visual prompt",
+        provider_id="autodl",
+        model_id="minimax_h3_zm_u24",
+        requested_resolution="480p横",
+        requested_duration_seconds=15,
+        output_path=sidecar,
+    )
+    assert sidecar.is_file()
+    assert chain.nodes[0].stage == "provider_output"
+    assert chain.nodes[0].artifact_sha256
+    assert "provider_prompt_sha256" not in sidecar.read_text(encoding="utf-8")
+    # Prompt hash is committed inside metadata_sha256 without leaking prompt text.
