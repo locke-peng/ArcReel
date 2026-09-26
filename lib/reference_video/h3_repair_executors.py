@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -359,6 +360,115 @@ def execute_deterministic_repair(
     raise H3MediaPipelineError(f"no deterministic executor for {request.action.value}")
 
 
+
+@dataclass(frozen=True)
+class VisualAuthoringSegment:
+    source_path: Path
+    source_start_sec: float
+    source_end_sec: float
+    target_duration_sec: float
+
+
+def execute_sequence_authoring(
+    *,
+    segments: tuple[VisualAuthoringSegment, ...],
+    audio_path: Path,
+    output_path: Path,
+    width: int,
+    height: int,
+    fps: int = FPS,
+) -> Path:
+    if not segments:
+        raise H3MediaPipelineError("sequence authoring requires visual segments")
+    if not audio_path.is_file():
+        raise H3MediaPipelineError(f"sequence authoring audio is missing: {audio_path}")
+
+    args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
+    for segment in segments:
+        if not segment.source_path.is_file():
+            raise H3MediaPipelineError(f"sequence visual source is missing: {segment.source_path}")
+        if segment.source_end_sec <= segment.source_start_sec or segment.target_duration_sec <= 0:
+            raise H3MediaPipelineError("sequence segment durations must be positive")
+        args.extend(("-i", str(segment.source_path)))
+    args.extend(("-i", str(audio_path)))
+
+    filters: list[str] = []
+    labels: list[str] = []
+    for index, segment in enumerate(segments):
+        source_duration = segment.source_end_sec - segment.source_start_sec
+        pts_factor = segment.target_duration_sec / source_duration
+        filters.append(
+            f"[{index}:v]trim=start={segment.source_start_sec:.9f}:end={segment.source_end_sec:.9f},"
+            f"setpts=(PTS-STARTPTS)*{pts_factor:.12f},"
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},format=yuv420p,fps={fps}[v{index}]"
+        )
+        labels.append(f"[v{index}]")
+    filters.append("".join(labels) + f"concat=n={len(segments)}:v=1:a=0[v]")
+
+    duration = sum(segment.target_duration_sec for segment in segments)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    args.extend(
+        (
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            "[v]",
+            "-map",
+            f"{len(segments)}:a:0",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "18",
+            "-r",
+            str(fps),
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-ar",
+            "32000",
+            "-ac",
+            "2",
+            "-t",
+            f"{duration:.6f}",
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        )
+    )
+    _run(args)
+    return output_path
+
+
+def append_authoring_evidence(
+    *,
+    chain: EvidenceChain,
+    parent_paths: tuple[Path, ...],
+    output_path: Path,
+    metadata: dict[str, object] | None = None,
+) -> EvidenceChain:
+    chain.validate()
+    parent_hashes = tuple(sha256_file(path) for path in parent_paths)
+    known = {node.artifact_sha256 for node in chain.nodes}
+    missing = set(parent_hashes) - known
+    if missing:
+        raise H3MediaPipelineError(
+            f"authoring parent bytes are not present in evidence chain: {sorted(missing)!r}"
+        )
+    node = EvidenceNode.create(
+        stage="deterministic_sequence_authoring",
+        artifact_path=output_path,
+        parent_sha256=parent_hashes,
+        metadata={"probe": _probe(output_path), **dict(metadata or {})},
+    )
+    updated = EvidenceChain(unit_id=chain.unit_id, nodes=(*chain.nodes, node))
+    updated.validate()
+    return updated
+
+
 def append_repair_evidence(
     *,
     chain: EvidenceChain,
@@ -368,17 +478,18 @@ def append_repair_evidence(
 ) -> EvidenceChain:
     chain.validate()
     if not chain.nodes:
-        raise H3MediaPipelineError("repair evidence requires an upstream provider root")
-    if sha256_file(request.source_path) != chain.nodes[-1].artifact_sha256:
-        raise H3MediaPipelineError("repair source bytes do not match latest evidence node")
+        raise H3MediaPipelineError("repair evidence requires an upstream immutable root")
+    source_sha256 = sha256_file(request.source_path)
+    if source_sha256 not in {node.artifact_sha256 for node in chain.nodes}:
+        raise H3MediaPipelineError("repair source bytes do not match any evidence node")
 
     node = EvidenceNode.create(
         stage=request.action.value,
         artifact_path=output_path,
-        parent_sha256=(chain.nodes[-1].artifact_sha256,),
+        parent_sha256=(source_sha256,),
         metadata={
             "action": request.action.value,
-            "source_sha256": chain.nodes[-1].artifact_sha256,
+            "source_sha256": source_sha256,
             "probe": _probe(output_path),
             **dict(metadata or {}),
         },
