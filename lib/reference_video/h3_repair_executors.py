@@ -319,6 +319,6 @@ def append_repair_evidence(
             **dict(metadata or {}),
         },
     )
-    updated = EvidenceChain(unit_id=chain.unit_id, nodes=chain.nodes + (node,))
+    updated = EvidenceChain(unit_id=chain.unit_id, nodes=(*chain.nodes, node))
     updated.validate()
     return updated
