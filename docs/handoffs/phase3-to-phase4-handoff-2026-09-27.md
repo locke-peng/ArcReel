@@ -16,20 +16,22 @@ Repository:
 
 `phase3/h3-production-policy`
 
-当前分支 HEAD：
+Phase 3 正式验收锚点提交：
 
 `8c95873239c50abe0f4209678f8dcee038bcd191`
 
-该 HEAD 是 Phase 3 正式验收文档提交：
+提交说明：
 
 `docs(h3): record Phase 3 regression acceptance`
+
+交接文档是在该验收锚点之后追加的纯文档提交，因此新对话不要要求 branch HEAD 永远等于 `8c958732...`；应验证当前 HEAD 是否仍包含/继承该验收锚点，并检查之后是否出现功能代码变更。
 
 注意：
 
 - Phase 3 **真实受测代码 SHA** 是：
   `05cfb415a59f0972eb3c603807c4ff64dc79bbb5`
-- 当前 HEAD `8c958732...` 只是在受测代码之后增加正式验收文档。
-- 不要把“文档提交 HEAD”误写成“真实回归受测代码 SHA”。
+- 验收锚点 `8c958732...` 是在受测代码之后增加正式验收文档。
+- 不要把“验收文档提交 SHA”误写成“真实回归受测代码 SHA”。
 
 历史 ArcReel 真机基线：
 
