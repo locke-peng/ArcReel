@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
-from collections.abc import Mapping, Sequence
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
