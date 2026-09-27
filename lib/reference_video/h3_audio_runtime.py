@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import subprocess
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +38,8 @@ class H3ResolvedCanonicalAudio:
     spec: H3CanonicalAudioTrackSpec
     asset_path: Path
     canonical_adts: bytes
-    canonical_adts_sha256: str
+    canonical_encoded_adts_sha256: str
+    canonical_muxed_adts_sha256: str
 
 
 def _probe_duration(path: Path) -> float:
@@ -123,6 +125,45 @@ def _media_adts(media_path: Path) -> bytes | None:
     return proc.stdout
 
 
+def _canonical_muxed_adts_sha256(
+    canonical_adts: bytes,
+    *,
+    duration_seconds: float,
+) -> str:
+    """Fingerprint the AAC packets after the same MP4 duration closure used at runtime."""
+
+    with tempfile.TemporaryDirectory(prefix="arcreel-h3-audio-") as raw_dir:
+        root = Path(raw_dir)
+        source = root / "canonical.aac"
+        muxed = root / "canonical.m4a"
+        source.write_bytes(canonical_adts)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(source),
+                "-map",
+                "0:a:0",
+                "-c:a",
+                "copy",
+                "-t",
+                f"{duration_seconds:.9f}",
+                "-movflags",
+                "+faststart",
+                str(muxed),
+            ],
+            check=True,
+        )
+        roundtrip = _media_adts(muxed)
+        if roundtrip is None:
+            raise RuntimeError("canonical audio MP4 round-trip produced no AAC packets")
+        return hashlib.sha256(roundtrip).hexdigest()
+
+
 def evaluate_h3_canonical_audio_media(
     media_path: Path,
     *,
@@ -134,7 +175,7 @@ def evaluate_h3_canonical_audio_media(
         if observed is not None
         else "missing_or_non_aac"
     )
-    if observed_sha == audio.canonical_adts_sha256:
+    if observed_sha == audio.canonical_muxed_adts_sha256:
         return ()
 
     return (
@@ -153,7 +194,14 @@ def evaluate_h3_canonical_audio_media(
             details=(
                 ("audio_contract_sha256", audio.spec.contract_sha256),
                 ("audio_asset_sha256", audio.spec.asset_sha256),
-                ("canonical_adts_sha256", audio.canonical_adts_sha256),
+                (
+                    "canonical_encoded_adts_sha256",
+                    audio.canonical_encoded_adts_sha256,
+                ),
+                (
+                    "canonical_muxed_adts_sha256",
+                    audio.canonical_muxed_adts_sha256,
+                ),
                 ("observed_adts_sha256", observed_sha),
             ),
         ),
@@ -237,7 +285,11 @@ def build_h3_canonical_audio_runtime_bundle(
         spec=spec,
         asset_path=asset,
         canonical_adts=canonical_adts,
-        canonical_adts_sha256=hashlib.sha256(canonical_adts).hexdigest(),
+        canonical_encoded_adts_sha256=hashlib.sha256(canonical_adts).hexdigest(),
+        canonical_muxed_adts_sha256=_canonical_muxed_adts_sha256(
+            canonical_adts,
+            duration_seconds=spec.duration_seconds,
+        ),
     )
 
     async def _evaluator(media_path: Path) -> tuple[MediaQAFinding, ...]:
