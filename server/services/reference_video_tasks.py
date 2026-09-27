@@ -46,6 +46,12 @@ from lib.reference_video.h3_prompt_execution import (
     compile_reference_video_provider_prompt,
     should_compile_reference_video_h3,
 )
+from lib.reference_video.h3_production_policy import H3RepairAction
+from lib.reference_video.h3_runtime_gate import (
+    H3DeterministicRepairHandler,
+    H3MediaQAEvaluator,
+    run_h3_runtime_selection_gate,
+)
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
@@ -304,6 +310,8 @@ async def execute_reference_video_task(
         [Path, str, tuple[ProviderMediaInput, ...]], Awaitable[tuple[StagedProviderMedia, ...]]
     ]
     | None = None,
+    h3_media_qa_evaluator: H3MediaQAEvaluator | None = None,
+    h3_repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None = None,
 ) -> dict[str, Any]:
     """处理一个 reference_video unit 的生成。
 
@@ -750,6 +758,32 @@ async def execute_reference_video_task(
             )
             raise
 
+    h3_preselection_media_gate = None
+    if (
+        task_id is not None
+        and h3_media_qa_evaluator is not None
+        and should_compile_reference_video_h3(
+            payload=payload,
+            model_name=model_name,
+            has_references=bool(provider_refs),
+        )
+    ):
+        repair_handlers = h3_repair_handlers or {}
+
+        async def _h3_preselection_media_gate(
+            staged_file: Path,
+            _duration_seconds: int,
+            _version_metadata: Mapping[str, Any],
+        ) -> Mapping[str, Any]:
+            gate_result = await run_h3_runtime_selection_gate(
+                staged_file,
+                evaluator=h3_media_qa_evaluator,
+                repair_handlers=repair_handlers,
+            )
+            return gate_result.to_dict()
+
+        h3_preselection_media_gate = _h3_preselection_media_gate
+
     artifact_committer = (
         VideoArtifactCommitter(
             project_manager=get_project_manager(),
@@ -759,6 +793,7 @@ async def execute_reference_video_task(
             resource_type="reference_videos",
             resource_id=resource_id,
             prompt=provider_prompt,
+            preselection_media_gate=h3_preselection_media_gate,
         )
         if task_id is not None
         else None
