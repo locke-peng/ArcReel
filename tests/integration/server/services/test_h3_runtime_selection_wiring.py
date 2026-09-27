@@ -179,7 +179,7 @@ def _canonical_timeline() -> dict:
     }
 
 
-def test_reference_video_auto_wires_timeline_only_after_verified_prompt_lock() -> None:
+def test_reference_video_auto_wires_timeline_only_after_verified_prompt_lock(tmp_path: Path) -> None:
     evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
         canonical_director=_canonical_timeline(),
         unit_id="E15U03",
@@ -239,3 +239,62 @@ def test_reference_video_injected_trusted_runtime_bundle_takes_precedence(tmp_pa
 
     assert evaluator is injected
     assert resolved_handlers is handlers
+
+
+def test_reference_video_auto_wires_exact_text_plate_after_verified_prompt_lock(
+    tmp_path: Path,
+) -> None:
+    plate = tmp_path / "plate.png"
+    plate.write_bytes(b"canonical-plate")
+    import hashlib
+
+    plate_sha = hashlib.sha256(plate.read_bytes()).hexdigest()
+    canonical = {
+        "unit": {
+            "unit_id": "E13U01",
+            "duration_sec": 5,
+            "shots": [
+                {
+                    "shot_id": "S1",
+                    "start_sec": 0,
+                    "end_sec": 5,
+                    "screen_text": [
+                        {
+                            "kind": "identity_title",
+                            "legibility": "exact",
+                            "text": "沈知意",
+                            "plate_spec": {
+                                "schema_version": 1,
+                                "ownership": "deterministic_plate",
+                                "compositing": "full_frame_replace",
+                                "asset_path": "plate.png",
+                                "asset_sha256": plate_sha,
+                                "region": {
+                                    "unit": "normalized",
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1,
+                                    "height": 1,
+                                },
+                                "typography": {"authority": "asset_pixels"},
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    }
+
+    evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
+        canonical_director=canonical,
+        unit_id="E13U01",
+        project_path=tmp_path,
+        prompt_lock_verified=True,
+        h3_compiler_applied=True,
+        evaluator=None,
+        repair_handlers=None,
+    )
+
+    assert evaluator is not None
+    assert handlers is not None
+    assert reference_video_tasks.H3RepairAction.DETERMINISTIC_TEXT_PLATE in handlers
