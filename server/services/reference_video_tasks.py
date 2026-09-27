@@ -46,6 +46,7 @@ from lib.reference_video.h3_prompt_execution import (
     compile_reference_video_provider_prompt,
     should_compile_reference_video_h3,
 )
+from lib.reference_video.h3_audio_runtime import build_h3_canonical_audio_runtime_bundle
 from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
 from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_runtime_gate import (
@@ -165,6 +166,18 @@ def _resolve_trusted_h3_runtime_bundle(
     if exact_evaluator is not None:
         evaluators.append(exact_evaluator)
     for action, handler in exact_handlers.items():
+        if action in handlers and handlers[action] is not handler:
+            raise RuntimeError(f"duplicate H3 deterministic handler for {action.value}")
+        handlers[action] = handler
+
+    audio_evaluator, audio_handlers = build_h3_canonical_audio_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+    )
+    if audio_evaluator is not None:
+        evaluators.append(audio_evaluator)
+    for action, handler in audio_handlers.items():
         if action in handlers and handlers[action] is not handler:
             raise RuntimeError(f"duplicate H3 deterministic handler for {action.value}")
         handlers[action] = handler
