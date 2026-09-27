@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal
 
+from lib.reference_video.h3_exact_text_contract import parse_exact_text_plate_spec
+
 H3_MIN_DURATION_SECONDS = 4
 H3_MAX_DURATION_SECONDS = 15
 H3_MAX_REFERENCE_IMAGES = 9
@@ -267,8 +269,15 @@ def _camera_sentence(shot: Mapping[str, Any]) -> str:
     return "Camera: " + ", ".join(parts) + "." if parts else ""
 
 
-def _screen_text_lines(shot: Mapping[str, Any]) -> list[str]:
+def _screen_text_lines(
+    shot: Mapping[str, Any],
+    *,
+    unit_id: str,
+    shot_id: str,
+    start_seconds: float,
+) -> list[str]:
     lines: list[str] = []
+    raw_end = shot.get("end_sec")
     for item in _list(shot.get("screen_text")):
         if not isinstance(item, Mapping):
             continue
@@ -281,7 +290,37 @@ def _screen_text_lines(shot: Mapping[str, Any]) -> list[str]:
                 raise H3DirectorCompileError(
                     f"exact screen text in {shot.get('shot_id')} requires non-empty text"
                 )
-            lines.append(f'On-screen {kind}: render exactly "{text}" and keep it clearly readable.')
+
+            if item.get("plate_spec") is not None:
+                if (
+                    not isinstance(raw_end, (int, float))
+                    or isinstance(raw_end, bool)
+                ):
+                    raise H3DirectorCompileError(
+                        f"deterministic exact-text plate in {shot_id} requires numeric end_sec"
+                    )
+                try:
+                    spec = parse_exact_text_plate_spec(
+                        item,
+                        unit_id=unit_id,
+                        shot_id=shot_id,
+                        start_seconds=start_seconds,
+                        end_seconds=float(raw_end),
+                    )
+                except ValueError as exc:
+                    raise H3DirectorCompileError(str(exc)) from exc
+                if spec is None:
+                    raise H3DirectorCompileError(
+                        f"deterministic exact-text plate in {shot_id} did not resolve"
+                    )
+                lines.append(
+                    "ArcReel post-production owns this full-frame exact-text plate; "
+                    f"contract_sha256={spec.contract_sha256}. "
+                    "Do not render readable text, pseudo-text, subtitles, labels, letters, "
+                    "digits, logos, or typography for this plate in provider pixels."
+                )
+            else:
+                lines.append(f'On-screen {kind}: render exactly "{text}" and keep it clearly readable.')
         elif legibility == "blurred_unreadable":
             detail = f" ({semantic})" if semantic else ""
             lines.append(f"On-screen {kind}{detail}: visible as UI/content but deliberately unreadable.")
@@ -507,7 +546,14 @@ def _shot_lines(
         if emotion:
             result.append(f"Performance / emotional beat: {emotion}.")
 
-        result.extend(_screen_text_lines(shot))
+        result.extend(
+            _screen_text_lines(
+                shot,
+                unit_id=str(unit.get("unit_id") or ""),
+                shot_id=shot_id,
+                start_seconds=start,
+            )
+        )
 
         if shot_id in continuation_targets:
             gid = group_for_shot.get(shot_id)
