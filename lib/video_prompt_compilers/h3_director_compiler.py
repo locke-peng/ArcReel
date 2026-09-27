@@ -18,6 +18,7 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal
 
+from lib.reference_video.h3_audio_contract import parse_canonical_audio_track_spec
 from lib.reference_video.h3_exact_text_contract import parse_exact_text_plate_spec
 
 H3_MIN_DURATION_SECONDS = 4
@@ -638,6 +639,18 @@ def compile_h3_director_prompt(
 
     detailed: list[str] = []
     detailed.extend(_role_constraints(unit, registries))
+    try:
+        audio_track = parse_canonical_audio_track_spec(unit)
+    except ValueError as exc:
+        raise H3DirectorCompileError(str(exc)) from exc
+    if audio_track is not None:
+        detailed.append(
+            "ArcReel post-production owns the full-unit Canonical soundtrack; "
+            f"contract_sha256={audio_track.contract_sha256}. "
+            "Provider audio is non-authoritative and will be replaced deterministically. "
+            "Do not convert or visualize any spoken soundtrack content as subtitles, "
+            "captions, labels, or readable text."
+        )
     detailed.extend(_shot_lines(unit=unit, registries=registries, references=refs))
 
     notes = _mapping(unit.get("director_notes"))
@@ -646,6 +659,11 @@ def compile_h3_director_prompt(
         or notes.get("ambience")
         or "N/A"
     ).strip() or "N/A"
+    if audio_track is not None:
+        ambience = (
+            "Provider soundtrack is non-authoritative; ArcReel replaces the complete "
+            f"audio layer from Canonical contract {audio_track.contract_sha256}."
+        )
     music = str(
         _mapping(unit.get("sound_design")).get("music")
         or notes.get("music")
