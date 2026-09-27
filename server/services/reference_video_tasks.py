@@ -46,6 +46,7 @@ from lib.reference_video.h3_prompt_execution import (
     compile_reference_video_provider_prompt,
     should_compile_reference_video_h3,
 )
+from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
 from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_runtime_gate import (
     H3DeterministicRepairHandler,
@@ -118,6 +119,7 @@ def _resolve_trusted_h3_runtime_bundle(
     *,
     canonical_director: Mapping[str, Any] | None,
     unit_id: str,
+    project_path: Path,
     prompt_lock_verified: bool,
     h3_compiler_applied: bool,
     evaluator: H3MediaQAEvaluator | None,
@@ -126,12 +128,12 @@ def _resolve_trusted_h3_runtime_bundle(
     H3MediaQAEvaluator | None,
     Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
 ]:
-    """Resolve the production H3 runtime bundle without trusting QA facts from request data.
+    """Resolve trusted automatic H3 QA only from prompt-locked Canonical facts.
 
-    Explicitly injected evaluator/handlers remain the highest-priority trusted seam used by
-    tests and future dedicated QA producers. Automatic timeline QA is derived only from the
-    structured Canonical Director that already produced the H3 provider prompt, and only
-    after Preview/Runtime prompt SHA verification has succeeded.
+    Explicitly injected evaluator/handlers remain the highest-priority trusted seam.
+    Automatic producers may inspect Canonical timeline boundaries and SHA-pinned
+    deterministic exact-text plate contracts. They never consume request-provided failure
+    classes or repair decisions.
     """
 
     if evaluator is not None:
@@ -144,11 +146,35 @@ def _resolve_trusted_h3_runtime_bundle(
     ):
         return None, repair_handlers
 
+    evaluators: list[H3MediaQAEvaluator] = []
+    handlers: dict[H3RepairAction, H3DeterministicRepairHandler] = {}
+
     timeline_evaluator, timeline_handlers = build_h3_timeline_runtime_bundle(
         canonical_director,
         unit_id=unit_id,
     )
-    return timeline_evaluator, timeline_handlers
+    evaluators.append(timeline_evaluator)
+    handlers.update(timeline_handlers)
+
+    exact_evaluator, exact_handlers = build_h3_exact_text_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+    )
+    if exact_evaluator is not None:
+        evaluators.append(exact_evaluator)
+    for action, handler in exact_handlers.items():
+        if action in handlers and handlers[action] is not handler:
+            raise RuntimeError(f"duplicate H3 deterministic handler for {action.value}")
+        handlers[action] = handler
+
+    async def _composite(media_path: Path) -> tuple[MediaQAFinding, ...]:
+        findings: list[MediaQAFinding] = []
+        for producer in evaluators:
+            findings.extend(await producer(media_path))
+        return tuple(findings)
+
+    return _composite, handlers
 
 
 def _build_h3_preselection_media_gate(
@@ -659,6 +685,7 @@ async def execute_reference_video_task(
     h3_media_qa_evaluator, h3_repair_handlers = _resolve_trusted_h3_runtime_bundle(
         canonical_director=trusted_canonical_director,
         unit_id=resource_id,
+        project_path=project_path,
         prompt_lock_verified=prompt_lock_verified,
         h3_compiler_applied=prompt_compilation.compiler_applied,
         evaluator=h3_media_qa_evaluator,
