@@ -133,3 +133,47 @@ async def test_timeline_runtime_bundle_uses_only_existing_av_retime_action(
 
     assert findings[0].failure_class is H3FailureClass.TIMELINE_ONLY_FAILURE
     assert set(handlers) == {H3RepairAction.DETERMINISTIC_AV_RETIME}
+
+
+def test_runtime_retime_trims_overlong_final_beat_instead_of_compressing_timing_debt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    media = tmp_path / "source.mp4"
+    media.write_bytes(b"source")
+    timeline = canonical_timeline_from_director(_canonical(), unit_id="E15U03")
+
+    monkeypatch.setattr(h3_timeline_runtime, "probe_video_fps", lambda _path: 24.0)
+    monkeypatch.setattr(
+        h3_timeline_runtime,
+        "detect_expected_cuts",
+        lambda *_args, **_kwargs: (
+            CutDetection(118, 118 / 24, 120, 5.0, -2, -2 / 24, 0.4, "scene"),
+            CutDetection(222, 222 / 24, 240, 10.0, -18, -18 / 24, 0.3, "scene"),
+        ),
+    )
+    monkeypatch.setattr(
+        h3_timeline_runtime,
+        "_video_stream_facts",
+        lambda _path: (360, 32000, 2),
+    )
+
+    captured: list[str] = []
+
+    def fake_run(command, check=True):
+        del check
+        captured.extend(command)
+        Path(command[-1]).write_bytes(b"retimed")
+
+    monkeypatch.setattr(h3_timeline_runtime.subprocess, "run", fake_run)
+
+    h3_timeline_runtime.retime_h3_media_to_canonical_timeline(
+        media,
+        timeline=timeline,
+    )
+
+    filter_complex = captured[captured.index("-filter_complex") + 1]
+    assert "trim=start=9.250000000:end=14.250000000" in filter_complex
+    assert "setpts=(PTS-STARTPTS)*1.000000000000" in filter_complex
+    assert "atrim=start=9.250000000:end=14.250000000" in filter_complex
+    assert "atempo=1.000000000000" in filter_complex
