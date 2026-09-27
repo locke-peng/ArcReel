@@ -25,6 +25,7 @@ on:
       - "lib/reference_video/h3_production_policy.py"
       - "scripts/experiments/run_phase4_auto_repair_e2e.py"
       - "scripts/experiments/run_phase4_e13u01_exact_text_replay.py"
+      - "scripts/experiments/run_phase4_e13u01_audio_repair_replay.py"
       - "tests/unit/lib/reference_video/test_h3_auto_repair_loop.py"
       - "tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py"
       - "tests/unit/lib/reference_video/test_h3_runtime_gate.py"
@@ -121,6 +122,7 @@ jobs:
             server/services/video_artifact_currency.py \
             scripts/experiments/run_phase4_auto_repair_e2e.py \
             scripts/experiments/run_phase4_e13u01_exact_text_replay.py \
+            scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
@@ -141,6 +143,7 @@ jobs:
             lib/reference_video/evidence_schema.py \
             scripts/experiments/run_phase4_auto_repair_e2e.py \
             scripts/experiments/run_phase4_e13u01_exact_text_replay.py \
+            scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
@@ -313,5 +316,76 @@ jobs:
         with:
           name: phase4-e13u01-exact-text-e2e-evidence
           path: phase4_exact_text_evidence
+          if-no-files-found: error
+          retention-days: 14
+
+
+  audio-only-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E13U01 accepted evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e13u01-v2-deterministic-screen-identity-continuity-evidence
+          path: upstream_e13u01_audio
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36098803663
+
+      - name: Run E13U01 canonical-audio auto-repair replay
+        run: |
+          uv run python scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
+            --upstream-dir upstream_e13u01_audio \
+            --output-dir phase4_audio_evidence
+
+      - name: Assert audio-only replay FINAL PASS without provider recall
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path(
+                  "phase4_audio_evidence/E13U01/"
+                  "phase4_e13u01_audio_repair_replay.json"
+              ).read_text()
+          )
+          assert data["status"] == "FINAL_PASS"
+          assert data["failure_class"] == "audio_only_failure"
+          assert data["repair_action"] == "audio_repair_remux"
+          assert data["provider_recalled"] is False
+          assert data["runtime_gate"]["repair_passes"] == 1
+          assert data["accepted_video_framemd5_sha256"] == data["final_video_framemd5_sha256"]
+          assert data["accepted_audio_framemd5_sha256"] == data["final_audio_framemd5_sha256"]
+          assert data["accepted_vs_replay_video_ssim"] >= 0.999
+          assert data["final_detected_cuts"][0]["actual_cut_frame"] == 120
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload E13U01 canonical-audio Phase 4 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-e13u01-audio-repair-e2e-evidence
+          path: phase4_audio_evidence
           if-no-files-found: error
           retention-days: 14
