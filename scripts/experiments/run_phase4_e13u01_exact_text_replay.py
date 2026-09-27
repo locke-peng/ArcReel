@@ -1,13 +1,14 @@
-"""Phase 4 E13U01 exact-text replay over existing supplier evidence.
+"""Phase 4 E13U01 exact-text runtime replay over existing supplier evidence.
 
-The replay never calls MiniMax. It reuses the accepted H3 entrance plate and detached
-audio, injects the SHA-pinned deterministic exact-text screen plate, and re-authors the
-canonical 5s + 5s final MP4 through the unified Phase 4 auto-repair loop.
+The replay never calls MiniMax. It builds a deterministic wrong-plate candidate from the
+accepted H3 entrance plate plus detached canonical audio, then lets the production
+exact-text runtime bundle detect and repair the first Canonical shot.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import os
@@ -18,17 +19,9 @@ from typing import Any
 
 from lib.reference_video.cut_detector import detect_expected_cuts
 from lib.reference_video.evidence_schema import H3EvidenceRecord
-from lib.reference_video.h3_auto_repair_loop import (
-    execute_h3_auto_repair,
-    plan_h3_auto_repair,
-)
-from lib.reference_video.h3_production_policy import H3RepairAction
+from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
 from lib.reference_video.h3_repair_executor import sha256_file
-from lib.reference_video.media_qa_schema import (
-    MediaQAFinding,
-    MediaQARepairability,
-    MediaQASeverity,
-)
+from lib.reference_video.h3_runtime_gate import run_h3_runtime_selection_gate
 
 UNIT_ID = "E13U01"
 SUPPLIER_RUN_ID = 36098803663
@@ -105,7 +98,27 @@ def _probe(path: Path) -> dict[str, Any]:
     return result
 
 
-def _build_final(screen: Path, entry: Path, audio: Path, output: Path) -> None:
+def _make_wrong_plate(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _run(
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"color=c=black:s={WIDTH}x{HEIGHT}:r={FPS}",
+        "-frames:v",
+        "1",
+        str(path),
+    )
+
+
+def _build_candidate(wrong_plate: Path, entry: Path, audio: Path, output: Path) -> None:
+    """Create the same 5s+5s authored structure with an intentionally wrong shot-1 plate."""
+
     output.parent.mkdir(parents=True, exist_ok=True)
     _run(
         "ffmpeg",
@@ -120,7 +133,7 @@ def _build_final(screen: Path, entry: Path, audio: Path, output: Path) -> None:
         "-t",
         str(SHOT_SECONDS),
         "-i",
-        str(screen),
+        str(wrong_plate),
         "-i",
         str(entry),
         "-i",
@@ -128,7 +141,7 @@ def _build_final(screen: Path, entry: Path, audio: Path, output: Path) -> None:
         "-filter_complex",
         (
             "[0:v]scale=1280:720,format=yuv420p,"
-            "fade=t=in:st=0:d=0.20,trim=duration=5,setpts=PTS-STARTPTS[v0];"
+            "trim=duration=5,setpts=PTS-STARTPTS[v0];"
             "[1:v]trim=start=0:end=5,setpts=PTS-STARTPTS,"
             "scale=1280:720:force_original_aspect_ratio=increase,"
             "crop=1280:720,format=yuv420p[v1];"
@@ -156,6 +169,55 @@ def _build_final(screen: Path, entry: Path, audio: Path, output: Path) -> None:
         "+faststart",
         str(output),
     )
+
+
+def _canonical_director() -> dict[str, Any]:
+    return {
+        "unit": {
+            "unit_id": UNIT_ID,
+            "duration_sec": DURATION_SECONDS,
+            "shots": [
+                {
+                    "shot_id": "E13U01-S01",
+                    "start_sec": 0,
+                    "end_sec": SHOT_SECONDS,
+                    "screen_text": [
+                        {
+                            "kind": "identity_title",
+                            "legibility": "exact",
+                            "text": EXACT_TEXT,
+                            "plate_spec": {
+                                "schema_version": 1,
+                                "ownership": "deterministic_plate",
+                                "compositing": "full_frame_replace",
+                                "asset_path": "fixtures/E13U01_exact_screen.png",
+                                "asset_sha256": SCREEN_SHA256,
+                                "region": {
+                                    "unit": "normalized",
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 1,
+                                    "height": 1,
+                                },
+                                "typography": {
+                                    "authority": "asset_pixels",
+                                    "layout": "accepted_e13u01_identity_plate",
+                                },
+                                "ssim_threshold": 0.99,
+                            },
+                        }
+                    ],
+                },
+                {
+                    "shot_id": "E13U01-S02",
+                    "start_sec": SHOT_SECONDS,
+                    "end_sec": DURATION_SECONDS,
+                    "screen_text": [],
+                },
+            ],
+        },
+        "registries": {},
+    }
 
 
 def _decoded_stream_digest(path: Path, selector: str) -> str:
@@ -248,47 +310,55 @@ def main() -> None:
     if not tested_sha:
         raise RuntimeError("GITHUB_SHA is required for acceptance evidence")
 
-    screen = args.upstream_dir / "project" / "fixtures" / "E13U01_exact_screen.png"
+    upstream_project = args.upstream_dir / "project"
+    screen = upstream_project / "fixtures" / "E13U01_exact_screen.png"
     entry = args.upstream_dir / "E13U01_v2_entry_provider_raw.mp4"
-    audio = args.upstream_dir / "project" / "fixtures" / "E13U01_host_applause_audio.wav"
-    accepted_final = args.upstream_dir / "project" / "reference_videos" / "E13U01.mp4"
+    audio = upstream_project / "fixtures" / "E13U01_host_applause_audio.wav"
+    accepted_final = upstream_project / "reference_videos" / "E13U01.mp4"
 
     _require_sha(screen, SCREEN_SHA256, "exact screen plate")
     _require_sha(entry, ENTRY_SHA256, "accepted entry provider plate")
     _require_sha(audio, AUDIO_SHA256, "detached canonical audio")
     _require_sha(accepted_final, ACCEPTED_FINAL_SHA256, "accepted final reference")
 
-    finding = MediaQAFinding(
-        unit_id=UNIT_ID,
-        canonical_violation=(
-            "exact canonical identity typography must not be delegated to probabilistic video generation"
-        ),
-        severity=MediaQASeverity.BLOCKING,
-        provider_result_usable=True,
-        audio_is_accepted=True,
-        repairability=MediaQARepairability.DETERMINISTIC,
-        affected_fraction=0.50,
-        exact_visible_text=EXACT_TEXT,
-        tags=("exact_text_mismatch",),
-    )
-    plan = plan_h3_auto_repair(finding)
-    if plan.decision.action is not H3RepairAction.DETERMINISTIC_TEXT_PLATE:
-        raise RuntimeError(f"unexpected repair plan: {plan}")
-
     root = args.output_dir / UNIT_ID
+    wrong_plate = root / "wrong_plate.png"
     final_video = root / "project" / "reference_videos" / "E13U01.mp4"
+    _make_wrong_plate(wrong_plate)
+    _build_candidate(wrong_plate, entry, audio, final_video)
+    candidate_sha256 = sha256_file(final_video)
 
-    def runner() -> None:
-        _build_final(screen, entry, audio, final_video)
-
-    execution = execute_h3_auto_repair(
-        plan,
-        source_media=(entry,),
-        output_media=final_video,
-        deterministic_runner=runner,
+    evaluator, handlers = build_h3_exact_text_runtime_bundle(
+        _canonical_director(),
+        unit_id=UNIT_ID,
+        project_path=upstream_project,
     )
-    if execution.provider_recalled:
-        raise RuntimeError("E13U01 exact-text replay unexpectedly recalled provider")
+    if evaluator is None:
+        raise RuntimeError("E13U01 exact-text runtime bundle was not created")
+
+    runtime_result = asyncio.run(
+        run_h3_runtime_selection_gate(
+            final_video,
+            evaluator=evaluator,
+            repair_handlers=handlers,
+        )
+    )
+    if runtime_result.provider_recalled:
+        raise RuntimeError("E13U01 exact-text runtime unexpectedly recalled provider")
+    if runtime_result.repair_passes != 1:
+        raise RuntimeError(f"unexpected exact-text repair pass count: {runtime_result}")
+
+    first_pass = runtime_result.passes[0]
+    findings = first_pass.get("findings") or []
+    plans = first_pass.get("plans") or []
+    if len(findings) != 1 or len(plans) != 1:
+        raise RuntimeError(f"unexpected E13U01 runtime routing: {runtime_result}")
+    finding = findings[0]
+    plan = plans[0]
+    if plan.get("failure_class") != "exact_text_required":
+        raise RuntimeError(f"unexpected E13U01 failure class: {plan}")
+    if plan.get("repair_action") != "deterministic_text_plate":
+        raise RuntimeError(f"unexpected E13U01 repair action: {plan}")
 
     probe = _probe(final_video)
     cuts = detect_expected_cuts(
@@ -303,22 +373,23 @@ def main() -> None:
     accepted_audio_digest = _decoded_stream_digest(accepted_final, "0:a:0")
     replay_audio_digest = _decoded_stream_digest(final_video, "0:a:0")
     if accepted_audio_digest != replay_audio_digest:
-        raise RuntimeError("E13U01 detached canonical audio changed during deterministic replay")
+        raise RuntimeError("E13U01 detached canonical audio changed during runtime repair")
 
     ssim = _video_ssim(final_video, accepted_final)
     if ssim < 0.99:
-        raise RuntimeError(f"E13U01 replay diverged visually from accepted final: SSIM={ssim}")
+        raise RuntimeError(f"E13U01 runtime replay diverged from accepted final: SSIM={ssim}")
 
     review_frames = _extract_review_frames(final_video, root / "review_frames")
+    final_sha256 = sha256_file(final_video)
 
     pre = H3EvidenceRecord(
         unit_id=UNIT_ID,
         stage="media_qa_structured_finding",
         tested_sha=tested_sha,
-        repair_action=plan.decision.action.value,
+        repair_action="deterministic_text_plate",
         provider_recalled=False,
         qa_verdict="FAIL_REPAIRABLE",
-        source_media_sha256=(ENTRY_SHA256,),
+        source_media_sha256=(candidate_sha256,),
         prompt_sha256=PROMPT_SHA256,
         reference_sha256=(REFERENCE_SHA256, SCREEN_SHA256),
         provider_run_id=SUPPLIER_RUN_ID,
@@ -330,15 +401,15 @@ def main() -> None:
         unit_id=UNIT_ID,
         stage="re_qa",
         tested_sha=tested_sha,
-        repair_action=plan.decision.action.value,
+        repair_action="deterministic_text_plate",
         provider_recalled=False,
         qa_verdict="PASS",
-        source_media_sha256=(ENTRY_SHA256,),
+        source_media_sha256=(candidate_sha256,),
         prompt_sha256=PROMPT_SHA256,
         reference_sha256=(REFERENCE_SHA256, SCREEN_SHA256),
         provider_run_id=SUPPLIER_RUN_ID,
         provider_artifact_id=SUPPLIER_ARTIFACT_ID,
-        post_media_sha256=execution.output_media_sha256,
+        post_media_sha256=final_sha256,
         actual_cuts=(("final", [cut.to_dict() for cut in cuts]),),
         media_probe=tuple(sorted(probe.items())),
         evidence_frames=review_frames,
@@ -350,10 +421,11 @@ def main() -> None:
         "status": "FINAL_PASS",
         "unit_id": UNIT_ID,
         "tested_sha": tested_sha,
-        "finding": finding.to_dict(),
-        "failure_class": plan.failure.failure_class.value,
-        "repair_action": plan.decision.action.value,
-        "provider_recalled": execution.provider_recalled,
+        "finding": finding,
+        "failure_class": plan["failure_class"],
+        "repair_action": plan["repair_action"],
+        "provider_recalled": runtime_result.provider_recalled,
+        "runtime_gate": runtime_result.to_dict(),
         "source_supplier_run_id": SUPPLIER_RUN_ID,
         "source_supplier_artifact_id": SUPPLIER_ARTIFACT_ID,
         "source_supplier_artifact_name": SUPPLIER_ARTIFACT_NAME,
@@ -362,8 +434,9 @@ def main() -> None:
             "entry_provider_video": ENTRY_SHA256,
             "detached_audio": AUDIO_SHA256,
             "accepted_final": ACCEPTED_FINAL_SHA256,
+            "runtime_candidate": candidate_sha256,
         },
-        "final_media_sha256": execution.output_media_sha256,
+        "final_media_sha256": final_sha256,
         "media_probe": probe,
         "final_detected_cuts": [cut.to_dict() for cut in cuts],
         "accepted_vs_replay_video_ssim": ssim,
