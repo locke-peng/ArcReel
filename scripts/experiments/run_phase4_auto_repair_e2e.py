@@ -12,9 +12,11 @@ for media contract, canonical cuts, and visual equivalence to the formally accep
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +30,8 @@ from lib.reference_video.h3_auto_repair_loop import (
 )
 from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_repair_executor import sha256_file
+from lib.reference_video.h3_runtime_gate import run_h3_runtime_selection_gate
+from lib.reference_video.h3_timeline_runtime import build_h3_timeline_runtime_bundle
 from lib.reference_video.media_qa_schema import (
     MediaQAFinding,
     MediaQARepairability,
@@ -447,34 +451,42 @@ def _run_e15(
     if actual_frames != (118, 222):
         raise RuntimeError(f"E15U03 detected cuts changed: {actual_frames}")
 
-    finding = MediaQAFinding(
+    canonical_director = {
+        "unit": {
+            "unit_id": "E15U03",
+            "duration_sec": 15,
+            "shots": [
+                {"shot_id": "E15U03-S1", "start_sec": 0, "end_sec": 5},
+                {"shot_id": "E15U03-S2", "start_sec": 5, "end_sec": 10},
+                {"shot_id": "E15U03-S3", "start_sec": 10, "end_sec": 15},
+            ],
+        }
+    }
+    evaluator, repair_handlers = build_h3_timeline_runtime_bundle(
+        canonical_director,
         unit_id="E15U03",
-        canonical_violation="actual hard cuts do not land on canonical 5s and 10s boundaries",
-        severity=MediaQASeverity.BLOCKING,
-        provider_result_usable=True,
-        audio_is_accepted=True,
-        repairability=MediaQARepairability.DETERMINISTIC,
-        affected_fraction=1.0,
-        evidence_frames=actual_frames,
-        tags=("cut_timing",),
     )
+    findings = asyncio.run(evaluator(source_video))
+    if len(findings) != 1:
+        raise RuntimeError(f"expected one E15U03 timeline finding, got {findings}")
+    finding = findings[0]
     plan = plan_h3_auto_repair(finding)
     if plan.decision.action is not H3RepairAction.DETERMINISTIC_AV_RETIME:
         raise RuntimeError(f"unexpected E15U03 repair decision: {plan.decision}")
 
     root = output_root / "E15U03"
     final_video = root / "project" / "reference_videos" / "E15U03.mp4"
+    final_video.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_video, final_video)
 
-    def runner() -> None:
-        _retime_from_detected_cuts(source_video, final_video, source_cuts)
-
-    execution = execute_h3_auto_repair(
-        plan,
-        source_media=(source_video,),
-        output_media=final_video,
-        deterministic_runner=runner,
+    gate_result = asyncio.run(
+        run_h3_runtime_selection_gate(
+            final_video,
+            evaluator=evaluator,
+            repair_handlers=repair_handlers,
+        )
     )
-    if execution.provider_recalled:
+    if gate_result.provider_recalled:
         raise RuntimeError("E15U03 unexpectedly recalled provider")
 
     probe = _probe_media(final_video)
@@ -506,6 +518,7 @@ def _run_e15(
     prompt_sha = summary.get("prompt_sha256")
     reference_sha = tuple(summary.get("reference_sha256") or ())
     source_sha = sha256_file(source_video)
+    final_sha = sha256_file(final_video)
     probe_with_reference = {
         **probe,
         "accepted_final_sha256": E15_ACCEPTED_FINAL_SHA256,
@@ -544,7 +557,7 @@ def _run_e15(
         provider_run_id=E15_RUN_ID,
         provider_artifact_id=E15_ARTIFACT_ID,
         pre_media_sha256=source_sha,
-        post_media_sha256=execution.output_media_sha256,
+        post_media_sha256=final_sha,
         actual_cuts=(
             ("source", [cut.to_dict() for cut in source_cuts]),
             ("final", [cut.to_dict() for cut in final_cuts]),
@@ -560,7 +573,8 @@ def _run_e15(
         "finding": finding.to_dict(),
         "failure_class": plan.failure.failure_class.value,
         "repair_action": plan.decision.action.value,
-        "provider_recalled": execution.provider_recalled,
+        "provider_recalled": gate_result.provider_recalled,
+        "runtime_gate": gate_result.to_dict(),
         "source_supplier_run_id": E15_RUN_ID,
         "source_supplier_artifact_id": E15_ARTIFACT_ID,
         "accepted_reference_run_id": E15_ACCEPTED_RUN_ID,
@@ -568,10 +582,8 @@ def _run_e15(
         "source_detected_cuts": [cut.to_dict() for cut in source_cuts],
         "final_detected_cuts": [cut.to_dict() for cut in final_cuts],
         "accepted_final_sha256": E15_ACCEPTED_FINAL_SHA256,
-        "final_media_sha256": execution.output_media_sha256,
-        "byte_identity_with_accepted_final": (
-            execution.output_media_sha256 == E15_ACCEPTED_FINAL_SHA256
-        ),
+        "final_media_sha256": final_sha,
+        "byte_identity_with_accepted_final": final_sha == E15_ACCEPTED_FINAL_SHA256,
         "video_ssim_to_accepted_final": video_ssim,
         "media_probe": probe,
         "evidence_head_sha256": post.record_sha256,
