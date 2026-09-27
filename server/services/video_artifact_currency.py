@@ -97,6 +97,10 @@ class VideoArtifactCommitter:
         resource_type: str,
         resource_id: str,
         prompt: str,
+        preselection_media_gate: (
+            Callable[[Path, int, Mapping[str, Any]], Awaitable[Mapping[str, Any] | None]]
+            | None
+        ) = None,
     ) -> None:
         if resource_type not in {"videos", "reference_videos"}:
             raise ValueError(f"unsupported video artifact resource type: {resource_type!r}")
@@ -107,6 +111,8 @@ class VideoArtifactCommitter:
         self._resource_type = resource_type
         self._resource_id = resource_id
         self._prompt = prompt
+        self._preselection_media_gate = preselection_media_gate
+        self._preselection_version_metadata: dict[str, Any] = {}
         self.outcome: PaidVersionCommit | None = None
         self.selection_error: BaseException | None = None
         self._current_file: Path | None = None
@@ -148,6 +154,26 @@ class VideoArtifactCommitter:
             )
             await run_noninterruptible_async(guard.__aenter__())
             self._admission_guard = guard
+
+        if self._preselection_media_gate is not None:
+            try:
+                gate_result = await self._preselection_media_gate(
+                    staged_file,
+                    duration_seconds,
+                    version_metadata,
+                )
+                if gate_result is not None:
+                    self._preselection_version_metadata["h3_auto_repair"] = dict(gate_result)
+            except (Exception, asyncio.CancelledError) as exc:
+                report = getattr(exc, "report", None)
+                if isinstance(report, Mapping):
+                    self._preselection_version_metadata["h3_auto_repair"] = dict(report)
+                self.selection_error = exc
+                code = getattr(exc, "code", None)
+                self._restore_blocker = (
+                    code if isinstance(code, str) and code else "h3_media_qa_unverified"
+                )
+                return
 
         raw_narration = version_metadata.get("execution_narration")
         if not isinstance(raw_narration, Mapping) or raw_narration.get("delivery") != "use_tts":
@@ -192,6 +218,7 @@ class VideoArtifactCommitter:
     ) -> PaidVersionCommit:
         snapshot: dict[str, dict[str, Any] | None] = {"project": None, "script": None}
         metadata = dict(version_metadata)
+        metadata.update(self._preselection_version_metadata)
         if self._restore_blocker is not None:
             metadata[VIDEO_ARTIFACT_RESTORE_BLOCKER_FIELD] = self._restore_blocker
         script_file = metadata.get("execution_script_file")
