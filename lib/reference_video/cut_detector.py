@@ -63,6 +63,9 @@ def probe_video_fps(media_path: Path) -> float:
     return fps
 
 
+_probe_fps = probe_video_fps
+
+
 def _scene_scores(media_path: Path, fps: float) -> list[tuple[int, float, float]]:
     proc = subprocess.run(
         [
@@ -127,7 +130,7 @@ def detect_expected_cuts(
     if not 0.0 <= min_scene_score <= 1.0:
         raise ValueError("min_scene_score must be between 0 and 1")
 
-    fps = probe_video_fps(media_path)
+    fps = _probe_fps(media_path)
     samples = _scene_scores(media_path, fps)
     detections: list[CutDetection] = []
 
