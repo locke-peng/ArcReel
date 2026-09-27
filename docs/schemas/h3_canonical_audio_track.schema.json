@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcreel.local/schemas/h3_canonical_audio_track.schema.json",
+  "title": "ArcReel H3 Canonical Full-Unit Audio Track v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ownership",
+    "scope",
+    "asset_path",
+    "asset_sha256",
+    "codec",
+    "sample_rate_hz",
+    "channels",
+    "bitrate_bps"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "ownership": {"const": "deterministic_audio"},
+    "scope": {"const": "full_unit"},
+    "asset_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Project-relative authoritative audio asset path."
+    },
+    "asset_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "codec": {"const": "aac"},
+    "sample_rate_hz": {
+      "type": "integer",
+      "minimum": 8000,
+      "maximum": 96000
+    },
+    "channels": {
+      "type": "integer",
+      "enum": [1, 2]
+    },
+    "bitrate_bps": {
+      "type": "integer",
+      "minimum": 32000,
+      "maximum": 512000
+    }
+  }
+}
