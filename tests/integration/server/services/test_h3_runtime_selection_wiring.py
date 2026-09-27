@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -246,8 +248,6 @@ def test_reference_video_auto_wires_exact_text_plate_after_verified_prompt_lock(
 ) -> None:
     plate = tmp_path / "plate.png"
     plate.write_bytes(b"canonical-plate")
-    import hashlib
-
     plate_sha = hashlib.sha256(plate.read_bytes()).hexdigest()
     canonical = {
         "unit": {
@@ -298,3 +298,68 @@ def test_reference_video_auto_wires_exact_text_plate_after_verified_prompt_lock(
     assert evaluator is not None
     assert handlers is not None
     assert reference_video_tasks.H3RepairAction.DETERMINISTIC_TEXT_PLATE in handlers
+
+
+
+def test_reference_video_auto_wires_canonical_audio_after_verified_prompt_lock(
+    tmp_path: Path,
+) -> None:
+    audio = tmp_path / "canonical.wav"
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=32000:duration=1",
+            "-ac",
+            "2",
+            "-c:a",
+            "pcm_s16le",
+            str(audio),
+        ],
+        check=True,
+    )
+    audio_sha = hashlib.sha256(audio.read_bytes()).hexdigest()
+    canonical = {
+        "unit": {
+            "unit_id": "E13U01",
+            "duration_sec": 1,
+            "audio_track_spec": {
+                "schema_version": 1,
+                "ownership": "deterministic_audio",
+                "scope": "full_unit",
+                "asset_path": "canonical.wav",
+                "asset_sha256": audio_sha,
+                "codec": "aac",
+                "sample_rate_hz": 32000,
+                "channels": 2,
+                "bitrate_bps": 128000,
+            },
+            "shots": [
+                {
+                    "shot_id": "S1",
+                    "start_sec": 0,
+                    "end_sec": 1,
+                }
+            ],
+        }
+    }
+
+    evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
+        canonical_director=canonical,
+        unit_id="E13U01",
+        project_path=tmp_path,
+        prompt_lock_verified=True,
+        h3_compiler_applied=True,
+        evaluator=None,
+        repair_handlers=None,
+    )
+
+    assert evaluator is not None
+    assert handlers is not None
+    assert reference_video_tasks.H3RepairAction.AUDIO_REPAIR_REMUX in handlers
