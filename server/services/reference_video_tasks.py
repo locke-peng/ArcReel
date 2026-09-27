@@ -52,6 +52,7 @@ from lib.reference_video.h3_runtime_gate import (
     H3MediaQAEvaluator,
     run_h3_runtime_selection_gate,
 )
+from lib.reference_video.h3_timeline_runtime import build_h3_timeline_runtime_bundle
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
@@ -111,6 +112,43 @@ async def _stage_provider_media_for_task(
     """Bind the shared cancellation-safe staging operation to this module's patchable sync seam."""
 
     return await stage_provider_media_for_task(project_path, task_id, inputs, stage=stage_provider_media)
+
+
+def _resolve_trusted_h3_runtime_bundle(
+    *,
+    canonical_director: Mapping[str, Any] | None,
+    unit_id: str,
+    prompt_lock_verified: bool,
+    h3_compiler_applied: bool,
+    evaluator: H3MediaQAEvaluator | None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+) -> tuple[
+    H3MediaQAEvaluator | None,
+    Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+]:
+    """Resolve the production H3 runtime bundle without trusting QA facts from request data.
+
+    Explicitly injected evaluator/handlers remain the highest-priority trusted seam used by
+    tests and future dedicated QA producers. Automatic timeline QA is derived only from the
+    structured Canonical Director that already produced the H3 provider prompt, and only
+    after Preview/Runtime prompt SHA verification has succeeded.
+    """
+
+    if evaluator is not None:
+        return evaluator, repair_handlers
+
+    if (
+        canonical_director is None
+        or not prompt_lock_verified
+        or not h3_compiler_applied
+    ):
+        return None, repair_handlers
+
+    timeline_evaluator, timeline_handlers = build_h3_timeline_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+    )
+    return timeline_evaluator, timeline_handlers
 
 
 def _build_h3_preselection_media_gate(
@@ -609,6 +647,22 @@ async def execute_reference_video_task(
     assert_provider_prompt_matches_preview(
         provider_prompt=provider_prompt,
         expected_sha256=payload.get("expected_provider_prompt_sha256"),
+    )
+    expected_provider_prompt_sha256 = payload.get("expected_provider_prompt_sha256")
+    prompt_lock_verified = isinstance(expected_provider_prompt_sha256, str) and bool(
+        expected_provider_prompt_sha256.strip()
+    )
+    canonical_director = payload.get("canonical_director")
+    trusted_canonical_director = (
+        canonical_director if isinstance(canonical_director, Mapping) else None
+    )
+    h3_media_qa_evaluator, h3_repair_handlers = _resolve_trusted_h3_runtime_bundle(
+        canonical_director=trusted_canonical_director,
+        unit_id=resource_id,
+        prompt_lock_verified=prompt_lock_verified,
+        h3_compiler_applied=prompt_compilation.compiler_applied,
+        evaluator=h3_media_qa_evaluator,
+        repair_handlers=h3_repair_handlers,
     )
     reference_audio_files, reference_audio_targets = _build_reference_audio_wiring(
         rendered, audio_paths, reference_audio_per_image=voice_settings.requires_reference_image
