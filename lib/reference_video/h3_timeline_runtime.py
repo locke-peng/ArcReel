@@ -243,28 +243,40 @@ def retime_h3_media_to_canonical_timeline(
 
     source_frame_count, sample_rate, channels = _video_stream_facts(media_path)
     target_frame_count = round(timeline.duration_seconds * fps)
-    source_boundaries = (0, *actual_cuts, source_frame_count)
     target_boundaries = (0, *target_cuts, target_frame_count)
-
-    if len(source_boundaries) != len(target_boundaries):
-        raise RuntimeError("source and target timeline segment counts differ")
-
-    source_segments = tuple(
-        right - left for left, right in zip(source_boundaries, source_boundaries[1:])
-    )
     target_segments = tuple(
         right - left for left, right in zip(target_boundaries, target_boundaries[1:])
     )
-    if any(frames <= 0 for frames in (*source_segments, *target_segments)):
-        raise RuntimeError("timeline contains an empty or reversed segment")
+
+    source_starts = (0, *actual_cuts)
+    source_stops = (*actual_cuts, source_frame_count)
+    if len(source_starts) != len(target_segments):
+        raise RuntimeError("source and target timeline segment counts differ")
+
+    source_windows: list[tuple[int, int]] = []
+    source_segments: list[int] = []
+    for source_start, source_stop, target_frames in zip(
+        source_starts,
+        source_stops,
+        target_segments,
+    ):
+        available_frames = source_stop - source_start
+        if available_frames <= 0 or target_frames <= 0:
+            raise RuntimeError("timeline contains an empty or reversed segment")
+
+        # Do not make an overlong provider beat pay back timing debt from an earlier
+        # early cut. Preserve at most one canonical target window from each detected
+        # beat. Short beats are stretched; long beats are tail-trimmed.
+        source_frames = min(available_frames, target_frames)
+        source_windows.append((source_start, source_start + source_frames))
+        source_segments.append(source_frames)
 
     has_audio = sample_rate is not None and channels is not None
     filters: list[str] = []
     concat_inputs: list[str] = []
-    for index, (source_start, source_end, source_frames, target_frames) in enumerate(
+    for index, ((source_start, source_end), source_frames, target_frames) in enumerate(
         zip(
-            source_boundaries,
-            source_boundaries[1:],
+            source_windows,
             source_segments,
             target_segments,
         )
