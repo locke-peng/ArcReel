@@ -54,6 +54,7 @@ from lib.reference_video.h3_runtime_gate import (
     run_h3_runtime_selection_gate,
 )
 from lib.reference_video.h3_timeline_runtime import build_h3_timeline_runtime_bundle
+from lib.reference_video.media_qa_schema import MediaQAFinding
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
