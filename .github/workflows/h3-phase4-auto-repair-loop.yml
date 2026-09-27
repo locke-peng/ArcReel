@@ -140,6 +140,15 @@ jobs:
           repository: locke-peng/ArcReel
           run-id: 36148270693
 
+      - name: Download E11U02 formally accepted final evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e11u02-v3-deterministic-text-scrub-evidence
+          path: accepted_e11u02
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36169166450
+
       - name: Download E15U03 accepted supplier evidence
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -149,11 +158,22 @@ jobs:
           repository: locke-peng/ArcReel
           run-id: 36009732060
 
+      - name: Download E15U03 formally accepted final evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e15u03-v2-deterministic-timeline-evidence
+          path: accepted_e15u03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36201168299
+
       - name: Run Phase 4 E11U02 + E15U03 auto-repair replay
         run: |
           uv run python scripts/experiments/run_phase4_auto_repair_e2e.py \
             --e11-upstream-dir upstream_e11u02 \
+            --e11-accepted-dir accepted_e11u02 \
             --e15-upstream-dir upstream_e15u03 \
+            --e15-accepted-dir accepted_e15u03 \
             --output-dir phase4_evidence
 
       - name: Assert no provider recall and FINAL PASS
@@ -167,11 +187,20 @@ jobs:
           )
           assert data["status"] == "FINAL_PASS"
           assert data["provider_recalled"] is False
+          assert data["media_equivalence_gate"]["byte_identity_required"] is False
           assert all(unit["provider_recalled"] is False for unit in data["units"])
-          assert all(
-              unit["byte_identity_with_phase3_accepted_replay"] is True
-              for unit in data["units"]
+          assert all(unit["video_ssim_to_accepted_final"] >= 0.99 for unit in data["units"])
+
+          units = {unit["unit_id"]: unit for unit in data["units"]}
+          assert units["E11U02"]["accepted_final_sha256"] == (
+              "7ef19e68dbf5b14defc3b68886768424e7814f6017badc7cfb6fa94650270949"
           )
+          assert units["E15U03"]["accepted_final_sha256"] == (
+              "607f3ac349f9fa9e5871fc45b825208ff6434fd4bb83fc4ad1fd19d24de3d23b"
+          )
+          assert [
+              cut["actual_cut_frame"] for cut in units["E15U03"]["final_detected_cuts"]
+          ] == [120, 240]
           print(json.dumps(data, ensure_ascii=False, indent=2))
           PY
 
