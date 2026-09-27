@@ -113,6 +113,40 @@ async def _stage_provider_media_for_task(
     return await stage_provider_media_for_task(project_path, task_id, inputs, stage=stage_provider_media)
 
 
+def _build_h3_preselection_media_gate(
+    *,
+    payload: Mapping[str, Any],
+    model_name: str | None,
+    has_references: bool,
+    evaluator: H3MediaQAEvaluator | None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+) -> Callable[[Path, int, Mapping[str, Any]], Awaitable[Mapping[str, Any]]] | None:
+    """Build the trusted internal H3 QA hook; never derive findings from request payload."""
+
+    if evaluator is None or not should_compile_reference_video_h3(
+        payload=payload,
+        model_name=model_name,
+        has_references=has_references,
+    ):
+        return None
+
+    handlers = repair_handlers or {}
+
+    async def _gate(
+        staged_file: Path,
+        _duration_seconds: int,
+        _version_metadata: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        result = await run_h3_runtime_selection_gate(
+            staged_file,
+            evaluator=evaluator,
+            repair_handlers=handlers,
+        )
+        return result.to_dict()
+
+    return _gate
+
+
 def _render_unit_prompt(
     unit: dict,
     project: dict,
@@ -758,31 +792,17 @@ async def execute_reference_video_task(
             )
             raise
 
-    h3_preselection_media_gate = None
-    if (
-        task_id is not None
-        and h3_media_qa_evaluator is not None
-        and should_compile_reference_video_h3(
+    h3_preselection_media_gate = (
+        _build_h3_preselection_media_gate(
             payload=payload,
             model_name=model_name,
             has_references=bool(provider_refs),
+            evaluator=h3_media_qa_evaluator,
+            repair_handlers=h3_repair_handlers,
         )
-    ):
-        repair_handlers = h3_repair_handlers or {}
-
-        async def _h3_preselection_media_gate(
-            staged_file: Path,
-            _duration_seconds: int,
-            _version_metadata: Mapping[str, Any],
-        ) -> Mapping[str, Any]:
-            gate_result = await run_h3_runtime_selection_gate(
-                staged_file,
-                evaluator=h3_media_qa_evaluator,
-                repair_handlers=repair_handlers,
-            )
-            return gate_result.to_dict()
-
-        h3_preselection_media_gate = _h3_preselection_media_gate
+        if task_id is not None
+        else None
+    )
 
     artifact_committer = (
         VideoArtifactCommitter(
