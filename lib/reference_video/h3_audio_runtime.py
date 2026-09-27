@@ -274,12 +274,16 @@ def build_h3_canonical_audio_runtime_bundle(
         )
 
     duration = _probe_duration(asset)
-    if abs(duration - spec.duration_seconds) > 0.05:
+    if duration + 0.05 < spec.duration_seconds:
         raise RuntimeError(
-            "canonical audio duration does not match unit duration: "
-            f"{duration:.6f}s != {spec.duration_seconds:.6f}s"
+            "canonical audio does not cover the full unit duration: "
+            f"{duration:.6f}s < {spec.duration_seconds:.6f}s"
         )
 
+    # The SHA-pinned source may carry a small or deliberate tail beyond the authored
+    # unit (for example provider/extraction padding). Canonical ownership is bounded
+    # by unit.duration_sec; encoding and remux deterministically consume exactly that
+    # window via -t. A short source is rejected above because it cannot cover the unit.
     canonical_adts = _encode_canonical_adts(asset, spec=spec)
     resolved = H3ResolvedCanonicalAudio(
         spec=spec,
