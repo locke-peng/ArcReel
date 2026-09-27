@@ -127,7 +127,6 @@ jobs:
             lib/reference_video/h3_auto_repair_loop.py \
             lib/reference_video/h3_exact_text_contract.py \
             lib/reference_video/h3_exact_text_runtime.py \
-            lib/video_prompt_compilers/h3_director_compiler.py \
             lib/reference_video/cut_detector.py \
             lib/reference_video/evidence_schema.py \
             scripts/experiments/run_phase4_auto_repair_e2e.py \
