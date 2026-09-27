@@ -9,10 +9,7 @@ import pytest
 from lib.reference_video.h3_exact_text_contract import (
     exact_text_plate_specs_from_unit,
 )
-from lib.reference_video.h3_exact_text_runtime import (
-    build_h3_exact_text_runtime_bundle,
-    evaluate_h3_exact_text_media,
-)
+from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
 from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_runtime_gate import run_h3_runtime_selection_gate
 from lib.video_prompt_compilers.h3_director_compiler import compile_h3_director_prompt
