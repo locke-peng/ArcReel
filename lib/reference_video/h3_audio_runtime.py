@@ -37,9 +37,9 @@ from lib.video_prompt_compilers.h3_director_compiler import CanonicalDirectorBun
 class H3ResolvedCanonicalAudio:
     spec: H3CanonicalAudioTrackSpec
     asset_path: Path
-    canonical_adts: bytes
-    canonical_encoded_adts_sha256: str
-    canonical_muxed_adts_sha256: str
+    canonical_m4a: bytes
+    canonical_m4a_sha256: str
+    canonical_decoded_sha256: str
 
 
 def _probe_duration(path: Path) -> float:
@@ -62,45 +62,56 @@ def _probe_duration(path: Path) -> float:
     return float(payload["format"]["duration"])
 
 
-def _encode_canonical_adts(
+def _encode_canonical_m4a(
     asset_path: Path,
     *,
     spec: H3CanonicalAudioTrackSpec,
 ) -> bytes:
-    proc = subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-i",
-            str(asset_path),
-            "-vn",
-            "-map_metadata",
-            "-1",
-            "-ar",
-            str(spec.sample_rate_hz),
-            "-ac",
-            str(spec.channels),
-            "-c:a",
-            "aac",
-            "-b:a",
-            str(spec.bitrate_bps),
-            "-t",
-            f"{spec.duration_seconds:.9f}",
-            "-f",
-            "adts",
-            "-",
-        ],
-        check=True,
-        capture_output=True,
-    )
-    if not proc.stdout:
-        raise RuntimeError("canonical audio encoding produced no AAC packets")
-    return proc.stdout
+    """Encode the authoritative AAC track directly into MP4/M4A.
+
+    Direct container encoding is intentional: AAC encoder delay/priming metadata is
+    part of the playback contract. Encoding through bare ADTS and remuxing later can
+    lose that timing semantics even when the AAC spectral content is otherwise equal.
+    """
+
+    with tempfile.TemporaryDirectory(prefix="arcreel-h3-audio-") as raw_dir:
+        output = Path(raw_dir) / "canonical.m4a"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(asset_path),
+                "-vn",
+                "-map_metadata",
+                "-1",
+                "-ar",
+                str(spec.sample_rate_hz),
+                "-ac",
+                str(spec.channels),
+                "-c:a",
+                "aac",
+                "-b:a",
+                str(spec.bitrate_bps),
+                "-t",
+                f"{spec.duration_seconds:.9f}",
+                "-movflags",
+                "+faststart",
+                str(output),
+            ],
+            check=True,
+        )
+        if not output.is_file() or output.stat().st_size == 0:
+            raise RuntimeError("canonical audio encoding produced no M4A artifact")
+        return output.read_bytes()
 
 
-def _media_adts(media_path: Path) -> bytes | None:
+def _decoded_audio_fingerprint(media_path: Path) -> str | None:
+    """Hash decoded audio-frame facts, including AAC priming/timeline semantics."""
+
     proc = subprocess.run(
         [
             "ffmpeg",
@@ -111,10 +122,8 @@ def _media_adts(media_path: Path) -> bytes | None:
             str(media_path),
             "-map",
             "0:a:0",
-            "-c:a",
-            "copy",
             "-f",
-            "adts",
+            "framemd5",
             "-",
         ],
         check=False,
@@ -122,46 +131,17 @@ def _media_adts(media_path: Path) -> bytes | None:
     )
     if proc.returncode != 0 or not proc.stdout:
         return None
-    return proc.stdout
+    return hashlib.sha256(proc.stdout).hexdigest()
 
 
-def _canonical_muxed_adts_sha256(
-    canonical_adts: bytes,
-    *,
-    duration_seconds: float,
-) -> str:
-    """Fingerprint the AAC packets after the same MP4 duration closure used at runtime."""
-
+def _decoded_audio_fingerprint_bytes(m4a: bytes) -> str:
     with tempfile.TemporaryDirectory(prefix="arcreel-h3-audio-") as raw_dir:
-        root = Path(raw_dir)
-        source = root / "canonical.aac"
-        muxed = root / "canonical.m4a"
-        source.write_bytes(canonical_adts)
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-y",
-                "-i",
-                str(source),
-                "-map",
-                "0:a:0",
-                "-c:a",
-                "copy",
-                "-t",
-                f"{duration_seconds:.9f}",
-                "-movflags",
-                "+faststart",
-                str(muxed),
-            ],
-            check=True,
-        )
-        roundtrip = _media_adts(muxed)
-        if roundtrip is None:
-            raise RuntimeError("canonical audio MP4 round-trip produced no AAC packets")
-        return hashlib.sha256(roundtrip).hexdigest()
+        source = Path(raw_dir) / "canonical.m4a"
+        source.write_bytes(m4a)
+        digest = _decoded_audio_fingerprint(source)
+        if digest is None:
+            raise RuntimeError("canonical M4A produced no decoded audio fingerprint")
+        return digest
 
 
 def evaluate_h3_canonical_audio_media(
@@ -169,13 +149,9 @@ def evaluate_h3_canonical_audio_media(
     *,
     audio: H3ResolvedCanonicalAudio,
 ) -> tuple[MediaQAFinding, ...]:
-    observed = _media_adts(media_path)
-    observed_sha = (
-        hashlib.sha256(observed).hexdigest()
-        if observed is not None
-        else "missing_or_non_aac"
-    )
-    if observed_sha == audio.canonical_muxed_adts_sha256:
+    observed_sha = _decoded_audio_fingerprint(media_path)
+    observed_label = observed_sha or "missing_or_undecodable"
+    if observed_sha == audio.canonical_decoded_sha256:
         return ()
 
     return (
@@ -194,15 +170,9 @@ def evaluate_h3_canonical_audio_media(
             details=(
                 ("audio_contract_sha256", audio.spec.contract_sha256),
                 ("audio_asset_sha256", audio.spec.asset_sha256),
-                (
-                    "canonical_encoded_adts_sha256",
-                    audio.canonical_encoded_adts_sha256,
-                ),
-                (
-                    "canonical_muxed_adts_sha256",
-                    audio.canonical_muxed_adts_sha256,
-                ),
-                ("observed_adts_sha256", observed_sha),
+                ("canonical_m4a_sha256", audio.canonical_m4a_sha256),
+                ("canonical_decoded_sha256", audio.canonical_decoded_sha256),
+                ("observed_decoded_sha256", observed_label),
             ),
         ),
     )
@@ -213,9 +183,9 @@ def _remux_canonical_audio(
     *,
     audio: H3ResolvedCanonicalAudio,
 ) -> None:
-    temp_aac = media_path.with_name(f".{media_path.stem}.h3-canonical-audio.tmp.aac")
+    temp_audio = media_path.with_name(f".{media_path.stem}.h3-canonical-audio.tmp.m4a")
     temp_out = media_path.with_name(f".{media_path.stem}.h3-audio-remux.tmp.mp4")
-    temp_aac.write_bytes(audio.canonical_adts)
+    temp_audio.write_bytes(audio.canonical_m4a)
     try:
         subprocess.run(
             [
@@ -227,7 +197,7 @@ def _remux_canonical_audio(
                 "-i",
                 str(media_path),
                 "-i",
-                str(temp_aac),
+                str(temp_audio),
                 "-map",
                 "0:v:0",
                 "-map",
@@ -248,7 +218,7 @@ def _remux_canonical_audio(
             raise RuntimeError("canonical audio remux produced no output")
         os.replace(temp_out, media_path)
     finally:
-        temp_aac.unlink(missing_ok=True)
+        temp_audio.unlink(missing_ok=True)
         temp_out.unlink(missing_ok=True)
 
 
@@ -280,20 +250,16 @@ def build_h3_canonical_audio_runtime_bundle(
             f"{duration:.6f}s < {spec.duration_seconds:.6f}s"
         )
 
-    # The SHA-pinned source may carry a small or deliberate tail beyond the authored
-    # unit (for example provider/extraction padding). Canonical ownership is bounded
-    # by unit.duration_sec; encoding and remux deterministically consume exactly that
-    # window via -t. A short source is rejected above because it cannot cover the unit.
-    canonical_adts = _encode_canonical_adts(asset, spec=spec)
+    # A SHA-pinned source may carry a tail beyond the authored unit. Canonical
+    # ownership is bounded by unit.duration_sec; direct M4A encoding consumes
+    # exactly that window and retains AAC priming/edit-list playback semantics.
+    canonical_m4a = _encode_canonical_m4a(asset, spec=spec)
     resolved = H3ResolvedCanonicalAudio(
         spec=spec,
         asset_path=asset,
-        canonical_adts=canonical_adts,
-        canonical_encoded_adts_sha256=hashlib.sha256(canonical_adts).hexdigest(),
-        canonical_muxed_adts_sha256=_canonical_muxed_adts_sha256(
-            canonical_adts,
-            duration_seconds=spec.duration_seconds,
-        ),
+        canonical_m4a=canonical_m4a,
+        canonical_m4a_sha256=hashlib.sha256(canonical_m4a).hexdigest(),
+        canonical_decoded_sha256=_decoded_audio_fingerprint_bytes(canonical_m4a),
     )
 
     async def _evaluator(media_path: Path) -> tuple[MediaQAFinding, ...]:
