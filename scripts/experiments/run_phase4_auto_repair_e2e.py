@@ -3,6 +3,10 @@
 No provider API is imported or called. The script runs the Phase 4 chain:
 Media QA -> Structured Finding -> Classifier -> Phase 3 Planner -> Executor
 -> Re-QA -> hash-chained evidence.
+
+Encoded MP4 bytes are not required to be identical across runner/FFmpeg revisions. Source
+supplier bytes and accepted-reference bytes are SHA-pinned, while replay output is checked
+for media contract, canonical cuts, and visual equivalence to the formally accepted final.
 """
 
 from __future__ import annotations
@@ -10,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,12 +22,12 @@ from typing import Any
 
 from lib.reference_video.cut_detector import CutDetection, detect_expected_cuts
 from lib.reference_video.evidence_schema import H3EvidenceRecord
-from lib.reference_video.h3_failure_classifier import classify_h3_media_finding
-from lib.reference_video.h3_production_policy import H3RepairAction, plan_h3_media_repair
-from lib.reference_video.h3_repair_executor import (
-    execute_h3_media_repair,
-    sha256_file,
+from lib.reference_video.h3_auto_repair_loop import (
+    execute_h3_auto_repair,
+    plan_h3_auto_repair,
 )
+from lib.reference_video.h3_production_policy import H3RepairAction
+from lib.reference_video.h3_repair_executor import sha256_file
 from lib.reference_video.media_qa_schema import (
     MediaQAFinding,
     MediaQARepairability,
@@ -31,14 +36,25 @@ from lib.reference_video.media_qa_schema import (
 
 FPS = 24
 TARGET_CUT_FRAMES = (120, 240)
-EXPECTED_PHASE3_REPLAY_SHA256 = {
-    "E11U02": "4b039b25b22c5662caa62cc2f631eaf55d9d267a2b139f952dd786fe4dc2cb18",
-    "E15U03": "208d56697ea7ea939d65bced9fdfab877a8b3e521bdb3dce10eff39a421ae2de",
-}
+MIN_ACCEPTED_VIDEO_SSIM = 0.99
+
 E11_RUN_ID = 36148270693
 E11_ARTIFACT_ID = 10870732082
+E11_ACCEPTED_RUN_ID = 36169166450
+E11_ACCEPTED_ARTIFACT_ID = 10879951993
+E11_ACCEPTED_FINAL_SHA256 = (
+    "7ef19e68dbf5b14defc3b68886768424e7814f6017badc7cfb6fa94650270949"
+)
+
 E15_RUN_ID = 36009732060
 E15_ARTIFACT_ID = 10812256991
+E15_ACCEPTED_RUN_ID = 36201168299
+E15_ACCEPTED_ARTIFACT_ID = 10892326037
+E15_ACCEPTED_FINAL_SHA256 = (
+    "607f3ac349f9fa9e5871fc45b825208ff6434fd4bb83fc4ad1fd19d24de3d23b"
+)
+
+_SSIM_RE = re.compile(r"All:(?P<ssim>\d+(?:\.\d+)?)")
 
 
 def _run(*args: str) -> None:
@@ -106,6 +122,42 @@ def _count_video_frames(path: Path) -> int:
         capture_output=True,
     )
     return int(proc.stdout.strip())
+
+
+def _video_ssim(left: Path, right: Path) -> float:
+    proc = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "info",
+            "-i",
+            str(left),
+            "-i",
+            str(right),
+            "-lavfi",
+            "[0:v][1:v]ssim",
+            "-an",
+            "-f",
+            "null",
+            "-",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    matches = _SSIM_RE.findall(proc.stderr)
+    if not matches:
+        raise RuntimeError("ffmpeg did not emit an SSIM summary")
+    return float(matches[-1])
+
+
+def _require_sha(path: Path, expected: str, label: str) -> None:
+    if not path.is_file():
+        raise RuntimeError(f"missing {label}: {path}")
+    actual = sha256_file(path)
+    if actual != expected:
+        raise RuntimeError(f"{label} SHA mismatch: {actual} != {expected}")
 
 
 def _extract_review_frames(video: Path, output_dir: Path, frames: tuple[int, ...]) -> None:
@@ -220,7 +272,12 @@ def _write_chain(root: Path, records: tuple[H3EvidenceRecord, ...]) -> None:
     )
 
 
-def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, Any]:
+def _run_e11(
+    upstream: Path,
+    accepted_reference_dir: Path,
+    output_root: Path,
+    tested_sha: str,
+) -> dict[str, Any]:
     source_paths = (
         upstream / "E11U02_SHOT1_provider_raw.mp4",
         upstream / "E11U02_SHOT2_provider_raw.mp4",
@@ -228,10 +285,21 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
     )
     source_report_path = upstream / "E11U02_v2_live_report.json"
     source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    accepted_final = (
+        accepted_reference_dir / "project" / "reference_videos" / "E11U02.mp4"
+    )
+    _require_sha(
+        accepted_final,
+        E11_ACCEPTED_FINAL_SHA256,
+        "E11U02 formally accepted final reference",
+    )
 
     finding = MediaQAFinding(
         unit_id="E11U02",
-        canonical_violation="non-canonical readable or pseudo-readable text on local screen, badge, and side-media surfaces",
+        canonical_violation=(
+            "non-canonical readable or pseudo-readable text on local screen, badge, "
+            "and side-media surfaces"
+        ),
         severity=MediaQASeverity.BLOCKING,
         provider_result_usable=True,
         audio_is_accepted=True,
@@ -240,10 +308,9 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         evidence_frames=(60, 180, 300),
         tags=("noncanonical_text", "surface_pollution"),
     )
-    failure = classify_h3_media_finding(finding)
-    decision = plan_h3_media_repair(failure)
-    if decision.action is not H3RepairAction.DETERMINISTIC_SURFACE_REPAIR:
-        raise RuntimeError(f"unexpected E11U02 repair decision: {decision}")
+    plan = plan_h3_auto_repair(finding)
+    if plan.decision.action is not H3RepairAction.DETERMINISTIC_SURFACE_REPAIR:
+        raise RuntimeError(f"unexpected E11U02 repair decision: {plan.decision}")
 
     root = output_root / "E11U02"
     final_video = root / "project" / "reference_videos" / "E11U02.mp4"
@@ -258,8 +325,8 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
             str(root),
         )
 
-    execution = execute_h3_media_repair(
-        decision,
+    execution = execute_h3_auto_repair(
+        plan,
         source_media=source_paths,
         output_media=final_video,
         deterministic_runner=runner,
@@ -268,10 +335,11 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         raise RuntimeError("E11U02 unexpectedly recalled provider")
 
     probe = _probe_media(final_video)
-    if execution.output_media_sha256 != EXPECTED_PHASE3_REPLAY_SHA256["E11U02"]:
+    video_ssim = _video_ssim(final_video, accepted_final)
+    if video_ssim < MIN_ACCEPTED_VIDEO_SSIM:
         raise RuntimeError(
-            "E11U02 final MP4 does not match Phase 3 visually accepted replay bytes: "
-            f"{execution.output_media_sha256}"
+            "E11U02 replay diverged visually from the formally accepted final: "
+            f"SSIM={video_ssim}"
         )
 
     _extract_review_frames(
@@ -289,12 +357,17 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         if isinstance(value, str)
     )
     source_hashes = execution.source_media_sha256
+    probe_with_reference = {
+        **probe,
+        "accepted_final_sha256": E11_ACCEPTED_FINAL_SHA256,
+        "video_ssim_to_accepted_final": video_ssim,
+    }
 
     pre = H3EvidenceRecord(
         unit_id="E11U02",
         stage="media_qa_structured_finding",
         tested_sha=tested_sha,
-        repair_action=decision.action.value,
+        repair_action=plan.decision.action.value,
         provider_recalled=False,
         qa_verdict="FAIL_REPAIRABLE",
         source_media_sha256=source_hashes,
@@ -309,16 +382,16 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         unit_id="E11U02",
         stage="re_qa",
         tested_sha=tested_sha,
-        repair_action=decision.action.value,
+        repair_action=plan.decision.action.value,
         provider_recalled=False,
-        qa_verdict="PASS_BYTE_IDENTICAL_TO_PHASE3_ACCEPTED_REPLAY",
+        qa_verdict="PASS_VISUALLY_EQUIVALENT_TO_ACCEPTED_FINAL",
         source_media_sha256=source_hashes,
         prompt_sha256=prompt_hashes[0] if prompt_hashes else None,
         reference_sha256=reference_hashes,
         provider_run_id=E11_RUN_ID,
         provider_artifact_id=E11_ARTIFACT_ID,
         post_media_sha256=execution.output_media_sha256,
-        media_probe=tuple(sorted(probe.items())),
+        media_probe=tuple(sorted(probe_with_reference.items())),
         evidence_frames=(60, 119, 120, 180, 239, 240, 300),
         previous_record_sha256=pre.record_sha256,
     ).sealed()
@@ -327,24 +400,42 @@ def _run_e11(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
     return {
         "unit_id": "E11U02",
         "finding": finding.to_dict(),
-        "failure_class": failure.failure_class.value,
-        "repair_action": decision.action.value,
+        "failure_class": plan.failure.failure_class.value,
+        "repair_action": plan.decision.action.value,
         "provider_recalled": execution.provider_recalled,
         "source_supplier_run_id": E11_RUN_ID,
         "source_supplier_artifact_id": E11_ARTIFACT_ID,
+        "accepted_reference_run_id": E11_ACCEPTED_RUN_ID,
+        "accepted_reference_artifact_id": E11_ACCEPTED_ARTIFACT_ID,
+        "accepted_final_sha256": E11_ACCEPTED_FINAL_SHA256,
         "final_media_sha256": execution.output_media_sha256,
-        "phase3_accepted_replay_sha256": EXPECTED_PHASE3_REPLAY_SHA256["E11U02"],
-        "byte_identity_with_phase3_accepted_replay": True,
+        "byte_identity_with_accepted_final": (
+            execution.output_media_sha256 == E11_ACCEPTED_FINAL_SHA256
+        ),
+        "video_ssim_to_accepted_final": video_ssim,
         "media_probe": probe,
         "evidence_head_sha256": post.record_sha256,
-        "qa_verdict": "PASS_BYTE_IDENTICAL_TO_PHASE3_ACCEPTED_REPLAY",
+        "qa_verdict": "PASS_VISUALLY_EQUIVALENT_TO_ACCEPTED_FINAL",
     }
 
 
-def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, Any]:
+def _run_e15(
+    upstream: Path,
+    accepted_reference_dir: Path,
+    output_root: Path,
+    tested_sha: str,
+) -> dict[str, Any]:
     source_video = upstream / "E15U03.mp4"
     summary_path = upstream / "live_test_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    accepted_final = (
+        accepted_reference_dir / "project" / "reference_videos" / "E15U03.mp4"
+    )
+    _require_sha(
+        accepted_final,
+        E15_ACCEPTED_FINAL_SHA256,
+        "E15U03 formally accepted final reference",
+    )
 
     source_cuts = detect_expected_cuts(
         source_video,
@@ -367,10 +458,9 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         evidence_frames=actual_frames,
         tags=("cut_timing",),
     )
-    failure = classify_h3_media_finding(finding)
-    decision = plan_h3_media_repair(failure)
-    if decision.action is not H3RepairAction.DETERMINISTIC_AV_RETIME:
-        raise RuntimeError(f"unexpected E15U03 repair decision: {decision}")
+    plan = plan_h3_auto_repair(finding)
+    if plan.decision.action is not H3RepairAction.DETERMINISTIC_AV_RETIME:
+        raise RuntimeError(f"unexpected E15U03 repair decision: {plan.decision}")
 
     root = output_root / "E15U03"
     final_video = root / "project" / "reference_videos" / "E15U03.mp4"
@@ -378,8 +468,8 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
     def runner() -> None:
         _retime_from_detected_cuts(source_video, final_video, source_cuts)
 
-    execution = execute_h3_media_repair(
-        decision,
+    execution = execute_h3_auto_repair(
+        plan,
         source_media=(source_video,),
         output_media=final_video,
         deterministic_runner=runner,
@@ -399,10 +489,12 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
             "E15U03 re-QA did not land on exact target cuts: "
             f"{tuple(c.actual_cut_frame for c in final_cuts)}"
         )
-    if execution.output_media_sha256 != EXPECTED_PHASE3_REPLAY_SHA256["E15U03"]:
+
+    video_ssim = _video_ssim(final_video, accepted_final)
+    if video_ssim < MIN_ACCEPTED_VIDEO_SSIM:
         raise RuntimeError(
-            "E15U03 final MP4 does not match Phase 3 visually accepted replay bytes: "
-            f"{execution.output_media_sha256}"
+            "E15U03 replay diverged visually from the formally accepted final: "
+            f"SSIM={video_ssim}"
         )
 
     _extract_review_frames(
@@ -414,12 +506,17 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
     prompt_sha = summary.get("prompt_sha256")
     reference_sha = tuple(summary.get("reference_sha256") or ())
     source_sha = sha256_file(source_video)
+    probe_with_reference = {
+        **probe,
+        "accepted_final_sha256": E15_ACCEPTED_FINAL_SHA256,
+        "video_ssim_to_accepted_final": video_ssim,
+    }
 
     pre = H3EvidenceRecord(
         unit_id="E15U03",
         stage="media_qa_structured_finding",
         tested_sha=tested_sha,
-        repair_action=decision.action.value,
+        repair_action=plan.decision.action.value,
         provider_recalled=False,
         qa_verdict="FAIL_REPAIRABLE",
         source_media_sha256=(source_sha,),
@@ -437,9 +534,9 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
         unit_id="E15U03",
         stage="re_qa",
         tested_sha=tested_sha,
-        repair_action=decision.action.value,
+        repair_action=plan.decision.action.value,
         provider_recalled=False,
-        qa_verdict="PASS_BYTE_IDENTICAL_TO_PHASE3_ACCEPTED_REPLAY",
+        qa_verdict="PASS_VISUALLY_EQUIVALENT_TO_ACCEPTED_FINAL",
         source_media_sha256=(source_sha,),
         prompt_sha256=prompt_sha,
         reference_sha256=reference_sha,
@@ -452,7 +549,7 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
             ("source", [cut.to_dict() for cut in source_cuts]),
             ("final", [cut.to_dict() for cut in final_cuts]),
         ),
-        media_probe=tuple(sorted(probe.items())),
+        media_probe=tuple(sorted(probe_with_reference.items())),
         evidence_frames=(119, 120, 239, 240),
         previous_record_sha256=pre.record_sha256,
     ).sealed()
@@ -461,26 +558,33 @@ def _run_e15(upstream: Path, output_root: Path, tested_sha: str) -> dict[str, An
     return {
         "unit_id": "E15U03",
         "finding": finding.to_dict(),
-        "failure_class": failure.failure_class.value,
-        "repair_action": decision.action.value,
+        "failure_class": plan.failure.failure_class.value,
+        "repair_action": plan.decision.action.value,
         "provider_recalled": execution.provider_recalled,
         "source_supplier_run_id": E15_RUN_ID,
         "source_supplier_artifact_id": E15_ARTIFACT_ID,
+        "accepted_reference_run_id": E15_ACCEPTED_RUN_ID,
+        "accepted_reference_artifact_id": E15_ACCEPTED_ARTIFACT_ID,
         "source_detected_cuts": [cut.to_dict() for cut in source_cuts],
         "final_detected_cuts": [cut.to_dict() for cut in final_cuts],
+        "accepted_final_sha256": E15_ACCEPTED_FINAL_SHA256,
         "final_media_sha256": execution.output_media_sha256,
-        "phase3_accepted_replay_sha256": EXPECTED_PHASE3_REPLAY_SHA256["E15U03"],
-        "byte_identity_with_phase3_accepted_replay": True,
+        "byte_identity_with_accepted_final": (
+            execution.output_media_sha256 == E15_ACCEPTED_FINAL_SHA256
+        ),
+        "video_ssim_to_accepted_final": video_ssim,
         "media_probe": probe,
         "evidence_head_sha256": post.record_sha256,
-        "qa_verdict": "PASS_BYTE_IDENTICAL_TO_PHASE3_ACCEPTED_REPLAY",
+        "qa_verdict": "PASS_VISUALLY_EQUIVALENT_TO_ACCEPTED_FINAL",
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--e11-upstream-dir", type=Path, required=True)
+    parser.add_argument("--e11-accepted-dir", type=Path, required=True)
     parser.add_argument("--e15-upstream-dir", type=Path, required=True)
+    parser.add_argument("--e15-accepted-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
@@ -490,16 +594,31 @@ def main() -> None:
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results = [
-        _run_e11(args.e11_upstream_dir, args.output_dir, tested_sha),
-        _run_e15(args.e15_upstream_dir, args.output_dir, tested_sha),
+        _run_e11(
+            args.e11_upstream_dir,
+            args.e11_accepted_dir,
+            args.output_dir,
+            tested_sha,
+        ),
+        _run_e15(
+            args.e15_upstream_dir,
+            args.e15_accepted_dir,
+            args.output_dir,
+            tested_sha,
+        ),
     ]
     if any(result["provider_recalled"] for result in results):
-        raise RuntimeError("provider_recalled must remain false for Phase 4 first acceptance")
+        raise RuntimeError("provider_recalled must remain false for Phase 4 acceptance")
 
     summary = {
         "status": "FINAL_PASS",
         "tested_sha": tested_sha,
         "provider_recalled": False,
+        "media_equivalence_gate": {
+            "source_and_accepted_reference_sha_pinned": True,
+            "minimum_video_ssim": MIN_ACCEPTED_VIDEO_SSIM,
+            "byte_identity_required": False,
+        },
         "units": results,
     }
     (args.output_dir / "phase4_auto_repair_e2e_summary.json").write_text(
