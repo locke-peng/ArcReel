@@ -163,3 +163,75 @@ async def test_video_artifact_committer_archives_gate_failure_as_history_only_me
         captured["metadata"][VIDEO_ARTIFACT_RESTORE_BLOCKER_FIELD]
         == "h3_provider_repair_required"
     )
+
+
+def _canonical_timeline() -> dict:
+    return {
+        "unit": {
+            "unit_id": "E15U03",
+            "duration_sec": 15,
+            "shots": [
+                {"shot_id": "S1", "start_sec": 0, "end_sec": 5},
+                {"shot_id": "S2", "start_sec": 5, "end_sec": 10},
+                {"shot_id": "S3", "start_sec": 10, "end_sec": 15},
+            ],
+        }
+    }
+
+
+def test_reference_video_auto_wires_timeline_only_after_verified_prompt_lock() -> None:
+    evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
+        canonical_director=_canonical_timeline(),
+        unit_id="E15U03",
+        prompt_lock_verified=True,
+        h3_compiler_applied=True,
+        evaluator=None,
+        repair_handlers=None,
+    )
+
+    assert evaluator is not None
+    assert handlers is not None
+    assert set(handlers) == {reference_video_tasks.H3RepairAction.DETERMINISTIC_AV_RETIME}
+
+
+@pytest.mark.parametrize(
+    ("prompt_lock_verified", "h3_compiler_applied"),
+    [
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+)
+def test_reference_video_never_auto_wires_unlocked_or_uncompiled_canonical(
+    prompt_lock_verified: bool,
+    h3_compiler_applied: bool,
+) -> None:
+    evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
+        canonical_director=_canonical_timeline(),
+        unit_id="E15U03",
+        prompt_lock_verified=prompt_lock_verified,
+        h3_compiler_applied=h3_compiler_applied,
+        evaluator=None,
+        repair_handlers=None,
+    )
+
+    assert evaluator is None
+    assert handlers is None
+
+
+def test_reference_video_injected_trusted_runtime_bundle_takes_precedence() -> None:
+    async def injected(_path: Path) -> tuple[MediaQAFinding, ...]:
+        return ()
+
+    handlers = {}
+    evaluator, resolved_handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
+        canonical_director=_canonical_timeline(),
+        unit_id="E15U03",
+        prompt_lock_verified=True,
+        h3_compiler_applied=True,
+        evaluator=injected,
+        repair_handlers=handlers,
+    )
+
+    assert evaluator is injected
+    assert resolved_handlers is handlers
