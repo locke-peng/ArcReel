@@ -10,6 +10,7 @@ on:
       - "lib/reference_video/h3_repair_executor.py"
       - "lib/reference_video/h3_auto_repair_loop.py"
       - "lib/reference_video/h3_runtime_gate.py"
+      - "lib/reference_video/h3_timeline_runtime.py"
       - "lib/reference_video/cut_detector.py"
       - "server/services/reference_video_tasks.py"
       - "server/services/video_artifact_currency.py"
@@ -20,6 +21,7 @@ on:
       - "tests/unit/lib/reference_video/test_h3_auto_repair_loop.py"
       - "tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py"
       - "tests/unit/lib/reference_video/test_h3_runtime_gate.py"
+      - "tests/unit/lib/reference_video/test_h3_timeline_runtime.py"
       - "tests/integration/server/services/test_h3_runtime_selection_wiring.py"
       - ".github/workflows/h3-phase4-auto-repair-loop.yml"
   workflow_dispatch:
@@ -57,8 +59,10 @@ jobs:
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_runtime_gate.py \
+            tests/unit/lib/reference_video/test_h3_timeline_runtime.py \
             tests/integration/server/services/test_h3_runtime_selection_wiring.py \
             tests/unit/lib/reference_video/test_h3_runtime_gate.py \
+            tests/unit/lib/reference_video/test_h3_timeline_runtime.py \
             tests/integration/server/services/test_h3_runtime_selection_wiring.py
 
       - name: Phase 3 repair planner regression
@@ -97,6 +101,7 @@ jobs:
             lib/reference_video/h3_repair_executor.py \
             lib/reference_video/h3_auto_repair_loop.py \
             lib/reference_video/h3_runtime_gate.py \
+            lib/reference_video/h3_timeline_runtime.py \
             lib/reference_video/cut_detector.py \
             lib/reference_video/evidence_schema.py \
             server/services/reference_video_tasks.py \
