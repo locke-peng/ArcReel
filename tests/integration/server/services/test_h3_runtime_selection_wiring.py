@@ -183,6 +183,7 @@ def test_reference_video_auto_wires_timeline_only_after_verified_prompt_lock() -
     evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
         canonical_director=_canonical_timeline(),
         unit_id="E15U03",
+        project_path=tmp_path,
         prompt_lock_verified=True,
         h3_compiler_applied=True,
         evaluator=None,
@@ -203,12 +204,14 @@ def test_reference_video_auto_wires_timeline_only_after_verified_prompt_lock() -
     ],
 )
 def test_reference_video_never_auto_wires_unlocked_or_uncompiled_canonical(
+    tmp_path: Path,
     prompt_lock_verified: bool,
     h3_compiler_applied: bool,
 ) -> None:
     evaluator, handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
         canonical_director=_canonical_timeline(),
         unit_id="E15U03",
+        project_path=tmp_path,
         prompt_lock_verified=prompt_lock_verified,
         h3_compiler_applied=h3_compiler_applied,
         evaluator=None,
@@ -219,7 +222,7 @@ def test_reference_video_never_auto_wires_unlocked_or_uncompiled_canonical(
     assert handlers is None
 
 
-def test_reference_video_injected_trusted_runtime_bundle_takes_precedence() -> None:
+def test_reference_video_injected_trusted_runtime_bundle_takes_precedence(tmp_path: Path) -> None:
     async def injected(_path: Path) -> tuple[MediaQAFinding, ...]:
         return ()
 
@@ -227,6 +230,7 @@ def test_reference_video_injected_trusted_runtime_bundle_takes_precedence() -> N
     evaluator, resolved_handlers = reference_video_tasks._resolve_trusted_h3_runtime_bundle(
         canonical_director=_canonical_timeline(),
         unit_id="E15U03",
+        project_path=tmp_path,
         prompt_lock_verified=True,
         h3_compiler_applied=True,
         evaluator=injected,
