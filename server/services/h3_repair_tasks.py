@@ -282,7 +282,7 @@ async def _provider_shot_from_fresh_submission(
         task_id=str(task["task_id"]),
         before_submit=_before_submit,
         on_provider_job_id=_persist_job,
-        formal_output=True,
+        formal_output=False,
         generate_audio=provider_request.generate_audio,
         service_tier=provider_request.service_tier,
         seed=provider_request.seed,
@@ -350,7 +350,7 @@ async def _provider_shot_from_resume(
         submitted_base_url=(
             str(task["submitted_base_url"]) if isinstance(task.get("submitted_base_url"), str) else None
         ),
-        formal_output=True,
+        formal_output=False,
         generate_audio=provider_request.generate_audio,
         service_tier=provider_request.service_tier,
         seed=provider_request.seed,
