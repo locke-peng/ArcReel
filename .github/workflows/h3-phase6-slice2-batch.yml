@@ -1,0 +1,37 @@
+name: H3 Phase 6 Slice 2 Batch Coordination
+
+on:
+  pull_request:
+    paths:
+      - "lib/reference_video/h3_repair_batch.py"
+      - "tests/unit/lib/reference_video/test_h3_repair_batch.py"
+      - ".github/workflows/h3-phase6-slice2-batch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  batch-coordination:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Phase 6 Slice 2 batch tests
+        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_repair_batch.py
