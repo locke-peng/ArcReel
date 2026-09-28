@@ -22,6 +22,10 @@ from lib.reference_video.h3_auto_repair_loop import (
 )
 from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_repair_executor import sha256_file
+from lib.reference_video.h3_repair_ticket import (
+    H3RepairTicketContext,
+    build_h3_repair_ticket,
+)
 from lib.reference_video.media_qa_schema import MediaQAFinding
 
 H3MediaQAEvaluator = Callable[[Path], Awaitable[tuple[MediaQAFinding, ...]]]
@@ -77,14 +81,18 @@ def _error_report(
     current_media_sha256: str,
     passes: list[Mapping[str, Any]],
     status: str,
+    repair_tickets: tuple[Mapping[str, Any], ...] = (),
 ) -> dict[str, Any]:
-    return {
+    report = {
         "status": status,
         "provider_recalled": False,
         "source_media_sha256": source_media_sha256,
         "final_media_sha256": current_media_sha256,
         "passes": [dict(item) for item in passes],
     }
+    if repair_tickets:
+        report["repair_tickets"] = [dict(item) for item in repair_tickets]
+    return report
 
 
 async def run_h3_runtime_selection_gate(
@@ -93,6 +101,7 @@ async def run_h3_runtime_selection_gate(
     evaluator: H3MediaQAEvaluator,
     repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler],
     max_repair_passes: int = 2,
+    repair_ticket_context: H3RepairTicketContext | None = None,
 ) -> H3RuntimeGateResult:
     """Run Media QA -> policy -> deterministic repair -> Re-QA before formal selection.
 
@@ -131,11 +140,21 @@ async def run_h3_runtime_selection_gate(
 
         provider_required = tuple(plan for plan in plans if plan.provider_recall_required)
         if provider_required:
+            tickets = tuple(
+                build_h3_repair_ticket(
+                    plan,
+                    source_media_sha256=current_hash,
+                    context=repair_ticket_context,
+                ).to_dict()
+                for plan in provider_required
+            )
+            record["repair_tickets"] = [dict(ticket) for ticket in tickets]
             report = _error_report(
                 source_media_sha256=source_hash,
                 current_media_sha256=current_hash,
                 passes=pass_records,
                 status="PROVIDER_REPAIR_REQUIRED",
+                repair_tickets=tickets,
             )
             raise H3RuntimeSelectionError(
                 "h3_provider_repair_required",
@@ -147,11 +166,21 @@ async def run_h3_runtime_selection_gate(
             plan for plan in plans if plan.decision.action is H3RepairAction.ESCALATE
         )
         if escalations:
+            tickets = tuple(
+                build_h3_repair_ticket(
+                    plan,
+                    source_media_sha256=current_hash,
+                    context=repair_ticket_context,
+                ).to_dict()
+                for plan in escalations
+            )
+            record["repair_tickets"] = [dict(ticket) for ticket in tickets]
             report = _error_report(
                 source_media_sha256=source_hash,
                 current_media_sha256=current_hash,
                 passes=pass_records,
                 status="HUMAN_REVIEW_REQUIRED",
+                repair_tickets=tickets,
             )
             raise H3RuntimeSelectionError(
                 "h3_media_qa_escalation_required",
