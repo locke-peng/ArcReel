@@ -168,6 +168,71 @@ def test_resolve_source_version_rehashes_prompt_and_provider_media(tmp_path: Pat
     assert resolved.reference_audio_files == ()
 
 
+
+
+def test_resolve_source_version_accepts_unique_history_only_repair_source(tmp_path: Path) -> None:
+    project_path = tmp_path / "project"
+    current = project_path / resource_relative_path("reference_videos", "E12U06")
+    current.parent.mkdir(parents=True)
+    current.write_bytes(b"accepted-current")
+    prompt = _compiled_prompt()
+    versions = VersionManager(project_path)
+    versions.add_version(
+        "reference_videos",
+        "E12U06",
+        prompt,
+        source_file=current,
+        execution_provider_id="minimax",
+        execution_provider_model_id="MiniMax-H3",
+        execution_backend_model_id="MiniMax-H3",
+        execution_endpoint_guard="minimax-h3",
+        execution_capability="r2v",
+        execution_aspect_ratio="16:9",
+        execution_resolution="768p",
+        execution_generate_audio=True,
+        execution_service_tier="default",
+        execution_seed=None,
+        execution_provider_media=[],
+    )
+
+    repaired = project_path / "repairs" / "candidate.mp4"
+    repaired.parent.mkdir(parents=True)
+    repaired.write_bytes(b"history-only-repair")
+    repaired_sha = sha256_file(repaired)
+    commit = versions.commit_staged_paid_version(
+        "reference_videos",
+        "E12U06",
+        prompt,
+        staged_file=repaired,
+        current_file=current,
+        select_current=False,
+        execution_provider_id="minimax",
+        execution_provider_model_id="MiniMax-H3",
+        execution_backend_model_id="MiniMax-H3",
+        execution_endpoint_guard="minimax-h3",
+        execution_capability="r2v",
+        execution_aspect_ratio="16:9",
+        execution_resolution="768p",
+        execution_generate_audio=True,
+        execution_service_tier="default",
+        execution_seed=None,
+        execution_provider_media=[],
+    )
+    ticket = _ticket(
+        source_sha=repaired_sha,
+        prompt_sha=provider_prompt_sha256(prompt),
+        reference_sha=(),
+    )
+
+    resolved = resolve_h3_repair_source_version(project_path=project_path, ticket=ticket)
+
+    assert resolved.version == commit.version
+    assert resolved.media_sha256 == repaired_sha
+    assert resolved.media_path != current
+    assert resolved.media_path.read_bytes() == b"history-only-repair"
+    assert current.read_bytes() == b"accepted-current"
+
+
 def test_shot_reassembly_preserves_source_audio_and_exact_unit_duration(tmp_path: Path) -> None:
     source = tmp_path / "source.mp4"
     repair = tmp_path / "repair.mp4"
