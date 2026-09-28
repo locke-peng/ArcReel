@@ -42,6 +42,7 @@ class H3RepairProjectLedger:
     provider_call_ceiling: int | None
     reserved_provider_calls: int
     remaining_provider_calls: int | None
+    budget_counter_reconciled: bool | None
     tickets: tuple[H3RepairTicketLedger, ...]
     actual_cost_by_currency: Mapping[str, float]
     unpriced_call_count: int
@@ -62,20 +63,26 @@ def build_h3_repair_project_ledger(
     tickets: Sequence[PersistedH3RepairTicket],
     calls_by_task_id: Mapping[str, Sequence[H3RepairActualCall]],
     provider_call_ceiling: int | None,
-    project_reserved_provider_calls: int,
+    project_budget_provider_call_count: int | None,
 ) -> H3RepairProjectLedger:
     normalized = project_name.strip()
     if not normalized:
         raise ValueError("project_name is required")
     if provider_call_ceiling is not None and provider_call_ceiling < 1:
         raise ValueError("provider_call_ceiling must be >= 1 or null")
-    if project_reserved_provider_calls < 0:
-        raise ValueError("project_reserved_provider_calls cannot be negative")
+    if project_budget_provider_call_count is not None and project_budget_provider_call_count < 0:
+        raise ValueError("project_budget_provider_call_count cannot be negative")
+
+    ticket_reserved_total = sum(ticket.provider_call_count for ticket in tickets)
+    if provider_call_ceiling is not None and ticket_reserved_total > provider_call_ceiling:
+        raise RuntimeError("ticket reserved provider calls exceed configured project ceiling")
     if (
-        provider_call_ceiling is not None
-        and project_reserved_provider_calls > provider_call_ceiling
+        project_budget_provider_call_count is not None
+        and project_budget_provider_call_count != ticket_reserved_total
     ):
-        raise RuntimeError("project reserved provider calls exceed configured ceiling")
+        raise RuntimeError(
+            "project budget provider-call counter does not reconcile with Repair Tickets"
+        )
 
     ticket_ledgers: list[H3RepairTicketLedger] = []
     all_calls: list[H3RepairActualCall] = []
@@ -119,13 +126,18 @@ def build_h3_repair_project_ledger(
     remaining = (
         None
         if provider_call_ceiling is None
-        else provider_call_ceiling - project_reserved_provider_calls
+        else provider_call_ceiling - ticket_reserved_total
     )
     return H3RepairProjectLedger(
         project_name=normalized,
         provider_call_ceiling=provider_call_ceiling,
-        reserved_provider_calls=project_reserved_provider_calls,
+        reserved_provider_calls=ticket_reserved_total,
         remaining_provider_calls=remaining,
+        budget_counter_reconciled=(
+            None
+            if project_budget_provider_call_count is None
+            else project_budget_provider_call_count == ticket_reserved_total
+        ),
         tickets=tuple(ticket_ledgers),
         actual_cost_by_currency=_sum_cost(all_calls),
         unpriced_call_count=unpriced_call_count,
