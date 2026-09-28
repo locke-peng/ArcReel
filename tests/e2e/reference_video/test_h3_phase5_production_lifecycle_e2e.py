@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -33,7 +33,6 @@ from lib.speech_artifact_provenance import build_video_duration_basis
 from lib.version_manager import VersionManager
 from lib.video_artifact_facts import VideoArtifactCurrencyFacts
 from server.services import h3_repair_reqa, h3_repair_tasks
-
 
 _PROJECT = "ai-boss"
 _UNIT = "E12U06"
