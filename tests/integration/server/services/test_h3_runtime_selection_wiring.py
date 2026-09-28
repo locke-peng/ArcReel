@@ -7,8 +7,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lib.reference_video.h3_production_policy import H3FailureClass
+from lib.reference_video.h3_repair_ticket import H3RepairTicketContext
 from lib.reference_video.h3_runtime_gate import H3RuntimeSelectionError
-from lib.reference_video.media_qa_schema import MediaQAFinding
+from lib.reference_video.media_qa_schema import (
+    MediaQAFinding,
+    MediaQARepairability,
+    MediaQASeverity,
+    MediaQATimeRange,
+)
 from lib.version_manager import PaidVersionCommit
 from lib.video_artifact_facts import VIDEO_ARTIFACT_RESTORE_BLOCKER_FIELD
 from server.services import reference_video_tasks, video_artifact_currency
@@ -363,3 +370,57 @@ def test_reference_video_auto_wires_canonical_audio_after_verified_prompt_lock(
     assert evaluator is not None
     assert handlers is not None
     assert reference_video_tasks.H3RepairAction.AUDIO_REPAIR_REMUX in handlers
+
+
+
+@pytest.mark.asyncio
+async def test_reference_video_preselection_gate_persists_provider_repair_ticket_context(
+    tmp_path: Path,
+) -> None:
+    async def evaluator(_path: Path) -> tuple[MediaQAFinding, ...]:
+        return (
+            MediaQAFinding(
+                unit_id="E12U06",
+                shot_id="E12U06-S02",
+                time_range=MediaQATimeRange(start_seconds=5, end_seconds=10),
+                canonical_violation="non-canonical semantic content",
+                severity=MediaQASeverity.BLOCKING,
+                provider_result_usable=False,
+                audio_is_accepted=True,
+                repairability=MediaQARepairability.PROVIDER,
+                affected_fraction=0.5,
+                failure_class=H3FailureClass.LARGE_SEMANTIC_FAILURE,
+            ),
+        )
+
+    gate = reference_video_tasks._build_h3_preselection_media_gate(
+        payload={"prompt_compiler": "auto"},
+        model_name="MiniMax-H3",
+        has_references=False,
+        evaluator=evaluator,
+        repair_handlers={},
+        repair_ticket_context=H3RepairTicketContext(
+            provider_prompt_sha256="1" * 64,
+            reference_sha256=("2" * 64,),
+        ),
+    )
+    assert gate is not None
+
+    staged = tmp_path / "provider.mp4"
+    staged.write_bytes(b"provider-result")
+    with pytest.raises(H3RuntimeSelectionError) as caught:
+        await gate(
+            staged,
+            10,
+            {"provider_task_id": "provider-task-123"},
+        )
+
+    report = caught.value.report
+    assert report["status"] == "PROVIDER_REPAIR_REQUIRED"
+    assert report["provider_recalled"] is False
+    assert len(report["repair_tickets"]) == 1
+    ticket = report["repair_tickets"][0]
+    assert ticket["shot_id"] == "E12U06-S02"
+    assert ticket["provider_prompt_sha256"] == "1" * 64
+    assert ticket["reference_sha256"] == ["2" * 64]
+    assert ticket["provider_task_id"] == "provider-task-123"
