@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -132,9 +133,10 @@ class _FakeProjectManager:
 
 
 class _FakeGenerator:
-    def __init__(self, project_path: Path, *, allow_generate: bool):
+    def __init__(self, project_path: Path, *, allow_generate: bool, cancel_generate: bool = False):
         self.project_path = project_path
         self.allow_generate = allow_generate
+        self.cancel_generate = cancel_generate
         self.generate_calls = 0
         self.resume_calls = 0
 
@@ -148,6 +150,8 @@ class _FakeGenerator:
         if not self.allow_generate:
             raise AssertionError("resume path must not submit a new provider generation")
         self.generate_calls += 1
+        if self.cancel_generate:
+            raise asyncio.CancelledError
         before_submit = kwargs["before_submit"]
         on_provider_job_id = kwargs["on_provider_job_id"]
         assert before_submit is not None
@@ -352,3 +356,36 @@ async def test_restart_with_persisted_job_resumes_without_new_submit(
         task = await session.get(Task, task_id)
         assert task is not None
         assert task.provider_job_id == "provider-job-resume"
+
+
+
+async def test_cancelled_fresh_repair_cancels_ticket_without_spending_allowance(
+    db_factory,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_path = tmp_path / "ai-boss"
+    source_path = project_path / resource_relative_path("reference_videos", "E12U06")
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"accepted-source-unit")
+    ticket = _ticket(
+        source_sha=sha256_file(source_path),
+        prompt_sha=provider_prompt_sha256(_accepted_prompt()),
+    )
+    task_id, _execution_identity = await _persist_approve_claim(db_factory, ticket)
+    source = _source(project_path, ticket, source_path)
+    generator = _FakeGenerator(project_path, allow_generate=True, cancel_generate=True)
+    _patch_runtime(monkeypatch, db_factory, project_path, source, generator)
+
+    with pytest.raises(asyncio.CancelledError):
+        await h3_repair_tasks.execute_h3_repair_task(await _task_snapshot(db_factory, task_id))
+
+    async with db_factory() as session:
+        persisted = await H3RepairTicketStore(session).load(project_name="ai-boss", ticket_id=ticket.ticket_id)
+        assert persisted is not None
+        assert persisted.lifecycle_state is H3RepairTicketLifecycleState.CANCELLED
+        assert persisted.provider_call_count == 0
+        task = await session.get(Task, task_id)
+        assert task is not None
+        assert task.provider_job_id is None
+        assert task.execution_checkpoint_json is None
