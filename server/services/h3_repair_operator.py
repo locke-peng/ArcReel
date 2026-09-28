@@ -125,7 +125,7 @@ async def get_h3_repair_ticket(*, project_name: str, ticket_id: str) -> dict[str
     return _ticket_view(await load_h3_repair_ticket_record(project_name, ticket_id))
 
 
-async def approve_and_enqueue_h3_repair(
+async def approve_h3_repair(
     *,
     project_name: str,
     ticket_id: str,
@@ -162,23 +162,65 @@ async def approve_and_enqueue_h3_repair(
             current_facts=current_facts,
             max_provider_calls=max_provider_calls,
         )
+        refreshed = await store.load(project_name=project_name, ticket_id=ticket_id)
+        if refreshed is None:
+            raise RuntimeError("repair ticket disappeared after approval")
+    return {
+        "ticket": _ticket_view(refreshed),
+        "approval": approval.approval.to_dict(),
+    }
+
+
+async def enqueue_h3_repair(
+    *,
+    project_name: str,
+    ticket_id: str,
+    user_id: str,
+) -> dict[str, Any]:
+    await resolve_h3_repair_project_path(project_name)
+    async with safe_session_factory() as session:
+        store = H3RepairTicketStore(session)
         queued = await H3RepairQueueService(session).enqueue_approved_ticket(
             project_name=project_name,
             ticket_id=ticket_id,
-            user_id=approved_by,
+            user_id=user_id,
         )
         refreshed = await store.load(project_name=project_name, ticket_id=ticket_id)
         if refreshed is None:
             raise RuntimeError("repair ticket disappeared after queue admission")
     return {
         "ticket": _ticket_view(refreshed),
-        "approval": approval.approval.to_dict(),
         "queue": {
             "task_id": queued.task_id,
             "execution_identity": queued.execution_identity,
             "task_status": queued.task_status,
             "deduped": queued.deduped,
         },
+    }
+
+
+async def approve_and_enqueue_h3_repair(
+    *,
+    project_name: str,
+    ticket_id: str,
+    approved_by: str,
+    max_provider_calls: int = 1,
+) -> dict[str, Any]:
+    approved = await approve_h3_repair(
+        project_name=project_name,
+        ticket_id=ticket_id,
+        approved_by=approved_by,
+        max_provider_calls=max_provider_calls,
+    )
+    queued = await enqueue_h3_repair(
+        project_name=project_name,
+        ticket_id=ticket_id,
+        user_id=approved_by,
+    )
+    return {
+        "ticket": queued["ticket"],
+        "approval": approved["approval"],
+        "queue": queued["queue"],
     }
 
 
