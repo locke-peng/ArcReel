@@ -14,6 +14,7 @@ from lib.reference_video.h3_repair_approval_service import (
 )
 from lib.reference_video.h3_repair_queue import H3RepairExecutionConflict
 from lib.reference_video.h3_repair_ticket_store import H3RepairTicketLifecycleState
+from server.auth import CurrentUser
 from server.services.h3_repair_operator import (
     approve_and_enqueue_h3_repair,
     cancel_h3_repair,
@@ -28,12 +29,10 @@ router = APIRouter(prefix="/projects/{project_name}/reference-videos/repairs")
 
 
 class H3RepairApproveRequest(BaseModel):
-    approved_by: str = Field(min_length=1, max_length=200)
     max_provider_calls: Literal[1] = 1
 
 
 class H3RepairDecisionRequest(BaseModel):
-    actor: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=1000)
 
 
@@ -89,12 +88,17 @@ async def get_h3_repair(project_name: str, ticket_id: str):
 
 
 @router.post("/{ticket_id}/approve")
-async def approve_h3_repair(project_name: str, ticket_id: str, body: H3RepairApproveRequest):
+async def approve_h3_repair(
+    project_name: str,
+    ticket_id: str,
+    body: H3RepairApproveRequest,
+    user: CurrentUser,
+):
     try:
         return await approve_and_enqueue_h3_repair(
             project_name=project_name,
             ticket_id=ticket_id,
-            approved_by=body.approved_by,
+            approved_by=user.id,
             max_provider_calls=body.max_provider_calls,
         )
     except FileNotFoundError as exc:
@@ -108,12 +112,17 @@ async def approve_h3_repair(project_name: str, ticket_id: str, body: H3RepairApp
 
 
 @router.post("/{ticket_id}/reject")
-async def reject_h3_repair_ticket(project_name: str, ticket_id: str, body: H3RepairDecisionRequest):
+async def reject_h3_repair_ticket(
+    project_name: str,
+    ticket_id: str,
+    body: H3RepairDecisionRequest,
+    user: CurrentUser,
+):
     try:
         return await reject_h3_repair(
             project_name=project_name,
             ticket_id=ticket_id,
-            rejected_by=body.actor,
+            rejected_by=user.id,
             reason=body.reason,
         )
     except FileNotFoundError as exc:
@@ -127,12 +136,17 @@ async def reject_h3_repair_ticket(project_name: str, ticket_id: str, body: H3Rep
 
 
 @router.post("/{ticket_id}/cancel")
-async def cancel_h3_repair_ticket(project_name: str, ticket_id: str, body: H3RepairDecisionRequest):
+async def cancel_h3_repair_ticket(
+    project_name: str,
+    ticket_id: str,
+    body: H3RepairDecisionRequest,
+    user: CurrentUser,
+):
     try:
         return await cancel_h3_repair(
             project_name=project_name,
             ticket_id=ticket_id,
-            cancelled_by=body.actor,
+            cancelled_by=user.id,
             reason=body.reason,
         )
     except FileNotFoundError as exc:
