@@ -8,6 +8,7 @@ submit provider work.
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
@@ -212,10 +213,8 @@ def _selection_metadata(
     # select even when the original formal baseline has not changed.
     raw_currency = metadata.get("artifact_video_currency")
     if raw_currency is not None:
-        try:
+        with suppress(TypeError, ValueError):
             VideoArtifactCurrencyFacts.from_dict(raw_currency)
-        except (TypeError, ValueError):
-            pass
     metadata.update(
         {
             "source": _REPAIR_SOURCE,
