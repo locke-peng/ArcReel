@@ -10,6 +10,7 @@ non-converging repair remains history-only through the caller's artifact-selecti
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -108,12 +109,15 @@ async def run_h3_runtime_selection_gate(
     max_repair_passes counts repair rounds, not the initial QA inspection.
     """
 
-    if not staged_file.is_file() or staged_file.stat().st_size == 0:
+    media_ready = await asyncio.to_thread(
+        lambda: staged_file.is_file() and staged_file.stat().st_size > 0
+    )
+    if not media_ready:
         raise FileNotFoundError(staged_file)
     if max_repair_passes < 0:
         raise ValueError("max_repair_passes must be >= 0")
 
-    source_hash = sha256_file(staged_file)
+    source_hash = await asyncio.to_thread(sha256_file, staged_file)
     current_hash = source_hash
     pass_records: list[Mapping[str, Any]] = []
 
@@ -247,7 +251,7 @@ async def run_h3_runtime_selection_gate(
             )
         record["executed_repairs"] = executed
 
-        current_hash = sha256_file(staged_file)
+        current_hash = await asyncio.to_thread(sha256_file, staged_file)
         record["post_repair_media_sha256"] = current_hash
         if current_hash == before_hash:
             report = _error_report(
