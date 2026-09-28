@@ -156,6 +156,7 @@ async def test_approve_operator_reuses_approval_service_then_enqueues(
     queue_service.enqueue_approved_ticket.assert_awaited_once_with(
         project_name="demo",
         ticket_id="h3rt_test",
+        user_id="operator:alice",
     )
     assert result["queue"] == {
         "task_id": "task-1",
