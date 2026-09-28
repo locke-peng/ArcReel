@@ -206,23 +206,58 @@ async def approve_and_enqueue_h3_repair(
     approved_by: str,
     max_provider_calls: int = 1,
 ) -> dict[str, Any]:
-    approved = await approve_h3_repair(
-        project_name=project_name,
-        ticket_id=ticket_id,
-        approved_by=approved_by,
-        max_provider_calls=max_provider_calls,
-    )
-    queued = await enqueue_h3_repair(
-        project_name=project_name,
-        ticket_id=ticket_id,
-        user_id=approved_by,
-    )
-    return {
-        "ticket": queued["ticket"],
-        "approval": approved["approval"],
-        "queue": queued["queue"],
-    }
+    """Preserve the accepted Phase 5 single-session approve+enqueue contract."""
 
+    project_path = await resolve_h3_repair_project_path(project_name)
+    async with safe_session_factory() as session:
+        store = H3RepairTicketStore(session)
+        persisted = await store.load(project_name=project_name, ticket_id=ticket_id)
+        if persisted is None:
+            raise KeyError(f"H3 Repair Ticket not found: {project_name}/{ticket_id}")
+        try:
+            source = await asyncio.to_thread(
+                resolve_h3_repair_source_version,
+                project_path=project_path,
+                ticket=persisted.ticket,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("repair source media no longer exists") from exc
+        if persisted.ticket.shot_id is None:
+            raise RuntimeError("provider repair approval requires a shot-scoped Repair Ticket")
+
+        current_facts = H3RepairApprovalFacts(
+            source_media_sha256=source.media_sha256,
+            shot_id=persisted.ticket.shot_id,
+            repair_action=persisted.ticket.repair_action,
+            provider_prompt_sha256=source.provider_prompt_sha256,
+            reference_sha256=persisted.ticket.reference_sha256,
+        )
+        approval = await H3RepairApprovalService(session).approve(
+            project_name=project_name,
+            ticket_id=ticket_id,
+            approved_by=approved_by,
+            current_facts=current_facts,
+            max_provider_calls=max_provider_calls,
+        )
+        queued = await H3RepairQueueService(session).enqueue_approved_ticket(
+            project_name=project_name,
+            ticket_id=ticket_id,
+            user_id=approved_by,
+        )
+        refreshed = await store.load(project_name=project_name, ticket_id=ticket_id)
+        if refreshed is None:
+            raise RuntimeError("repair ticket disappeared after queue admission")
+
+    return {
+        "ticket": _ticket_view(refreshed),
+        "approval": approval.approval.to_dict(),
+        "queue": {
+            "task_id": queued.task_id,
+            "execution_identity": queued.execution_identity,
+            "task_status": queued.task_status,
+            "deduped": queued.deduped,
+        },
+    }
 
 async def reject_h3_repair(
     *,
