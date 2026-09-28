@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -189,6 +189,16 @@ def _ticket_from_snapshot(snapshot: str) -> H3RepairTicket:
     )
 
 
+def _utc_datetime(value: datetime | None) -> datetime | None:
+    """Normalize DB datetimes to an aware UTC domain value across SQLite/Postgres."""
+
+    if value is None:
+        return None
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def _initial_state(ticket: H3RepairTicket) -> H3RepairTicketLifecycleState:
     if ticket.status is H3RepairTicketStatus.AWAITING_APPROVAL:
         return H3RepairTicketLifecycleState.AWAITING_APPROVAL
@@ -233,10 +243,10 @@ def _record_to_domain(record: H3RepairTicketRecord) -> PersistedH3RepairTicket:
         lifecycle_state=H3RepairTicketLifecycleState(record.lifecycle_state),
         lifecycle_reason=record.lifecycle_reason,
         lifecycle_actor=record.lifecycle_actor,
-        lifecycle_at=record.lifecycle_at,
+        lifecycle_at=_utc_datetime(record.lifecycle_at),
         approval_json=record.approval_json,
         approval_identity=record.approval_identity,
-        approval_at=record.approval_at,
+        approval_at=_utc_datetime(record.approval_at),
         max_provider_calls=record.max_provider_calls,
         execution_identity=record.execution_identity,
         execution_task_id=record.execution_task_id,
@@ -246,8 +256,8 @@ def _record_to_domain(record: H3RepairTicketRecord) -> PersistedH3RepairTicket:
         reqa_outcome=record.reqa_outcome,
         selected_artifact_id=record.selected_artifact_id,
         selected_version_id=record.selected_version_id,
-        created_at=record.created_at,
-        updated_at=record.updated_at,
+        created_at=_utc_datetime(record.created_at),
+        updated_at=_utc_datetime(record.updated_at),
     )
 
 
