@@ -138,11 +138,14 @@ async def approve_and_enqueue_h3_repair(
         persisted = await store.load(project_name=project_name, ticket_id=ticket_id)
         if persisted is None:
             raise KeyError(f"H3 Repair Ticket not found: {project_name}/{ticket_id}")
-        source = await asyncio.to_thread(
-            resolve_h3_repair_source_version,
-            project_path=project_path,
-            ticket=persisted.ticket,
-        )
+        try:
+            source = await asyncio.to_thread(
+                resolve_h3_repair_source_version,
+                project_path=project_path,
+                ticket=persisted.ticket,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("repair source media no longer exists") from exc
         if persisted.ticket.shot_id is None:
             raise RuntimeError("provider repair approval requires a shot-scoped Repair Ticket")
         current_facts = H3RepairApprovalFacts(
@@ -162,6 +165,7 @@ async def approve_and_enqueue_h3_repair(
         queued = await H3RepairQueueService(session).enqueue_approved_ticket(
             project_name=project_name,
             ticket_id=ticket_id,
+            user_id=approved_by,
         )
         refreshed = await store.load(project_name=project_name, ticket_id=ticket_id)
         if refreshed is None:
