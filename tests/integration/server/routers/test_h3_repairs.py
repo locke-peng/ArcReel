@@ -13,7 +13,7 @@ from server.routers import h3_repairs
 
 
 @pytest.fixture
-def client() -> TestClient:
+def h3_repairs_client() -> TestClient:
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(h3_repairs.router, prefix="/api/v1")
@@ -22,13 +22,13 @@ def client() -> TestClient:
 
 
 def test_pending_repairs_uses_awaiting_approval_filter(
-    client: TestClient,
+    h3_repairs_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     list_mock = AsyncMock(return_value=[{"ticket_id": "h3rt_one", "unit_id": "E13U03"}])
     monkeypatch.setattr(h3_repairs, "list_h3_repair_tickets", list_mock)
 
-    response = client.get(
+    response = h3_repairs_client.get(
         "/api/v1/projects/demo/reference-videos/repairs/pending",
         params={"unit_id": "E13U03"},
     )
@@ -47,7 +47,7 @@ def test_pending_repairs_uses_awaiting_approval_filter(
 
 
 def test_approve_endpoint_runs_binding_and_queue_admission(
-    client: TestClient,
+    h3_repairs_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     approve_mock = AsyncMock(
@@ -59,7 +59,7 @@ def test_approve_endpoint_runs_binding_and_queue_admission(
     )
     monkeypatch.setattr(h3_repairs, "approve_and_enqueue_h3_repair", approve_mock)
 
-    response = client.post(
+    response = h3_repairs_client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/approve",
         json={"max_provider_calls": 1},
     )
@@ -75,9 +75,9 @@ def test_approve_endpoint_runs_binding_and_queue_admission(
 
 
 def test_approve_endpoint_rejects_more_than_one_provider_call(
-    client: TestClient,
+    h3_repairs_client: TestClient,
 ) -> None:
-    response = client.post(
+    response = h3_repairs_client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/approve",
         json={"max_provider_calls": 2},
     )
@@ -85,7 +85,7 @@ def test_approve_endpoint_rejects_more_than_one_provider_call(
 
 
 def test_detail_execution_and_result_routes(
-    client: TestClient,
+    h3_repairs_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -104,9 +104,9 @@ def test_detail_execution_and_result_routes(
         AsyncMock(return_value={"ticket_id": "h3rt_one", "reqa_outcome": "PASS"}),
     )
 
-    detail = client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one")
-    execution = client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one/execution")
-    result = client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one/result")
+    detail = h3_repairs_client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one")
+    execution = h3_repairs_client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one/execution")
+    result = h3_repairs_client.get("/api/v1/projects/demo/reference-videos/repairs/h3rt_one/result")
 
     assert detail.status_code == 200
     assert detail.json()["failure_class"] == "large_semantic_failure"
@@ -117,7 +117,7 @@ def test_detail_execution_and_result_routes(
 
 
 def test_reject_and_cancel_routes_delegate_existing_lifecycle_services(
-    client: TestClient,
+    h3_repairs_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     reject_mock = AsyncMock(return_value={"ticket_id": "h3rt_one", "lifecycle": {"state": "rejected"}})
@@ -130,11 +130,11 @@ def test_reject_and_cancel_routes_delegate_existing_lifecycle_services(
     monkeypatch.setattr(h3_repairs, "reject_h3_repair", reject_mock)
     monkeypatch.setattr(h3_repairs, "cancel_h3_repair", cancel_mock)
 
-    rejected = client.post(
+    rejected = h3_repairs_client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/reject",
         json={"reason": "not approved"},
     )
-    cancelled = client.post(
+    cancelled = h3_repairs_client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_two/cancel",
         json={},
     )
