@@ -113,6 +113,35 @@ async def _mark_human_review_if_active(*, project_name: str, ticket_id: str, rea
         await session.commit()
 
 
+async def _record_repair_cancellation(*, project_name: str, ticket_id: str) -> None:
+    """Keep ticket lifecycle consistent with worker cancellation semantics."""
+
+    async with safe_session_factory() as session:
+        record = await session.get(H3RepairTicketRecord, (project_name, ticket_id))
+        if record is None:
+            return
+        current = H3RepairTicketLifecycleState(record.lifecycle_state)
+        if current is H3RepairTicketLifecycleState.RUNNING:
+            target = H3RepairTicketLifecycleState.CANCELLED
+            reason = "repair execution cancelled before provider completion"
+        elif current in {
+            H3RepairTicketLifecycleState.PROVIDER_COMPLETED,
+            H3RepairTicketLifecycleState.REASSEMBLING,
+        }:
+            target = H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED
+            reason = "repair execution cancelled after provider completion; inspect retained paid artifact"
+        else:
+            return
+        validate_h3_repair_ticket_transition(current, target)
+        now = utc_now()
+        record.lifecycle_state = target.value
+        record.lifecycle_reason = reason
+        record.lifecycle_actor = "system:repair-runtime"
+        record.lifecycle_at = now
+        record.updated_at = now
+        await session.commit()
+
+
 def _ticket_id_from_task(task: dict[str, Any]) -> str:
     payload = task.get("payload")
     if not isinstance(payload, dict):
@@ -532,6 +561,14 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
             "execution_identity": persisted.execution_identity,
             "lifecycle_state": H3RepairTicketLifecycleState.REQA_RUNNING.value,
         }
+    except asyncio.CancelledError:
+        await asyncio.shield(
+            _record_repair_cancellation(
+                project_name=project_name,
+                ticket_id=ticket_id,
+            )
+        )
+        raise
     except Exception as exc:
         await _mark_human_review_if_active(
             project_name=project_name,
