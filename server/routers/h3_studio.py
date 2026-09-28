@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
