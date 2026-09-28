@@ -5,6 +5,8 @@ on:
     paths:
       - "lib/reference_video/h3_production_projection.py"
       - "tests/unit/lib/reference_video/test_h3_production_projection.py"
+      - "server/services/h3_production_control.py"
+      - "tests/integration/server/services/test_h3_production_control.py"
       - ".github/workflows/h3-phase6-slice1-projection.yml"
   workflow_dispatch:
 
@@ -34,4 +36,7 @@ jobs:
         run: uv sync
 
       - name: Run Phase 6 Slice 1 projection tests
-        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_production_projection.py
+        run: |
+          uv run pytest -q \
+            tests/unit/lib/reference_video/test_h3_production_projection.py \
+            tests/integration/server/services/test_h3_production_control.py
