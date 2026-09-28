@@ -4,8 +4,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
 from lib.artifact_manifest import ArtifactBasis, compose_video_artifact_basis
+from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
 from lib.db.models.task import Task
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
