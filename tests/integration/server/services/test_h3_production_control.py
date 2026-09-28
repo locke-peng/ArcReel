@@ -136,6 +136,12 @@ async def test_resolver_reads_project_scripts_versions_and_tickets(
         project_name="demo",
         project_manager=manager,
     )
+    rebuilt = await h3_production_control.resolve_h3_production_projection(
+        project_name="demo",
+        project_manager=manager,
+    )
+    assert rebuilt == projection
+
     by_unit = {
         unit.unit_id: unit
         for episode in projection.episodes
