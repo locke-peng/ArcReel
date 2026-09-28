@@ -112,16 +112,16 @@ async def test_enqueue_approved_ticket_is_idempotent_and_uses_dormant_repair_lan
         assert persisted.execution_task_id == first.task_id
 
 
-async def test_concurrent_duplicate_enqueue_resolves_to_one_task(file_session_factory) -> None:
+async def test_concurrent_duplicate_enqueue_resolves_to_one_task(concurrent_session_factory) -> None:
     ticket = await _persist_approve(
-        file_session_factory,
+        concurrent_session_factory,
         project_name="ai-boss",
         unit_id="E12U06",
         source_digit="1",
     )
 
     async def enqueue_once():
-        async with file_session_factory() as session:
+        async with concurrent_session_factory() as session:
             return await H3RepairQueueService(session).enqueue_approved_ticket(
                 project_name="ai-boss",
                 ticket_id=ticket.ticket_id,
@@ -133,21 +133,21 @@ async def test_concurrent_duplicate_enqueue_resolves_to_one_task(file_session_fa
     assert {first.deduped, second.deduped} == {False, True}
 
 
-async def test_atomic_claim_allows_only_one_worker(file_session_factory) -> None:
+async def test_atomic_claim_allows_only_one_worker(concurrent_session_factory) -> None:
     ticket = await _persist_approve(
-        file_session_factory,
+        concurrent_session_factory,
         project_name="ai-boss",
         unit_id="E12U06",
         source_digit="1",
     )
-    async with file_session_factory() as session:
+    async with concurrent_session_factory() as session:
         await H3RepairQueueService(session).enqueue_approved_ticket(
             project_name="ai-boss",
             ticket_id=ticket.ticket_id,
         )
 
     async def claim_once():
-        async with file_session_factory() as session:
+        async with concurrent_session_factory() as session:
             return await H3RepairQueueService(session).claim_next()
 
     first, second = await asyncio.gather(claim_once(), claim_once())
@@ -155,7 +155,7 @@ async def test_atomic_claim_allows_only_one_worker(file_session_factory) -> None
     assert len(claims) == 1
     assert claims[0].attempt_count == 1
 
-    async with file_session_factory() as session:
+    async with concurrent_session_factory() as session:
         persisted = await H3RepairTicketStore(session).load(project_name="ai-boss", ticket_id=ticket.ticket_id)
         assert persisted is not None
         assert persisted.lifecycle_state is H3RepairTicketLifecycleState.RUNNING
@@ -402,3 +402,126 @@ async def test_project_ceiling_cannot_be_lowered_below_consumed_reservations(db_
 
         with pytest.raises(ValueError, match="already reserved calls"):
             await queue.configure_project_call_ceiling(project_name="ai-boss", ceiling=1)
+
+
+
+async def test_concurrent_submission_reservation_consumes_ticket_allowance_once(
+    concurrent_session_factory,
+) -> None:
+    ticket = await _persist_approve(
+        concurrent_session_factory,
+        project_name="ai-boss",
+        unit_id="E12U06",
+        source_digit="1",
+    )
+    async with concurrent_session_factory() as session:
+        service = H3RepairQueueService(session)
+        await service.enqueue_approved_ticket(project_name="ai-boss", ticket_id=ticket.ticket_id)
+        assert await service.claim_next() is not None
+
+    async def reserve_once():
+        async with concurrent_session_factory() as session:
+            return await H3RepairQueueService(session).reserve_provider_submission(
+                project_name="ai-boss",
+                ticket_id=ticket.ticket_id,
+                current_facts=_facts(ticket),
+                provider_id="minimax",
+                provider_model="MiniMax-H3",
+            )
+
+    first, second = await asyncio.gather(reserve_once(), reserve_once())
+    assert {first.disposition, second.disposition} == {
+        H3RepairSubmissionDisposition.SUBMIT_ALLOWED,
+        H3RepairSubmissionDisposition.RESERVED_WITHOUT_PROVIDER_ID,
+    }
+    assert first.provider_call_count == 1
+    assert second.provider_call_count == 1
+
+    async with concurrent_session_factory() as session:
+        persisted = await H3RepairTicketStore(session).load(project_name="ai-boss", ticket_id=ticket.ticket_id)
+        assert persisted is not None
+        assert persisted.provider_call_count == 1
+        assert persisted.execution_task_id is not None
+        task = await session.get(Task, persisted.execution_task_id)
+        assert task is not None
+        assert task.execution_checkpoint_json is not None
+        assert task.provider_job_id is None
+
+
+async def test_concurrent_project_ceiling_allows_only_one_ticket_reservation(
+    concurrent_session_factory,
+) -> None:
+    first_ticket = await _persist_approve(
+        concurrent_session_factory,
+        project_name="ai-boss",
+        unit_id="E12U06",
+        source_digit="1",
+    )
+    second_ticket = await _persist_approve(
+        concurrent_session_factory,
+        project_name="ai-boss",
+        unit_id="E13U03",
+        source_digit="5",
+    )
+    facts = {
+        first_ticket.ticket_id: _facts(first_ticket),
+        second_ticket.ticket_id: _facts(second_ticket),
+    }
+
+    async with concurrent_session_factory() as session:
+        service = H3RepairQueueService(session)
+        await service.configure_project_call_ceiling(project_name="ai-boss", ceiling=1)
+        await service.enqueue_approved_ticket(project_name="ai-boss", ticket_id=first_ticket.ticket_id)
+        await service.enqueue_approved_ticket(project_name="ai-boss", ticket_id=second_ticket.ticket_id)
+        first_claim = await service.claim_next()
+        second_claim = await service.claim_next()
+        assert first_claim is not None
+        assert second_claim is not None
+
+    async def reserve_or_block(ticket_id: str):
+        async with concurrent_session_factory() as session:
+            try:
+                return await H3RepairQueueService(session).reserve_provider_submission(
+                    project_name="ai-boss",
+                    ticket_id=ticket_id,
+                    current_facts=facts[ticket_id],
+                    provider_id="minimax",
+                    provider_model="MiniMax-H3",
+                )
+            except H3RepairAllowanceExhausted:
+                return "blocked"
+
+    first_result, second_result = await asyncio.gather(
+        reserve_or_block(first_ticket.ticket_id),
+        reserve_or_block(second_ticket.ticket_id),
+    )
+    results = (first_result, second_result)
+    assert sum(result == "blocked" for result in results) == 1
+    reservations = [result for result in results if result != "blocked"]
+    assert len(reservations) == 1
+    assert reservations[0].disposition is H3RepairSubmissionDisposition.SUBMIT_ALLOWED
+
+    async with concurrent_session_factory() as session:
+        budget = await session.get(H3RepairProjectBudget, "ai-boss")
+        assert budget is not None
+        assert budget.provider_call_count == 1
+        first_persisted = await H3RepairTicketStore(session).load(
+            project_name="ai-boss",
+            ticket_id=first_ticket.ticket_id,
+        )
+        second_persisted = await H3RepairTicketStore(session).load(
+            project_name="ai-boss",
+            ticket_id=second_ticket.ticket_id,
+        )
+        assert first_persisted is not None
+        assert second_persisted is not None
+        assert sorted(
+            (first_persisted.provider_call_count, second_persisted.provider_call_count)
+        ) == [0, 1]
+        assert {
+            first_persisted.lifecycle_state,
+            second_persisted.lifecycle_state,
+        } == {
+            H3RepairTicketLifecycleState.RUNNING,
+            H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
+        }
