@@ -41,14 +41,14 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media,
     stage_provider_media_for_task,
 )
+from lib.reference_video.h3_audio_runtime import build_h3_canonical_audio_runtime_bundle
+from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
+from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_prompt_execution import (
     assert_provider_prompt_matches_preview,
     compile_reference_video_provider_prompt,
     should_compile_reference_video_h3,
 )
-from lib.reference_video.h3_audio_runtime import build_h3_canonical_audio_runtime_bundle
-from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
-from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_repair_executor import sha256_file
 from lib.reference_video.h3_repair_ticket import H3RepairTicketContext
 from lib.reference_video.h3_runtime_gate import (
