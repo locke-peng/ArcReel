@@ -15,9 +15,12 @@ on:
       - "lib/reference_video/h3_exact_text_runtime.py"
       - "lib/reference_video/h3_audio_contract.py"
       - "lib/reference_video/h3_audio_runtime.py"
+      - "lib/reference_video/h3_repair_ticket.py"
+      - "lib/reference_video/h3_shot_repair_executor.py"
       - "docs/schemas/h3_canonical_audio_track.schema.json"
       - "lib/video_prompt_compilers/h3_director_compiler.py"
       - "docs/schemas/h3_exact_text_plate.schema.json"
+      - "docs/schemas/h3_repair_ticket.schema.json"
       - "lib/reference_video/cut_detector.py"
       - "server/services/reference_video_tasks.py"
       - "server/services/video_artifact_currency.py"
@@ -26,12 +29,15 @@ on:
       - "scripts/experiments/run_phase4_auto_repair_e2e.py"
       - "scripts/experiments/run_phase4_e13u01_exact_text_replay.py"
       - "scripts/experiments/run_phase4_e13u01_audio_repair_replay.py"
+      - "scripts/experiments/run_phase4_safe_escalation_e2e.py"
       - "tests/unit/lib/reference_video/test_h3_auto_repair_loop.py"
       - "tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py"
       - "tests/unit/lib/reference_video/test_h3_runtime_gate.py"
       - "tests/unit/lib/reference_video/test_h3_timeline_runtime.py"
       - "tests/unit/lib/reference_video/test_h3_exact_text_runtime.py"
       - "tests/unit/lib/reference_video/test_h3_audio_runtime.py"
+      - "tests/unit/lib/reference_video/test_h3_repair_ticket.py"
+      - "tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py"
       - "tests/integration/server/services/test_h3_runtime_selection_wiring.py"
       - ".github/workflows/h3-phase4-auto-repair-loop.yml"
   workflow_dispatch:
@@ -126,7 +132,10 @@ jobs:
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
-            tests/unit/lib/reference_video/test_h3_audio_runtime.py
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \\
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \\
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \\
+            tests/integration/server/services/test_h3_runtime_selection_wiring.py
 
       - name: Ruff
         run: |
@@ -147,7 +156,10 @@ jobs:
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
-            tests/unit/lib/reference_video/test_h3_audio_runtime.py
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \\
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \\
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \\
+            tests/integration/server/services/test_h3_runtime_selection_wiring.py
 
   existing-evidence-e2e:
     needs: software-gates
@@ -389,3 +401,115 @@ jobs:
           path: phase4_audio_evidence
           if-no-files-found: error
           retention-days: 14
+
+
+  safe-escalation-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E12U06 historical supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e12u06-h3-live-evidence
+          path: upstream_e12u06
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36013839904
+
+      - name: Download E13U03 accepted multi-shot evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e13u03-v1-multiscene-identity-logguard-evidence
+          path: upstream_e13u03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36128343054
+
+      - name: Run safe escalation replay without provider calls
+        run: |
+          uv run python scripts/experiments/run_phase4_safe_escalation_e2e.py \
+            --e12-upstream-dir upstream_e12u06 \
+            --e13-upstream-dir upstream_e13u03 \
+            --output-dir phase4_safe_escalation_evidence
+
+      - name: Assert shot-scoped tickets and zero paid provider calls
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path("phase4_safe_escalation_evidence/phase4_safe_escalation_e2e.json").read_text()
+          )
+          assert data["status"] == "FINAL_PASS"
+          assert data["provider_recalled"] is False
+          assert data["paid_provider_calls"] == 0
+          assert data["e12u06"]["runtime_gate_status"] == "PROVIDER_REPAIR_REQUIRED"
+          assert len(data["e12u06"]["repair_tickets"]) == 1
+          assert data["e12u06"]["repair_tickets"][0]["shot_id"] == "E12U06-S02"
+          assert data["e12u06"]["repair_tickets"][0]["approval_eligible"] is True
+          assert data["e13u03"]["runtime_gate_status"] == "PROVIDER_REPAIR_REQUIRED"
+          assert data["e13u03"]["ticket_count"] == 2
+          assert set(data["e13u03"]["shot_scopes"]) == {"E13U03-S07", "E13U03-S08"}
+          assert all(
+              ticket["approval_eligible"] is True
+              for ticket in data["e13u03"]["repair_tickets"]
+          )
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload safe escalation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-safe-escalation-e2e-evidence
+          path: phase4_safe_escalation_evidence
+          if-no-files-found: error
+          retention-days: 14
+
+  phase4-master-gate:
+    needs:
+      - software-gates
+      - existing-evidence-e2e
+      - exact-text-e2e
+      - audio-only-e2e
+      - safe-escalation-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record Phase 4 master gate
+        run: |
+          mkdir -p phase4_master_gate
+          cat > phase4_master_gate/phase4_master_gate.json <<JSON
+          {
+            "status": "FINAL_PASS",
+            "tested_sha": "${GITHUB_SHA}",
+            "provider_recalled_by_master_gate": false,
+            "paid_provider_calls_by_master_gate": 0,
+            "phase": 4,
+            "gate": "auto_repair_loop_master"
+          }
+          JSON
+          cat phase4_master_gate/phase4_master_gate.json
+
+      - name: Upload Phase 4 master gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-master-gate
+          path: phase4_master_gate
+          if-no-files-found: error
+          retention-days: 30
