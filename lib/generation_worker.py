@@ -842,10 +842,9 @@ class GenerationWorker:
         if self._slots.occupied("h3-repair", H3_REPAIR_MEDIA_TYPE) > 0:
             return False
 
-        from lib.db import safe_session_factory
         from lib.reference_video.h3_repair_queue import H3RepairQueueService
 
-        async with safe_session_factory() as session:
+        async with self.queue.session_factory() as session:
             claim = await H3RepairQueueService(session).claim_next()
         if claim is None:
             return False
