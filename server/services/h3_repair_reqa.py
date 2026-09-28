@@ -551,6 +551,45 @@ async def execute_h3_repair_reqa(
             "followup_ticket_ids": [],
         }
 
+    except Exception as exc:
+        report = {
+            "status": "REQA_RUNTIME_ERROR",
+            "error_type": type(exc).__name__,
+        }
+        metadata = _selection_metadata(
+            source_record=source_record,
+            source_version=source.version,
+            ticket_id=ticket_id,
+            execution_identity=persisted.execution_identity,
+            gate_report=report,
+        )
+        commit = await asyncio.to_thread(
+            versions.commit_staged_paid_version,
+            "reference_videos",
+            persisted.ticket.unit_id,
+            source.provider_prompt,
+            staged_file=work_file,
+            current_file=project_path / resource_relative_path("reference_videos", persisted.ticket.unit_id),
+            select_current=False,
+            **metadata,
+        )
+        completed = await _complete_ticket(
+            project_name=project_name,
+            ticket_id=ticket_id,
+            target=H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
+            reqa_outcome="REQA_RUNTIME_ERROR",
+            reason=f"trusted Re-QA failed closed before formal selection: {type(exc).__name__}",
+        )
+        return {
+            "ticket_id": ticket_id,
+            "execution_identity": persisted.execution_identity,
+            "reqa_outcome": completed.reqa_outcome,
+            "lifecycle_state": completed.lifecycle_state.value,
+            "history_version": commit.version,
+            "selected_current": False,
+            "followup_ticket_ids": [],
+        }
+
     gate_report = gate_result.to_dict()
     metadata = _selection_metadata(
         source_record=source_record,
