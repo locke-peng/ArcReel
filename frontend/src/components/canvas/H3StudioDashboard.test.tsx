@@ -140,13 +140,13 @@ describe("H3StudioDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /预览审批/ }));
 
     await waitFor(() => {
-      expect(preview).toHaveBeenCalledWith("demo", "approve", ["h3rt_pending"], undefined);
+      expect(preview).toHaveBeenCalledWith("demo", "approve", ["h3rt_pending"]);
     });
 
     fireEvent.click(await screen.findByRole("button", { name: "执行符合条件项" }));
 
     await waitFor(() => {
-      expect(execute).toHaveBeenCalledWith("demo", "approve", ["h3rt_pending"], undefined);
+      expect(execute).toHaveBeenCalledWith("demo", "approve", ["h3rt_pending"]);
     });
   });
 
@@ -171,7 +171,7 @@ describe("H3StudioDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /预览入队/ }));
 
     await waitFor(() => {
-      expect(preview).toHaveBeenCalledWith("demo", "enqueue", ["h3rt_approved"], undefined);
+      expect(preview).toHaveBeenCalledWith("demo", "enqueue", ["h3rt_approved"]);
     });
   });
 });
