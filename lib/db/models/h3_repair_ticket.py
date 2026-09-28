@@ -32,6 +32,8 @@ class H3RepairTicketRecord(TimestampMixin, Base):
 
     lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False)
     lifecycle_reason: Mapped[str | None] = mapped_column(Text)
+    lifecycle_actor: Mapped[str | None] = mapped_column(String(200))
+    lifecycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     approval_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False)
     unit_id: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -44,11 +46,16 @@ class H3RepairTicketRecord(TimestampMixin, Base):
     source_media_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     provider_prompt_sha256: Mapped[str | None] = mapped_column(String(64))
 
-    # Slice 2+ lifecycle fields are created with the table so later slices can fill them
-    # without weakening the persistence contract defined by the Phase 5 charter.
+    # The explicit approval snapshot is separate from ticket_json: the ticket remains the
+    # immutable Phase 4 repair decision while approval_json records the human authorization
+    # and the current execution facts that were checked at approval time.
+    approval_json: Mapped[str | None] = mapped_column(Text)
     approval_identity: Mapped[str | None] = mapped_column(String(200))
     approval_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     max_provider_calls: Mapped[int | None] = mapped_column(Integer)
+
+    # Slice 3+ execution/result fields are created with the ticket table so later slices can
+    # populate them without weakening the persisted lifecycle contract.
     execution_identity: Mapped[str | None] = mapped_column(String(128))
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     provider_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))

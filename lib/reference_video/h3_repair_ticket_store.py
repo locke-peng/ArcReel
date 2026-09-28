@@ -106,6 +106,9 @@ class PersistedH3RepairTicket:
     ticket: H3RepairTicket
     lifecycle_state: H3RepairTicketLifecycleState
     lifecycle_reason: str | None
+    lifecycle_actor: str | None
+    lifecycle_at: datetime | None
+    approval_json: str | None
     approval_identity: str | None
     approval_at: datetime | None
     max_provider_calls: int | None
@@ -227,6 +230,9 @@ def _record_to_domain(record: H3RepairTicketRecord) -> PersistedH3RepairTicket:
         ticket=ticket,
         lifecycle_state=H3RepairTicketLifecycleState(record.lifecycle_state),
         lifecycle_reason=record.lifecycle_reason,
+        lifecycle_actor=record.lifecycle_actor,
+        lifecycle_at=record.lifecycle_at,
+        approval_json=record.approval_json,
         approval_identity=record.approval_identity,
         approval_at=record.approval_at,
         max_provider_calls=record.max_provider_calls,
