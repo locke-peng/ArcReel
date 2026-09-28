@@ -65,6 +65,7 @@ export interface H3StudioSummary {
   budget: H3StudioBudgetLedger;
   queues: {
     pending_approvals: H3StudioRepairTicketView[];
+    approved_waiting: H3StudioRepairTicketView[];
     active_executions: H3StudioRepairTicketView[];
     human_review_required: H3StudioRepairTicketView[];
   };
