@@ -8,6 +8,7 @@ from lib.db.models.h3_repair_ticket import H3RepairProjectBudget
 from lib.db.models.task import Task
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
+from lib.reference_video.h3_prompt_execution import provider_prompt_sha256
 from lib.reference_video.h3_repair_approval_service import (
     H3RepairApprovalFacts,
     H3RepairApprovalService,
@@ -18,6 +19,7 @@ from lib.reference_video.h3_repair_queue import (
     H3_REPAIR_TASK_TYPE,
     H3RepairAllowanceExhausted,
     H3RepairExecutionConflict,
+    H3RepairProviderRequestFacts,
     H3RepairQueueService,
     H3RepairSubmissionDisposition,
 )
@@ -525,3 +527,57 @@ async def test_concurrent_project_ceiling_allows_only_one_ticket_reservation(
             H3RepairTicketLifecycleState.RUNNING,
             H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
         }
+
+
+
+async def test_provider_request_checkpoint_v2_freezes_actual_repair_request(db_factory) -> None:
+    ticket = await _persist_approve(
+        db_factory,
+        project_name="ai-boss",
+        unit_id="E12U06",
+        source_digit="1",
+    )
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        await queue.enqueue_approved_ticket(project_name="ai-boss", ticket_id=ticket.ticket_id)
+        assert await queue.claim_next() is not None
+
+    repair_prompt = "single approved repair shot"
+    provider_request = H3RepairProviderRequestFacts(
+        generation_type="r2v",
+        backend_model="MiniMax-H3",
+        endpoint_guard="minimax-h3",
+        prompt=repair_prompt,
+        prompt_sha256=provider_prompt_sha256(repair_prompt),
+        duration_seconds=5,
+        aspect_ratio="16:9",
+        resolution="768p",
+        generate_audio=True,
+        service_tier="default",
+        seed=None,
+    )
+    async with db_factory() as session:
+        first = await H3RepairQueueService(session).reserve_provider_submission(
+            project_name="ai-boss",
+            ticket_id=ticket.ticket_id,
+            current_facts=_facts(ticket),
+            provider_id="minimax",
+            provider_model="MiniMax-H3",
+            provider_request=provider_request,
+        )
+        assert first.disposition is H3RepairSubmissionDisposition.SUBMIT_ALLOWED
+        assert first.checkpoint.schema_version == 2
+        assert first.checkpoint.provider_request == provider_request
+
+    async with db_factory() as session:
+        repeated = await H3RepairQueueService(session).reserve_provider_submission(
+            project_name="ai-boss",
+            ticket_id=ticket.ticket_id,
+            current_facts=_facts(ticket),
+            provider_id="minimax",
+            provider_model="MiniMax-H3",
+            provider_request=provider_request,
+        )
+        assert repeated.disposition is H3RepairSubmissionDisposition.RESERVED_WITHOUT_PROVIDER_ID
+        assert repeated.provider_call_count == 1
+        assert repeated.checkpoint.provider_request == provider_request
