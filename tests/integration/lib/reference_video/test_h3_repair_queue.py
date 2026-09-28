@@ -78,8 +78,6 @@ async def _persist_approve(session_factory, *, project_name: str, unit_id: str, 
             ticket_id=ticket.ticket_id,
             approved_by="operator:jane",
             current_facts=_facts(ticket),
-            provider_id="minimax",
-            provider_model="MiniMax-H3",
         )
     return ticket
 
