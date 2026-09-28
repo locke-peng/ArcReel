@@ -5,6 +5,10 @@ on:
     paths:
       - "lib/reference_video/h3_repair_batch.py"
       - "tests/unit/lib/reference_video/test_h3_repair_batch.py"
+      - "server/services/h3_repair_batch_operator.py"
+      - "server/services/h3_repair_operator.py"
+      - "tests/unit/server/services/test_h3_repair_batch_operator.py"
+      - "tests/unit/server/services/test_h3_repair_operator.py"
       - ".github/workflows/h3-phase6-slice2-batch.yml"
   workflow_dispatch:
 
@@ -34,4 +38,8 @@ jobs:
         run: uv sync
 
       - name: Run Phase 6 Slice 2 batch tests
-        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_repair_batch.py
+        run: |
+          uv run pytest -q \
+            tests/unit/lib/reference_video/test_h3_repair_batch.py \
+            tests/unit/server/services/test_h3_repair_batch_operator.py \
+            tests/unit/server/services/test_h3_repair_operator.py
