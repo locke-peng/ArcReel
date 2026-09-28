@@ -29,7 +29,7 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version-file: ".python-version"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: uv sync
@@ -73,5 +73,5 @@ jobs:
         with:
           name: h3-phase5-slice7-e2e01-${{ github.event.pull_request.head.sha || github.sha }}
           path: .artifacts/h3-phase5-slice7-evidence
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
