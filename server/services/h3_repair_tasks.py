@@ -48,7 +48,7 @@ from lib.reference_video.h3_shot_repair_executor import (
     build_h3_shot_repair_request,
     execute_h3_shot_scoped_provider_repair,
 )
-from lib.resource_paths import H3_REPAIR_SHOT_RESOURCE_TYPE
+from lib.resource_paths import H3_REPAIR_SHOT_RESOURCE_TYPE, resource_relative_path
 from server.services.generation_context import VideoLaneRequest, resolve_generation_context
 
 
@@ -514,8 +514,11 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
             repair_output_sha256=result.output_media_sha256,
         )
 
-        relative_output = Path(result.output_media_path).resolve().relative_to(project_path.resolve()).as_posix()
-        relative_provider_shot = provider_shot.resolve().relative_to(project_path.resolve()).as_posix()
+        relative_output = f"repairs/reassembled_units/{persisted.execution_identity}.mp4"
+        relative_provider_shot = resource_relative_path(
+            H3_REPAIR_SHOT_RESOURCE_TYPE,
+            persisted.execution_identity,
+        )
         return {
             **result.to_dict(),
             "output_media_path": relative_output,
