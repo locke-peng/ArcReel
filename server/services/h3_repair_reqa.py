@@ -116,11 +116,11 @@ async def _load_ticket(project_name: str, ticket_id: str) -> PersistedH3RepairTi
     return persisted
 
 
-async def _load_origin_task(ticket: H3RepairTicket) -> dict[str, Any]:
-    if not ticket.provider_task_id:
+async def _load_origin_task(task_id: str) -> dict[str, Any]:
+    if not task_id.strip():
         raise RuntimeError("H3 Re-QA requires the trusted originating generation task identity")
     async with safe_session_factory() as session:
-        task = await TaskRepository(session).get(ticket.provider_task_id)
+        task = await TaskRepository(session).get(task_id)
     if task is None:
         raise RuntimeError("originating H3 generation task is no longer available for trusted Re-QA")
     return task
@@ -131,6 +131,7 @@ async def _resolve_reqa_runtime_bundle(
     persisted: PersistedH3RepairTicket,
     project_path: Path,
     provider_model: str,
+    source_record: Mapping[str, Any],
     evaluator: H3MediaQAEvaluator | None,
     repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
 ) -> tuple[H3MediaQAEvaluator, Mapping[H3RepairAction, H3DeterministicRepairHandler]]:
@@ -140,7 +141,10 @@ async def _resolve_reqa_runtime_bundle(
     if not is_h3_model(provider_model):
         raise RuntimeError("H3 Re-QA source provider model is not an H3 model")
 
-    origin = await _load_origin_task(persisted.ticket)
+    origin_task_id = source_record.get("execution_task_id")
+    if not isinstance(origin_task_id, str) or not origin_task_id.strip():
+        raise RuntimeError("accepted H3 source version is missing execution_task_id")
+    origin = await _load_origin_task(origin_task_id.strip())
     payload = origin.get("payload")
     if not isinstance(payload, Mapping):
         raise RuntimeError("originating H3 generation task payload is missing")
@@ -443,6 +447,7 @@ async def execute_h3_repair_reqa(
         persisted=persisted,
         project_path=project_path,
         provider_model=source.provider_model,
+        source_record=source_record,
         evaluator=evaluator,
         repair_handlers=repair_handlers,
     )
