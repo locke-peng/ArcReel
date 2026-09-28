@@ -127,7 +127,7 @@ async def test_approve_operator_reuses_approval_service_then_enqueues(
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr(h3_repair_operator, "_project_path", AsyncMock(return_value=Path("/tmp/demo")))
+    monkeypatch.setattr(h3_repair_operator, "resolve_h3_repair_project_path", AsyncMock(return_value=Path("/tmp/demo")))
     monkeypatch.setattr(h3_repair_operator, "safe_session_factory", lambda: _SessionContext())
     monkeypatch.setattr(h3_repair_operator, "H3RepairTicketStore", lambda _session: store)
     monkeypatch.setattr(h3_repair_operator, "H3RepairApprovalService", lambda _session: approval_service)
@@ -177,7 +177,7 @@ async def test_execution_status_does_not_expose_internal_checkpoint(
         max_provider_calls=1,
         provider_call_count=1,
     )
-    monkeypatch.setattr(h3_repair_operator, "_load_required", AsyncMock(return_value=persisted))
+    monkeypatch.setattr(h3_repair_operator, "load_h3_repair_ticket_record", AsyncMock(return_value=persisted))
     queue = SimpleNamespace(
         get_task=AsyncMock(
             return_value={
