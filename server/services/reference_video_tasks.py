@@ -49,6 +49,8 @@ from lib.reference_video.h3_prompt_execution import (
 from lib.reference_video.h3_audio_runtime import build_h3_canonical_audio_runtime_bundle
 from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
 from lib.reference_video.h3_production_policy import H3RepairAction
+from lib.reference_video.h3_repair_executor import sha256_file
+from lib.reference_video.h3_repair_ticket import H3RepairTicketContext
 from lib.reference_video.h3_runtime_gate import (
     H3DeterministicRepairHandler,
     H3MediaQAEvaluator,
@@ -198,6 +200,7 @@ def _build_h3_preselection_media_gate(
     has_references: bool,
     evaluator: H3MediaQAEvaluator | None,
     repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+    repair_ticket_context: H3RepairTicketContext | None = None,
 ) -> Callable[[Path, int, Mapping[str, Any]], Awaitable[Mapping[str, Any]]] | None:
     """Build the trusted internal H3 QA hook; never derive findings from request payload."""
 
@@ -215,10 +218,23 @@ def _build_h3_preselection_media_gate(
         _duration_seconds: int,
         _version_metadata: Mapping[str, Any],
     ) -> Mapping[str, Any]:
+        ticket_context = repair_ticket_context
+        provider_task_id = _version_metadata.get("provider_task_id")
+        if (
+            ticket_context is not None
+            and ticket_context.provider_task_id is None
+            and isinstance(provider_task_id, str)
+            and provider_task_id.strip()
+        ):
+            ticket_context = replace(
+                ticket_context,
+                provider_task_id=provider_task_id.strip(),
+            )
         result = await run_h3_runtime_selection_gate(
             staged_file,
             evaluator=evaluator,
             repair_handlers=handlers,
+            repair_ticket_context=ticket_context,
         )
         return result.to_dict()
 
@@ -692,6 +708,14 @@ async def execute_reference_video_task(
     prompt_lock_verified = isinstance(expected_provider_prompt_sha256, str) and bool(
         expected_provider_prompt_sha256.strip()
     )
+    h3_repair_ticket_context = H3RepairTicketContext(
+        provider_prompt_sha256=(
+            expected_provider_prompt_sha256.strip()
+            if prompt_lock_verified and isinstance(expected_provider_prompt_sha256, str)
+            else None
+        ),
+        reference_sha256=tuple(sha256_file(path) for path in constrained_refs),
+    )
     canonical_director = payload.get("canonical_director")
     trusted_canonical_director = (
         canonical_director if isinstance(canonical_director, Mapping) else None
@@ -894,6 +918,7 @@ async def execute_reference_video_task(
             has_references=bool(provider_refs),
             evaluator=h3_media_qa_evaluator,
             repair_handlers=h3_repair_handlers,
+            repair_ticket_context=h3_repair_ticket_context,
         )
         if task_id is not None
         else None
