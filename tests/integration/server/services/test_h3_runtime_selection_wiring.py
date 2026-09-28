@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import subprocess
 from pathlib import Path
@@ -74,8 +75,8 @@ async def test_video_artifact_committer_commits_repaired_staging_and_gate_metada
 
     async def gate(path: Path, duration: int, _metadata):
         assert duration == 8
-        assert path.read_bytes() == b"provider-result"
-        path.write_bytes(b"deterministically-repaired")
+        assert await asyncio.to_thread(path.read_bytes) == b"provider-result"
+        await asyncio.to_thread(path.write_bytes, b"deterministically-repaired")
         return {
             "status": "PASS",
             "provider_recalled": False,
