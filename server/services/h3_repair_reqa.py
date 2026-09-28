@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import shutil
 from collections.abc import Mapping
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -206,16 +205,17 @@ def _selection_metadata(
         for key, value in source_record.items()
         if key not in _VERSION_RECORD_RESERVED and not key.startswith("_")
     }
+    # Keep the original submission's artifact-currency parent_version unchanged.
+    # A failed provider result (and later failed repair) is history-only, so its own
+    # history version is not the formal-current coordinate that selection must guard.
+    # Rebinding parent_version to source_version would make a later PASS impossible to
+    # select even when the original formal baseline has not changed.
     raw_currency = metadata.get("artifact_video_currency")
-    try:
-        currency = VideoArtifactCurrencyFacts.from_dict(raw_currency)
-    except (TypeError, ValueError):
-        currency = None
-    if currency is not None:
-        metadata["artifact_video_currency"] = replace(
-            currency,
-            parent_version=source_version,
-        ).to_dict()
+    if raw_currency is not None:
+        try:
+            VideoArtifactCurrencyFacts.from_dict(raw_currency)
+        except (TypeError, ValueError):
+            pass
     metadata.update(
         {
             "source": _REPAIR_SOURCE,
