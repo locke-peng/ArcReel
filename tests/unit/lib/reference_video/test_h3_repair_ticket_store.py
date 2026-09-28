@@ -90,7 +90,8 @@ async def test_same_deterministic_ticket_identity_is_isolated_by_project(db_fact
         store = H3RepairTicketStore(session)
         a = await store.load(project_name="project-a", ticket_id=ticket.ticket_id)
         b = await store.load(project_name="project-b", ticket_id=ticket.ticket_id)
-        assert a is not None and b is not None
+        assert a is not None
+        assert b is not None
         assert a.project_name == "project-a"
         assert b.project_name == "project-b"
 
