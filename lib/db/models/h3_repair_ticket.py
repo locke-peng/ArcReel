@@ -4,23 +4,31 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lib.db.base import Base, TimestampMixin
 
 
 class H3RepairTicketRecord(TimestampMixin, Base):
-    """Project-scoped persistence row for one immutable Phase 4 H3RepairTicket.
-
-    ticket_json is the authoritative immutable snapshot. The duplicated identity/scope
-    columns are query projections only and are verified against the snapshot whenever the
-    ticket is loaded through the Phase 5 store.
-    """
+    """Project-scoped persistence row for one immutable Phase 4 H3RepairTicket."""
 
     __tablename__ = "h3_repair_tickets"
     __table_args__ = (
         UniqueConstraint("project_name", "ticket_sha256", name="uq_h3_repair_ticket_project_sha"),
+        UniqueConstraint("project_name", "execution_identity", name="uq_h3_repair_ticket_project_execution"),
         Index("ix_h3_repair_tickets_project_state", "project_name", "lifecycle_state"),
         Index("ix_h3_repair_tickets_project_unit", "project_name", "unit_id"),
     )
@@ -54,12 +62,41 @@ class H3RepairTicketRecord(TimestampMixin, Base):
     approval_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     max_provider_calls: Mapped[int | None] = mapped_column(Integer)
 
-    # Slice 3+ execution/result fields are created with the ticket table so later slices can
-    # populate them without weakening the persisted lifecycle contract.
+    # Slice 3 queue identity. execution_identity is deterministic for one immutable
+    # ticket+approval binding; execution_task_id points at the one queue row owning it.
     execution_identity: Mapped[str | None] = mapped_column(String(128))
+    execution_task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.task_id", ondelete="SET NULL"),
+        nullable=True,
+    )
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     provider_call_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+
+    # Slice 4+ result fields.
     repair_output_sha256: Mapped[str | None] = mapped_column(String(64))
     reqa_outcome: Mapped[str | None] = mapped_column(String(64))
     selected_artifact_id: Mapped[str | None] = mapped_column(String(255))
     selected_version_id: Mapped[str | None] = mapped_column(String(255))
+
+
+class H3RepairProjectBudget(TimestampMixin, Base):
+    """Optional project-level paid-repair ceiling.
+
+    Absence of a row means no project ceiling. Per-approval max_provider_calls remains
+    mandatory regardless of whether a project ceiling exists.
+    """
+
+    __tablename__ = "h3_repair_project_budget"
+    __table_args__ = (
+        CheckConstraint("provider_call_ceiling >= 1", name="ck_h3_repair_budget_ceiling_positive"),
+        CheckConstraint("provider_call_count >= 0", name="ck_h3_repair_budget_count_nonnegative"),
+    )
+
+    project_name: Mapped[str] = mapped_column(String(200), primary_key=True)
+    provider_call_ceiling: Mapped[int] = mapped_column(Integer, nullable=False)
+    provider_call_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )

@@ -70,6 +70,7 @@ _ALLOWED_TRANSITIONS: dict[H3RepairTicketLifecycleState, frozenset[H3RepairTicke
         {
             H3RepairTicketLifecycleState.PROVIDER_COMPLETED,
             H3RepairTicketLifecycleState.CANCELLED,
+            H3RepairTicketLifecycleState.EXPIRED,
             H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
         }
     ),
@@ -113,6 +114,7 @@ class PersistedH3RepairTicket:
     approval_at: datetime | None
     max_provider_calls: int | None
     execution_identity: str | None
+    execution_task_id: str | None
     attempt_count: int
     provider_call_count: int
     repair_output_sha256: str | None
@@ -237,6 +239,7 @@ def _record_to_domain(record: H3RepairTicketRecord) -> PersistedH3RepairTicket:
         approval_at=record.approval_at,
         max_provider_calls=record.max_provider_calls,
         execution_identity=record.execution_identity,
+        execution_task_id=record.execution_task_id,
         attempt_count=record.attempt_count,
         provider_call_count=record.provider_call_count,
         repair_output_sha256=record.repair_output_sha256,

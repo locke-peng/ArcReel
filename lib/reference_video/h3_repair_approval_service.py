@@ -153,7 +153,7 @@ def _validate_sha(value: str | None, field_name: str) -> None:
         raise ValueError(f"{field_name} must be a lowercase SHA-256 hex digest")
 
 
-def _facts_from_ticket(ticket: PersistedH3RepairTicket) -> H3RepairApprovalFacts:
+def h3_repair_approval_facts_from_ticket(ticket: PersistedH3RepairTicket) -> H3RepairApprovalFacts:
     if ticket.ticket.shot_id is None:
         raise RuntimeError("provider repair approval requires a shot-scoped Repair Ticket")
     return H3RepairApprovalFacts(
@@ -166,7 +166,7 @@ def _facts_from_ticket(ticket: PersistedH3RepairTicket) -> H3RepairApprovalFacts
 
 
 def _stale_fields(ticket: PersistedH3RepairTicket, current: H3RepairApprovalFacts) -> tuple[str, ...]:
-    expected = _facts_from_ticket(ticket)
+    expected = h3_repair_approval_facts_from_ticket(ticket)
     fields: list[str] = []
     if current.source_media_sha256 != expected.source_media_sha256:
         fields.append("source_media_sha256")
@@ -181,14 +181,14 @@ def _stale_fields(ticket: PersistedH3RepairTicket, current: H3RepairApprovalFact
     return tuple(fields)
 
 
-def _validate_binding_matches_ticket(
+def validate_h3_repair_approval_binding(
     ticket: PersistedH3RepairTicket,
     binding: H3ProviderRepairApprovalBinding,
 ) -> None:
     """Verify the persisted approval snapshot still binds to the immutable ticket."""
 
     validate_provider_repair_approval(ticket.ticket, binding.to_phase4_approval())
-    expected = _facts_from_ticket(ticket)
+    expected = h3_repair_approval_facts_from_ticket(ticket)
     if binding.repair_action != expected.repair_action:
         raise RuntimeError("persisted approval repair action does not match immutable Repair Ticket")
     if binding.provider_prompt_sha256 != expected.provider_prompt_sha256:
@@ -267,6 +267,7 @@ class H3RepairApprovalService:
                 H3RepairTicketLifecycleState.AWAITING_APPROVAL,
                 H3RepairTicketLifecycleState.APPROVED,
                 H3RepairTicketLifecycleState.QUEUED,
+                H3RepairTicketLifecycleState.RUNNING,
             }:
                 raise RuntimeError(
                     f"cannot invalidate stale approval from lifecycle state {persisted.lifecycle_state.value}"
@@ -283,7 +284,7 @@ class H3RepairApprovalService:
             if persisted.approval_json is None:
                 raise RuntimeError("approved repair ticket is missing its persisted approval snapshot")
             existing = H3ProviderRepairApprovalBinding.from_json(persisted.approval_json)
-            _validate_binding_matches_ticket(persisted, existing)
+            validate_h3_repair_approval_binding(persisted, existing)
             if existing.approved_by != approved_by or existing.max_provider_calls != max_provider_calls:
                 raise H3RepairApprovalConflictError("repair ticket is already approved by a different approval identity")
             return H3RepairApprovalResult(ticket=persisted, approval=existing)
@@ -303,7 +304,7 @@ class H3RepairApprovalService:
             approved_at=now.isoformat(),
             max_provider_calls=max_provider_calls,
         )
-        _validate_binding_matches_ticket(persisted, binding)
+        validate_h3_repair_approval_binding(persisted, binding)
 
         await self.store.transition(
             project_name=project_name,
@@ -340,13 +341,14 @@ class H3RepairApprovalService:
         if persisted.lifecycle_state not in {
             H3RepairTicketLifecycleState.APPROVED,
             H3RepairTicketLifecycleState.QUEUED,
+            H3RepairTicketLifecycleState.RUNNING,
         }:
             raise RuntimeError(f"repair ticket is not execution-eligible: {persisted.lifecycle_state.value}")
         if persisted.approval_json is None:
             raise RuntimeError("repair ticket has no persisted approval snapshot")
 
         binding = H3ProviderRepairApprovalBinding.from_json(persisted.approval_json)
-        _validate_binding_matches_ticket(persisted, binding)
+        validate_h3_repair_approval_binding(persisted, binding)
         stale = _stale_fields(persisted, current_facts)
         if stale:
             validation_actor = validation_actor.strip()

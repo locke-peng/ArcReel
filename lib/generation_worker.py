@@ -72,6 +72,7 @@ from lib.reference_video.execution_checkpoint import (
     classify_video_resume_state,
     cleanup_staged_provider_media,
 )
+from lib.reference_video.h3_repair_queue import H3_REPAIR_TASK_TYPE
 from lib.reference_video.request_projection import ReferenceProjectionBlockedError
 from lib.script_editor import ScriptEditError
 from lib.task_failure import encode_failure
@@ -1262,6 +1263,12 @@ class GenerationWorker:
 
             # status == "running"
             task_type = task.get("task_type")
+            # Phase 5 repair tasks own a stricter ticket+approval+allowance resume protocol.
+            # The generic orphan handler must not requeue/fail/resubmit them; Slice 4 consumes
+            # these persisted running tasks through the H3 repair runtime.
+            if task_type == H3_REPAIR_TASK_TYPE:
+                logger.info("H3 repair orphan reserved for repair runtime: %s", task_id)
+                continue
             if task.get("media_type"):
                 media_type = task["media_type"]
             elif task_type in ("video", "reference_video"):
