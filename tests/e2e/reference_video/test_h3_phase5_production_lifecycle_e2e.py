@@ -8,8 +8,10 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from sqlalchemy import event
 
 from lib.artifact_manifest import ArtifactBasis, compose_video_artifact_basis
+from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
 from lib.db.models.task import Task
 from lib.db.repositories.task_repo import TaskRepository
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
@@ -337,25 +339,17 @@ async def test_phase5_production_lifecycle_e2e(
 
     monkeypatch.setattr(h3_repair_tasks, "execute_h3_repair_reqa", run_reqa)
 
-    original_transition = H3RepairTicketStore.transition
-    original_complete_reqa = H3RepairTicketStore.complete_reqa
+    def record_lifecycle_state(_target, value, _oldvalue, _initiator) -> None:
+        if isinstance(value, str):
+            evidence.state(H3RepairTicketLifecycleState(value))
 
-    async def record_transition(store, **kwargs):
-        result = await original_transition(store, **kwargs)
-        evidence.state(result.lifecycle_state)
-        return result
-
-    async def record_complete_reqa(store, **kwargs):
-        result = await original_complete_reqa(store, **kwargs)
-        evidence.state(result.lifecycle_state)
-        return result
-
-    monkeypatch.setattr(H3RepairTicketStore, "transition", record_transition)
-    monkeypatch.setattr(H3RepairTicketStore, "complete_reqa", record_complete_reqa)
-
-    result = await h3_repair_tasks.execute_h3_repair_task(
-        await _task_snapshot(session_factory, queued.task_id)
-    )
+    event.listen(H3RepairTicketRecord.lifecycle_state, "set", record_lifecycle_state)
+    try:
+        result = await h3_repair_tasks.execute_h3_repair_task(
+            await _task_snapshot(session_factory, queued.task_id)
+        )
+    finally:
+        event.remove(H3RepairTicketRecord.lifecycle_state, "set", record_lifecycle_state)
 
     final_ticket = await _persisted(session_factory, ticket.ticket_id)
     async with session_factory() as session:
