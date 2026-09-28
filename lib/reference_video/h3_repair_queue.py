@@ -732,7 +732,7 @@ class H3RepairQueueService:
                 or_(paused.is_(None), paused.is_(False)),
                 or_(max_running.is_(None), running_count < max_running),
             )
-            .order_by(Task.queued_at, Task.task_id)
+            .order_by(running_count, Task.queued_at, Task.task_id)
             .limit(1)
             .scalar_subquery()
         )
