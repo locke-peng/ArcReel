@@ -139,7 +139,7 @@ async def test_phase5_policy_safety_matrix_e2e(session_factory) -> None:
         )
         await session.commit()
         assert persisted_unknown.lifecycle_state is H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED
-        with pytest.raises(RuntimeError, match="not eligible"):
+        with pytest.raises(RuntimeError, match="shot-scoped Repair Ticket"):
             await H3RepairApprovalService(session).approve(
                 project_name="policy-unknown",
                 ticket_id=unknown.ticket_id,
