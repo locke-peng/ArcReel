@@ -93,10 +93,10 @@ def build_h3_repair_project_ledger(
             pricing_state = "no_provider_call"
         elif any(call.status == "pending" for call in calls):
             pricing_state = "pending"
-        elif any(call.cost_amount == 0.0 and call.status == "succeeded" for call in calls):
+        elif any(call.cost_amount == 0.0 and call.status == "success" for call in calls):
             pricing_state = "unpriced_or_zero"
             unpriced_call_count += sum(
-                call.cost_amount == 0.0 and call.status == "succeeded"
+                call.cost_amount == 0.0 and call.status == "success"
                 for call in calls
             )
         else:
