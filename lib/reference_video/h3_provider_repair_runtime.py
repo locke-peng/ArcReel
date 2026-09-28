@@ -193,7 +193,7 @@ def resolve_h3_repair_source_version(
 
 
 def _format_timestamp(seconds: float) -> str:
-    total_ms = int(round(seconds * 1000))
+    total_ms = round(seconds * 1000)
     minutes, rem = divmod(total_ms, 60_000)
     secs, millis = divmod(rem, 1000)
     return f"{minutes:02d}:{secs:02d}.{millis:03d}"
