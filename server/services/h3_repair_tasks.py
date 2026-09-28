@@ -433,12 +433,65 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
         task = latest
 
     persisted = await _load_persisted_ticket(project_name, ticket_id)
+    if persisted.execution_identity is None:
+        raise H3RepairExecutionConflict("H3 repair ticket is missing execution identity")
+
+    if persisted.lifecycle_state in {
+        H3RepairTicketLifecycleState.ACCEPTED,
+        H3RepairTicketLifecycleState.REJECTED,
+        H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
+    } and persisted.reqa_outcome is not None:
+        return {
+            "execution_identity": persisted.execution_identity,
+            "lifecycle_state": persisted.lifecycle_state.value,
+            "output_media_path": f"repairs/reassembled_units/{persisted.execution_identity}.mp4",
+            "provider_shot_path": resource_relative_path(
+                H3_REPAIR_SHOT_RESOURCE_TYPE,
+                persisted.execution_identity,
+            ),
+            "reqa": {
+                "ticket_id": ticket_id,
+                "execution_identity": persisted.execution_identity,
+                "reqa_outcome": persisted.reqa_outcome,
+                "lifecycle_state": persisted.lifecycle_state.value,
+                "selected_current": persisted.lifecycle_state is H3RepairTicketLifecycleState.ACCEPTED,
+                "selected_artifact_id": persisted.selected_artifact_id,
+                "selected_version_id": persisted.selected_version_id,
+            },
+            "recovered_terminal_reqa": True,
+        }
+
+    if persisted.lifecycle_state is H3RepairTicketLifecycleState.REQA_RUNNING:
+        output_media = safe_join(
+            get_project_manager().get_project_path(project_name),
+            "repairs",
+            "reassembled_units",
+            f"{persisted.execution_identity}.mp4",
+            require_file=True,
+        )
+        reqa = await execute_h3_repair_reqa(
+            project_name=project_name,
+            ticket_id=ticket_id,
+            candidate_media=output_media,
+        )
+        return {
+            "execution_identity": persisted.execution_identity,
+            "lifecycle_state": str(reqa["lifecycle_state"]),
+            "output_media_path": f"repairs/reassembled_units/{persisted.execution_identity}.mp4",
+            "provider_shot_path": resource_relative_path(
+                H3_REPAIR_SHOT_RESOURCE_TYPE,
+                persisted.execution_identity,
+            ),
+            "reqa": reqa,
+            "recovered_reqa": True,
+        }
+
     if persisted.lifecycle_state is not H3RepairTicketLifecycleState.RUNNING:
         raise H3RepairExecutionConflict(
-            f"H3 repair execution requires running ticket; got {persisted.lifecycle_state.value}"
+            f"H3 repair execution requires running/reqa ticket; got {persisted.lifecycle_state.value}"
         )
-    if persisted.approval_json is None or persisted.execution_identity is None:
-        raise H3RepairExecutionConflict("running H3 repair ticket is missing approval/execution identity")
+    if persisted.approval_json is None:
+        raise H3RepairExecutionConflict("running H3 repair ticket is missing approval binding")
     approval = H3ProviderRepairApprovalBinding.from_json(persisted.approval_json)
     shot_request = build_h3_shot_repair_request(persisted.ticket, approval.to_phase4_approval())
 
