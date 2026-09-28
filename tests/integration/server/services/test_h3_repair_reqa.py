@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
+from lib.artifact_manifest import ArtifactBasis, compose_video_artifact_basis
 from lib.db.models.task import Task
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
@@ -22,7 +23,9 @@ from lib.reference_video.media_qa_schema import (
     MediaQATimeRange,
 )
 from lib.resource_paths import resource_relative_path
+from lib.speech_artifact_provenance import build_video_duration_basis
 from lib.version_manager import VersionManager
+from lib.video_artifact_facts import VideoArtifactCurrencyFacts
 from server.services import h3_repair_reqa
 
 
@@ -85,6 +88,42 @@ def _provider_finding() -> MediaQAFinding:
     )
 
 
+def _currency(*, parent_version: int) -> VideoArtifactCurrencyFacts:
+    visual = ArtifactBasis.build(
+        "artifact-visual/video-reference",
+        kind_version=1,
+        inputs={
+            "unit_id": "E12U06",
+            "visual_lines": ["repair source"],
+            "style": "",
+            "canvas": {"aspect_ratio": "16:9"},
+            "request_references": [],
+        },
+    )
+    speech = ArtifactBasis.build(
+        "artifact-speech/video",
+        kind_version=1,
+        inputs={"mode": "silent"},
+    )
+    duration = build_video_duration_basis(15)
+    return VideoArtifactCurrencyFacts(
+        episode=12,
+        request_duration_seconds=15,
+        visual_basis=visual,
+        speech_basis=speech,
+        duration_basis=duration,
+        video_basis=compose_video_artifact_basis(
+            visual=visual,
+            speech=speech,
+            duration=duration,
+        ),
+        voice_style_speakers=(),
+        duration_tiers=(15,),
+        reference_image_limit=None,
+        parent_version=parent_version,
+    )
+
+
 def _source_setup(project_path: Path):
     current = project_path / resource_relative_path("reference_videos", "E12U06")
     current.parent.mkdir(parents=True)
@@ -130,6 +169,7 @@ N/A"""
         execution_service_tier="default",
         execution_duration_seconds=15,
         execution_task_id="origin-task",
+        artifact_video_currency=_currency(parent_version=0).to_dict(),
     )
     return current, prompt, versions, source_version
 
@@ -211,6 +251,12 @@ async def test_reqa_pass_selects_repaired_unit_and_accepts_ticket(
     assert result["selected_current"] is True
     assert current.read_bytes() == b"reassembled-repair-pass"
     assert versions.get_current_version("reference_videos", "E12U06") == source_version + 1
+    selected_record = next(
+        item
+        for item in versions.get_versions("reference_videos", "E12U06")["versions"]
+        if item["version"] == source_version + 1
+    )
+    assert selected_record["artifact_video_currency"]["parent_version"] == 0
 
     async with db_factory() as session:
         persisted = await H3RepairTicketStore(session).load(
