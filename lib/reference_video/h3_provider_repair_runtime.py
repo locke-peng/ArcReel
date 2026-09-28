@@ -79,19 +79,54 @@ def _optional_text(record: Mapping[str, object], key: str) -> str | None:
     return value.strip()
 
 
-def _current_version_record(versions: VersionManager, unit_id: str) -> tuple[int, dict[str, object]]:
-    info = versions.get_versions("reference_videos", unit_id)
+def _ticket_source_version_record(
+    *,
+    project_path: Path,
+    versions: VersionManager,
+    ticket: H3RepairTicket,
+) -> tuple[int, dict[str, object], Path]:
+    """Resolve current source first, otherwise one uniquely matching history-only version."""
+
+    info = versions.get_versions("reference_videos", ticket.unit_id)
     current = int(info.get("current_version") or 0)
     if current <= 0:
-        raise RuntimeError(f"reference video Unit {unit_id} has no current version")
-    matches = [
+        raise RuntimeError(f"reference video Unit {ticket.unit_id} has no current version")
+    records = [
         item
         for item in info.get("versions", [])
-        if isinstance(item, dict) and int(item.get("version") or 0) == current
+        if isinstance(item, dict) and isinstance(item.get("version"), int)
     ]
-    if len(matches) != 1:
-        raise RuntimeError(f"reference video Unit {unit_id} current version is ambiguous")
-    return current, matches[0]
+    current_matches = [
+        item for item in records if int(item.get("version") or 0) == current
+    ]
+    if len(current_matches) != 1:
+        raise RuntimeError(f"reference video Unit {ticket.unit_id} current version is ambiguous")
+
+    current_media = safe_join(
+        project_path,
+        resource_relative_path("reference_videos", ticket.unit_id),
+        require_file=True,
+    )
+    if sha256_file(current_media) == ticket.source_media_sha256:
+        return current, current_matches[0], current_media
+
+    history_matches: list[tuple[int, dict[str, object], Path]] = []
+    for record in records:
+        raw_file = record.get("file")
+        if not isinstance(raw_file, str) or not raw_file.strip():
+            continue
+        try:
+            history_media = safe_join(project_path, raw_file, require_file=True)
+        except (FileNotFoundError, ValueError):
+            continue
+        if sha256_file(history_media) == ticket.source_media_sha256:
+            history_matches.append((int(record["version"]), record, history_media))
+
+    if len(history_matches) != 1:
+        raise RuntimeError(
+            f"Repair Ticket source media is not a unique current/history version: {ticket.unit_id}"
+        )
+    return history_matches[0]
 
 
 def _resolve_version_provider_media(
@@ -140,17 +175,15 @@ def resolve_h3_repair_source_version(
     """Resolve and re-hash the exact current Unit/version facts bound by the ticket."""
 
     project_path = project_path.resolve()
-    media_path = safe_join(
-        project_path,
-        resource_relative_path("reference_videos", ticket.unit_id),
-        require_file=True,
+    versions = VersionManager(project_path)
+    version, record, media_path = _ticket_source_version_record(
+        project_path=project_path,
+        versions=versions,
+        ticket=ticket,
     )
     media_sha = sha256_file(media_path)
     if media_sha != ticket.source_media_sha256:
-        raise RuntimeError("current Unit media SHA no longer matches approved Repair Ticket")
-
-    versions = VersionManager(project_path)
-    version, record = _current_version_record(versions, ticket.unit_id)
+        raise RuntimeError("resolved Unit media SHA no longer matches approved Repair Ticket")
     prompt = record.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
         raise RuntimeError("source H3 version is missing provider prompt")
