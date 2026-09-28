@@ -325,6 +325,51 @@ class H3RepairTicketStore:
         )
         return [_record_to_domain(record) for record in records]
 
+    async def complete_reqa(
+        self,
+        *,
+        project_name: str,
+        ticket_id: str,
+        target: H3RepairTicketLifecycleState,
+        reqa_outcome: str,
+        reason: str,
+        selected_artifact_id: str | None = None,
+        selected_version_id: str | None = None,
+        actor: str = "system:repair-reqa",
+    ) -> PersistedH3RepairTicket:
+        """Persist one terminal Re-QA decision and its formal-selection identity atomically."""
+
+        if target not in {
+            H3RepairTicketLifecycleState.ACCEPTED,
+            H3RepairTicketLifecycleState.REJECTED,
+            H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
+        }:
+            raise ValueError("Re-QA completion target must be accepted, rejected, or human_review_required")
+        if not reqa_outcome.strip():
+            raise ValueError("reqa_outcome is required")
+        if target is H3RepairTicketLifecycleState.ACCEPTED:
+            if not selected_artifact_id or not selected_version_id:
+                raise ValueError("accepted Re-QA requires selected artifact and version identities")
+        elif selected_artifact_id is not None or selected_version_id is not None:
+            raise ValueError("non-accepted Re-QA must not persist selected artifact identity")
+
+        record = await self.repository.get(project_name=project_name, ticket_id=ticket_id)
+        if record is None:
+            raise KeyError(f"H3 Repair Ticket not found: {project_name}/{ticket_id}")
+
+        current = H3RepairTicketLifecycleState(record.lifecycle_state)
+        validate_h3_repair_ticket_transition(current, target)
+        now = datetime.now(UTC)
+        record.lifecycle_state = target.value
+        record.lifecycle_reason = reason
+        record.lifecycle_actor = actor
+        record.lifecycle_at = now
+        record.reqa_outcome = reqa_outcome.strip()
+        record.selected_artifact_id = selected_artifact_id
+        record.selected_version_id = selected_version_id
+        await self.session.flush()
+        return _record_to_domain(record)
+
     async def transition(
         self,
         *,
