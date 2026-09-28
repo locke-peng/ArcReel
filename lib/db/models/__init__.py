@@ -8,7 +8,7 @@ from lib.db.models.config import ProviderConfig, SystemSetting
 from lib.db.models.credential import ProviderCredential
 from lib.db.models.custom_endpoint import CustomEndpoint
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
-from lib.db.models.h3_repair_ticket import H3RepairProjectBudget, H3RepairTicketRecord
+from lib.db.models.h3_repair_ticket import H3RepairProjectBudget, H3RepairProjectControl, H3RepairTicketRecord
 from lib.db.models.market_installation import MarketInstallation
 from lib.db.models.market_source import MarketSource
 from lib.db.models.session import AgentSession
@@ -32,6 +32,7 @@ __all__ = [
     "CustomProviderModel",
     "GenerationBatch",
     "H3RepairProjectBudget",
+    "H3RepairProjectControl",
     "H3RepairTicketRecord",
     "MarketInstallation",
     "MarketSource",
