@@ -16,10 +16,12 @@ jobs:
     timeout-minutes: 20
     env:
       H3_PHASE5_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      H3_PHASE5_EVIDENCE_DIR: ${{ runner.temp }}/h3-phase5-slice7-evidence
+      H3_PHASE5_EVIDENCE_DIR: .artifacts/h3-phase5-slice7-evidence
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
@@ -34,7 +36,7 @@ jobs:
 
       - name: Run E2E-01 production lifecycle
         run: |
-          uv run python -m pytest -q             tests/e2e/reference_video/test_h3_phase5_production_lifecycle_e2e.py
+          uv run python -m pytest -q tests/e2e/reference_video/test_h3_phase5_production_lifecycle_e2e.py
 
       - name: Validate evidence artifact
         run: |
@@ -70,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: h3-phase5-slice7-e2e01-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/h3-phase5-slice7-evidence
+          path: .artifacts/h3-phase5-slice7-evidence
           if-no-files-found: error
           retention-days: 30
