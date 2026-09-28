@@ -163,3 +163,91 @@ def test_projection_is_deterministic_and_rejects_duplicate_inventory() -> None:
             ),
             tickets=(),
         )
+
+
+@pytest.mark.parametrize(
+    ("lifecycle", "expected_state", "expected_blockers"),
+    [
+        (
+            H3RepairTicketLifecycleState.AWAITING_APPROVAL,
+            H3ProductionUnitState.AWAITING_APPROVAL,
+            ("approval_required",),
+        ),
+        (
+            H3RepairTicketLifecycleState.APPROVED,
+            H3ProductionUnitState.READY,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.QUEUED,
+            H3ProductionUnitState.QUEUED,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.RUNNING,
+            H3ProductionUnitState.RUNNING,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.PROVIDER_COMPLETED,
+            H3ProductionUnitState.RUNNING,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.REASSEMBLING,
+            H3ProductionUnitState.RUNNING,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.REQA_RUNNING,
+            H3ProductionUnitState.RUNNING,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.ACCEPTED,
+            H3ProductionUnitState.ACCEPTED,
+            (),
+        ),
+        (
+            H3RepairTicketLifecycleState.REJECTED,
+            H3ProductionUnitState.FAILED_HISTORY_ONLY,
+            ("repair_rejected",),
+        ),
+        (
+            H3RepairTicketLifecycleState.CANCELLED,
+            H3ProductionUnitState.BLOCKED,
+            ("cancelled",),
+        ),
+        (
+            H3RepairTicketLifecycleState.EXPIRED,
+            H3ProductionUnitState.BLOCKED,
+            ("expired",),
+        ),
+        (
+            H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED,
+            H3ProductionUnitState.HUMAN_REVIEW_REQUIRED,
+            ("human_review_required",),
+        ),
+    ],
+)
+def test_projection_maps_every_phase5_lifecycle_to_readiness(
+    lifecycle: H3RepairTicketLifecycleState,
+    expected_state: H3ProductionUnitState,
+    expected_blockers: tuple[str, ...],
+) -> None:
+    projection = build_h3_production_projection(
+        project_name="demo",
+        inventory=(H3ProductionUnitInventory(episode=1, unit_id="E1U01", current_version=1),),
+        tickets=(
+            _ticket(
+                project="demo",
+                unit_id="E1U01",
+                ticket_id=f"h3rt_{lifecycle.value}",
+                state=lifecycle,
+            ),
+        ),
+    )
+
+    unit = projection.episodes[0].units[0]
+    assert unit.state is expected_state
+    assert unit.blocker_codes == expected_blockers
