@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, func, select
 
 from lib.artifact_manifest import ArtifactBasis, compose_video_artifact_basis
 from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
@@ -405,12 +405,10 @@ async def test_phase5_interruption_resume_e2e(
         checkpoint_after = final_task.execution_checkpoint_json
         provider_job_id_after = final_task.provider_job_id
         task_count = await session.scalar(
-            __import__("sqlalchemy").select(__import__("sqlalchemy").func.count())
-            .select_from(Task)
-            .where(Task.task_type == "h3_provider_repair")
+            select(func.count()).select_from(Task).where(Task.task_type == "h3_provider_repair")
         )
         ticket_count = await session.scalar(
-            __import__("sqlalchemy").select(__import__("sqlalchemy").func.count())
+            select(func.count())
             .select_from(H3RepairTicketRecord)
             .where(H3RepairTicketRecord.project_name == _PROJECT)
         )
