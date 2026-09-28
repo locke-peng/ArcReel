@@ -1,0 +1,75 @@
+name: H3 Phase 6 Slice 6 Studio Dashboard
+
+on:
+  pull_request:
+    paths:
+      - "server/services/h3_studio_operator.py"
+      - "server/routers/h3_studio.py"
+      - "frontend/src/types/h3-studio.ts"
+      - "frontend/src/types/index.ts"
+      - "frontend/src/api.ts"
+      - "frontend/src/app-routes.ts"
+      - "frontend/src/components/canvas/H3StudioDashboard.tsx"
+      - "frontend/src/components/canvas/H3StudioDashboard.test.tsx"
+      - "frontend/src/components/canvas/StudioCanvasRouter.tsx"
+      - "frontend/src/components/layout/AssetSidebar.tsx"
+      - "frontend/src/i18n/en/dashboard.ts"
+      - "frontend/src/i18n/zh/dashboard.ts"
+      - "frontend/src/i18n/vi/dashboard.ts"
+      - ".github/workflows/h3-phase6-slice6-studio-dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        run: uv sync
+      - name: Run Studio API regression
+        run: |
+          uv run pytest -q \
+            tests/integration/server/routers/test_h3_studio.py \
+            tests/integration/server/routers/test_h3_repairs.py
+
+  frontend-dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm typecheck
+      - name: Run Studio dashboard tests
+        working-directory: frontend
+        run: |
+          pnpm test -- \
+            src/components/canvas/H3StudioDashboard.test.tsx \
+            src/components/canvas/StudioCanvasRouter.test.tsx
