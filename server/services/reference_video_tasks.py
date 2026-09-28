@@ -193,6 +193,32 @@ def _resolve_trusted_h3_runtime_bundle(
     return _composite, handlers
 
 
+def resolve_trusted_h3_runtime_bundle(
+    *,
+    canonical_director: Mapping[str, Any] | None,
+    unit_id: str,
+    project_path: Path,
+    prompt_lock_verified: bool,
+    h3_compiler_applied: bool,
+    evaluator: H3MediaQAEvaluator | None = None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None = None,
+) -> tuple[
+    H3MediaQAEvaluator | None,
+    Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+]:
+    """Public trusted Re-QA seam shared by initial H3 selection and Phase 5 repairs."""
+
+    return _resolve_trusted_h3_runtime_bundle(
+        canonical_director=canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+        prompt_lock_verified=prompt_lock_verified,
+        h3_compiler_applied=h3_compiler_applied,
+        evaluator=evaluator,
+        repair_handlers=repair_handlers,
+    )
+
+
 def _build_h3_preselection_media_gate(
     *,
     payload: Mapping[str, Any],
