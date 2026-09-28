@@ -19,6 +19,7 @@ from pathlib import Path
 
 from lib.path_safety import safe_join
 from lib.reference_video.execution_checkpoint import StagedProviderMedia
+from lib.reference_video.h3_production_policy import H3RepairAction
 from lib.reference_video.h3_prompt_execution import provider_prompt_sha256
 from lib.reference_video.h3_repair_executor import sha256_file
 from lib.reference_video.h3_repair_ticket import H3RepairTicket
@@ -258,16 +259,16 @@ def build_h3_shot_repair_prompt(
     mode = "REF2VA" if any("[REF2VA]" in line for line in summary) else "T2VA"
     duration = request.duration_seconds
     action_note = {
-        "REGENERATE_SHOT": "Regenerate only the approved shot; do not add extra beats or shots.",
-        "RECOMPILE_DIALOGUE_DETACHED": (
+        H3RepairAction.REGENERATE_SHOT: "Regenerate only the approved shot; do not add extra beats or shots.",
+        H3RepairAction.RECOMPILE_DIALOGUE_DETACHED: (
             "Regenerate only the approved shot with dialogue kept as spoken audio; never visualize dialogue as "
             "subtitles, captions, labels, or readable text."
         ),
-        "REGENERATE_WITH_IDENTITY_BRIDGE": (
+        H3RepairAction.REGENERATE_WITH_IDENTITY_BRIDGE: (
             "Regenerate only the approved shot and preserve the referenced character identity with maximum "
             "continuity from the accepted source Unit."
         ),
-    }.get(request.repair_action.value, "Regenerate only the approved shot.")
+    }.get(request.repair_action, "Regenerate only the approved shot.")
 
     repair_summary = (
         f"[{mode}] Create exactly one {duration:.3f}-second 16:9 repair shot. "
