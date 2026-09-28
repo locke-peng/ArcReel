@@ -229,6 +229,16 @@ def _patch_runtime(monkeypatch, db_factory, project_path: Path, source, generato
 
     monkeypatch.setattr(h3_repair_tasks, "resolve_generation_context", resolve_context)
 
+    async def _defer_reqa(**_kwargs):
+        return {
+            "reqa_outcome": "DEFERRED_SLICE4_TEST",
+            "lifecycle_state": H3RepairTicketLifecycleState.REQA_RUNNING.value,
+            "selected_current": False,
+            "followup_ticket_ids": [],
+        }
+
+    monkeypatch.setattr(h3_repair_tasks, "execute_h3_repair_reqa", _defer_reqa)
+
     def assemble(_source: Path, provider: Path, output: Path, _request) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_bytes(b"assembled:" + provider.read_bytes())
