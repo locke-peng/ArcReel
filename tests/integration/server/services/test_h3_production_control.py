@@ -5,11 +5,19 @@ from pathlib import Path
 
 import pytest
 
-from lib.db import safe_session_factory
+from lib.project_manager import ProjectManager
+from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
+from lib.reference_video.h3_production_policy import H3FailureClass
 from lib.reference_video.h3_production_projection import H3ProductionUnitState
-from lib.reference_video.h3_repair_ticket import H3RepairScopeKind, H3RepairTicket, H3RepairTicketStatus
+from lib.reference_video.h3_repair_ticket import H3RepairTicketContext, build_h3_repair_ticket
 from lib.reference_video.h3_repair_ticket_store import H3RepairTicketStore
-from server.services.h3_production_control import resolve_h3_production_projection
+from lib.reference_video.media_qa_schema import (
+    MediaQAFinding,
+    MediaQARepairability,
+    MediaQASeverity,
+    MediaQATimeRange,
+)
+from server.services import h3_production_control
 
 
 def _write_project(root: Path, name: str) -> Path:
@@ -56,8 +64,26 @@ def _write_project(root: Path, name: str) -> Path:
         json.dumps(
             {
                 "reference_videos": {
-                    "E1U02": {"current_version": 1, "versions": [{"version": 1, "file": "versions/reference_videos/E1U02/v1.mp4", "prompt": "p"}]},
-                    "E2U01": {"current_version": 2, "versions": [{"version": 2, "file": "versions/reference_videos/E2U01/v2.mp4", "prompt": "p"}]},
+                    "E1U02": {
+                        "current_version": 1,
+                        "versions": [
+                            {
+                                "version": 1,
+                                "file": "versions/reference_videos/E1U02/v1.mp4",
+                                "prompt": "p",
+                            }
+                        ],
+                    },
+                    "E2U01": {
+                        "current_version": 2,
+                        "versions": [
+                            {
+                                "version": 2,
+                                "file": "versions/reference_videos/E2U01/v2.mp4",
+                                "prompt": "p",
+                            }
+                        ],
+                    },
                 }
             }
         ),
@@ -66,47 +92,50 @@ def _write_project(root: Path, name: str) -> Path:
     return project
 
 
-def _ticket(unit_id: str) -> H3RepairTicket:
-    payload = dict(
-        schema_version=1,
-        status=H3RepairTicketStatus.AWAITING_APPROVAL,
-        approval_eligible=True,
+def _ticket(unit_id: str):
+    finding = MediaQAFinding(
         unit_id=unit_id,
         shot_id=f"{unit_id}-S01",
-        scope_kind=H3RepairScopeKind.SHOT,
-        start_seconds=0.0,
-        end_seconds=5.0,
-        region=None,
-        failure_class="large_semantic_failure",
-        repair_action="regenerate_shot",
-        provider_recall_required=True,
+        time_range=MediaQATimeRange(start_seconds=0.0, end_seconds=5.0),
         canonical_violation="acceptance",
-        planner_reason="acceptance",
-        source_media_sha256="a" * 64,
-        provider_prompt_sha256="b" * 64,
-        reference_sha256=(),
-        evidence_frames=(),
-        tags=(),
-        provider_task_id=None,
-        provider_run_id=None,
-        provider_artifact_id=None,
+        severity=MediaQASeverity.BLOCKING,
+        provider_result_usable=False,
+        audio_is_accepted=False,
+        repairability=MediaQARepairability.PROVIDER,
+        affected_fraction=1.0,
+        failure_class=H3FailureClass.LARGE_SEMANTIC_FAILURE,
+        evidence_frames=(1,),
+        tags=("acceptance",),
     )
-    seed = H3RepairTicket(ticket_id="", ticket_sha256="", **payload)
-    digest = seed.compute_sha256()
-    return H3RepairTicket(ticket_id=f"h3rt_{digest[:24]}", ticket_sha256=digest, **payload)
+    return build_h3_repair_ticket(
+        plan_h3_auto_repair(finding),
+        source_media_sha256="a" * 64,
+        context=H3RepairTicketContext(
+            provider_prompt_sha256="b" * 64,
+            reference_sha256=(),
+        ),
+    )
 
 
 @pytest.mark.asyncio
-async def test_resolver_reads_project_scripts_versions_and_tickets(tmp_path: Path, monkeypatch) -> None:
+async def test_resolver_reads_project_scripts_versions_and_tickets(
+    db_factory,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     projects = tmp_path / "projects"
     _write_project(projects, "demo")
-    monkeypatch.setenv("AI_ANIME_PROJECTS", str(projects))
+    manager = ProjectManager(projects)
+    monkeypatch.setattr(h3_production_control, "safe_session_factory", db_factory)
 
-    async with safe_session_factory() as session:
+    async with db_factory() as session:
         await H3RepairTicketStore(session).persist(project_name="demo", ticket=_ticket("E2U01"))
         await session.commit()
 
-    projection = await resolve_h3_production_projection(project_name="demo")
+    projection = await h3_production_control.resolve_h3_production_projection(
+        project_name="demo",
+        project_manager=manager,
+    )
     by_unit = {
         unit.unit_id: unit
         for episode in projection.episodes
@@ -123,13 +152,21 @@ async def test_resolver_reads_project_scripts_versions_and_tickets(tmp_path: Pat
 
 
 @pytest.mark.asyncio
-async def test_resolver_rejects_non_reference_video_project(tmp_path: Path, monkeypatch) -> None:
+async def test_resolver_rejects_non_reference_video_project(
+    db_factory,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     projects = tmp_path / "projects"
     project = _write_project(projects, "demo")
     payload = json.loads((project / "project.json").read_text(encoding="utf-8"))
     payload["generation_mode"] = "storyboard"
     (project / "project.json").write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setenv("AI_ANIME_PROJECTS", str(projects))
+    manager = ProjectManager(projects)
+    monkeypatch.setattr(h3_production_control, "safe_session_factory", db_factory)
 
     with pytest.raises(RuntimeError, match="requires a reference_video project"):
-        await resolve_h3_production_projection(project_name="demo")
+        await h3_production_control.resolve_h3_production_projection(
+            project_name="demo",
+            project_manager=manager,
+        )
