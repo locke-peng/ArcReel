@@ -90,12 +90,12 @@ def _ticket_view(ticket: PersistedH3RepairTicket) -> dict[str, Any]:
     }
 
 
-async def _project_path(project_name: str):
+async def resolve_h3_repair_project_path(project_name: str):
     return await asyncio.to_thread(get_project_manager().get_project_path, project_name)
 
 
-async def _load_required(project_name: str, ticket_id: str) -> PersistedH3RepairTicket:
-    await _project_path(project_name)
+async def load_h3_repair_ticket_record(project_name: str, ticket_id: str) -> PersistedH3RepairTicket:
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         ticket = await H3RepairTicketStore(session).load(project_name=project_name, ticket_id=ticket_id)
     if ticket is None:
@@ -110,7 +110,7 @@ async def list_h3_repair_tickets(
     unit_id: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
-    await _project_path(project_name)
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         tickets = await H3RepairTicketStore(session).list_for_project(
             project_name=project_name,
@@ -122,7 +122,7 @@ async def list_h3_repair_tickets(
 
 
 async def get_h3_repair_ticket(*, project_name: str, ticket_id: str) -> dict[str, Any]:
-    return _ticket_view(await _load_required(project_name, ticket_id))
+    return _ticket_view(await load_h3_repair_ticket_record(project_name, ticket_id))
 
 
 async def approve_and_enqueue_h3_repair(
@@ -132,7 +132,7 @@ async def approve_and_enqueue_h3_repair(
     approved_by: str,
     max_provider_calls: int = 1,
 ) -> dict[str, Any]:
-    project_path = await _project_path(project_name)
+    project_path = await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         store = H3RepairTicketStore(session)
         persisted = await store.load(project_name=project_name, ticket_id=ticket_id)
@@ -189,7 +189,7 @@ async def reject_h3_repair(
     rejected_by: str,
     reason: str | None = None,
 ) -> dict[str, Any]:
-    await _project_path(project_name)
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         ticket = await H3RepairApprovalService(session).reject(
             project_name=project_name,
@@ -207,7 +207,7 @@ async def cancel_h3_repair(
     cancelled_by: str,
     reason: str | None = None,
 ) -> dict[str, Any]:
-    await _project_path(project_name)
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         before = await H3RepairTicketStore(session).load(project_name=project_name, ticket_id=ticket_id)
         if before is None:
@@ -244,7 +244,7 @@ def _execution_task_view(task: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 async def get_h3_repair_execution_status(*, project_name: str, ticket_id: str) -> dict[str, Any]:
-    ticket = await _load_required(project_name, ticket_id)
+    ticket = await load_h3_repair_ticket_record(project_name, ticket_id)
     task = (
         await get_generation_queue().get_task(ticket.execution_task_id)
         if ticket.execution_task_id is not None
@@ -261,7 +261,7 @@ async def get_h3_repair_execution_status(*, project_name: str, ticket_id: str) -
 
 
 async def get_h3_repair_result(*, project_name: str, ticket_id: str) -> dict[str, Any]:
-    ticket = await _load_required(project_name, ticket_id)
+    ticket = await load_h3_repair_ticket_record(project_name, ticket_id)
     task = (
         await get_generation_queue().get_task(ticket.execution_task_id)
         if ticket.execution_task_id is not None
