@@ -288,3 +288,61 @@ async def test_reqa_provider_failure_archives_history_and_creates_fresh_unapprov
         assert followup.approval_json is None
         assert followup.approval_identity is None
         assert followup.max_provider_calls is None
+
+
+async def test_reqa_followup_creation_is_bounded_and_fails_closed(
+    db_factory,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_path = tmp_path / "ai-boss"
+    current, prompt, versions, source_version = _source_setup(project_path)
+    candidate = project_path / "repairs" / "reassembled_units" / "h3exec_slice5_test.mp4"
+    candidate.parent.mkdir(parents=True)
+    candidate.write_bytes(b"reassembled-multiple-bad-shots")
+    ticket = await _persist_reqa_ticket(
+        db_factory,
+        source_sha=sha256_file(current),
+        prompt_sha=provider_prompt_sha256(prompt),
+        candidate_sha=sha256_file(candidate),
+    )
+
+    second = MediaQAFinding(
+        unit_id="E12U06",
+        shot_id="E12U06-S03",
+        time_range=MediaQATimeRange(start_seconds=10.0, end_seconds=15.0),
+        canonical_violation="second provider-only semantic failure",
+        severity=MediaQASeverity.BLOCKING,
+        provider_result_usable=False,
+        audio_is_accepted=True,
+        repairability=MediaQARepairability.PROVIDER,
+        affected_fraction=0.4,
+        failure_class=H3FailureClass.LARGE_SEMANTIC_FAILURE,
+        evidence_frames=(300,),
+        tags=("semantic_failure",),
+    )
+
+    async def evaluator(_path: Path):
+        return (_provider_finding(), second)
+
+    monkeypatch.setattr(h3_repair_reqa, "safe_session_factory", db_factory)
+    monkeypatch.setattr(h3_repair_reqa, "get_project_manager", lambda: _ProjectManager(project_path))
+
+    result = await h3_repair_reqa.execute_h3_repair_reqa(
+        project_name="ai-boss",
+        ticket_id=ticket.ticket_id,
+        candidate_media=candidate,
+        evaluator=evaluator,
+        repair_handlers={},
+        max_followup_tickets=1,
+    )
+
+    assert result["reqa_outcome"] == "PROVIDER_REPAIR_FOLLOWUP_BLOCKED"
+    assert result["lifecycle_state"] == H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED.value
+    assert result["followup_ticket_ids"] == []
+    assert versions.get_current_version("reference_videos", "E12U06") == source_version
+
+    async with db_factory() as session:
+        rows = await H3RepairTicketStore(session).list_for_project(project_name="ai-boss")
+        assert [row.ticket.ticket_id for row in rows] == [ticket.ticket_id]
+        assert rows[0].lifecycle_state is H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED
