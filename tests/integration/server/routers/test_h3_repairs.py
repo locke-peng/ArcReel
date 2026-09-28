@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from lib.reference_video.h3_repair_ticket_store import H3RepairTicketLifecycleState
+from server.auth import CurrentUserInfo, get_current_user
 from server.error_handlers import register_error_handlers
 from server.routers import h3_repairs
 
@@ -16,6 +17,7 @@ def client() -> TestClient:
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(h3_repairs.router, prefix="/api/v1")
+    app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="u1", sub="alice", role="admin")
     return TestClient(app)
 
 
@@ -59,7 +61,7 @@ def test_approve_endpoint_runs_binding_and_queue_admission(
 
     response = client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/approve",
-        json={"approved_by": "operator:alice", "max_provider_calls": 1},
+        json={"max_provider_calls": 1},
     )
 
     assert response.status_code == 200
@@ -67,7 +69,7 @@ def test_approve_endpoint_runs_binding_and_queue_admission(
     approve_mock.assert_awaited_once_with(
         project_name="demo",
         ticket_id="h3rt_one",
-        approved_by="operator:alice",
+        approved_by="u1",
         max_provider_calls=1,
     )
 
@@ -77,7 +79,7 @@ def test_approve_endpoint_rejects_more_than_one_provider_call(
 ) -> None:
     response = client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/approve",
-        json={"approved_by": "operator:alice", "max_provider_calls": 2},
+        json={"max_provider_calls": 2},
     )
     assert response.status_code == 422
 
@@ -130,11 +132,11 @@ def test_reject_and_cancel_routes_delegate_existing_lifecycle_services(
 
     rejected = client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_one/reject",
-        json={"actor": "operator:alice", "reason": "not approved"},
+        json={"reason": "not approved"},
     )
     cancelled = client.post(
         "/api/v1/projects/demo/reference-videos/repairs/h3rt_two/cancel",
-        json={"actor": "operator:bob"},
+        json={},
     )
 
     assert rejected.status_code == 200
@@ -144,12 +146,12 @@ def test_reject_and_cancel_routes_delegate_existing_lifecycle_services(
     reject_mock.assert_awaited_once_with(
         project_name="demo",
         ticket_id="h3rt_one",
-        rejected_by="operator:alice",
+        rejected_by="u1",
         reason="not approved",
     )
     cancel_mock.assert_awaited_once_with(
         project_name="demo",
         ticket_id="h3rt_two",
-        cancelled_by="operator:bob",
+        cancelled_by="u1",
         reason=None,
     )
