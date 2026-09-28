@@ -55,7 +55,8 @@ H3_REPAIR_TASK_SOURCE = "h3_repair"
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _EXECUTION_ID_RE = re.compile(r"^h3rx_[0-9a-f]{24}$")
 _CHECKPOINT_KIND = "h3_provider_repair_submit"
-_CHECKPOINT_VERSION = 1
+_LEGACY_CHECKPOINT_VERSION = 1
+_CHECKPOINT_VERSION = 2
 
 
 class H3RepairSubmissionDisposition(StrEnum):
@@ -70,6 +71,100 @@ class H3RepairAllowanceExhausted(RuntimeError):
 
 class H3RepairExecutionConflict(RuntimeError):
     """Persisted task/ticket/checkpoint identity is inconsistent or concurrently owned."""
+
+
+@dataclass(frozen=True)
+class H3RepairProviderRequestFacts:
+    """Immutable provider-request facts frozen before a paid H3 repair submission."""
+
+    generation_type: str
+    backend_model: str
+    endpoint_guard: str | None
+    prompt: str
+    prompt_sha256: str
+    duration_seconds: int
+    aspect_ratio: str
+    resolution: str | None
+    generate_audio: bool
+    service_tier: str
+    seed: int | None
+
+    _FIELDS = frozenset(
+        {
+            "generation_type",
+            "backend_model",
+            "endpoint_guard",
+            "prompt",
+            "prompt_sha256",
+            "duration_seconds",
+            "aspect_ratio",
+            "resolution",
+            "generate_audio",
+            "service_tier",
+            "seed",
+        }
+    )
+
+    def __post_init__(self) -> None:
+        if self.generation_type not in {"t2v", "i2v", "r2v"}:
+            raise ValueError("unsupported H3 repair generation_type")
+        if not self.backend_model.strip():
+            raise ValueError("H3 repair backend_model is required")
+        if not self.prompt.strip():
+            raise ValueError("H3 repair provider prompt is required")
+        _require_sha(self.prompt_sha256, "repair_prompt_sha256")
+        actual = hashlib.sha256(self.prompt.encode("utf-8")).hexdigest()
+        if actual != self.prompt_sha256:
+            raise ValueError("H3 repair provider prompt SHA does not match prompt")
+        if self.duration_seconds <= 0:
+            raise ValueError("H3 repair duration_seconds must be positive")
+        if not self.aspect_ratio.strip():
+            raise ValueError("H3 repair aspect_ratio is required")
+        if self.endpoint_guard is not None and not self.endpoint_guard.strip():
+            raise ValueError("H3 repair endpoint_guard must be non-empty or null")
+        if self.resolution is not None and not self.resolution.strip():
+            raise ValueError("H3 repair resolution must be non-empty or null")
+        if not self.service_tier.strip():
+            raise ValueError("H3 repair service_tier is required")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "generation_type": self.generation_type,
+            "backend_model": self.backend_model,
+            "endpoint_guard": self.endpoint_guard,
+            "prompt": self.prompt,
+            "prompt_sha256": self.prompt_sha256,
+            "duration_seconds": self.duration_seconds,
+            "aspect_ratio": self.aspect_ratio,
+            "resolution": self.resolution,
+            "generate_audio": self.generate_audio,
+            "service_tier": self.service_tier,
+            "seed": self.seed,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> H3RepairProviderRequestFacts:
+        if not isinstance(value, dict):
+            raise H3RepairExecutionConflict("H3 repair provider request checkpoint must be an object")
+        unexpected = set(value) - cls._FIELDS
+        missing = cls._FIELDS - set(value)
+        if unexpected or missing:
+            raise H3RepairExecutionConflict(
+                f"H3 repair provider request fields mismatch; missing={sorted(missing)} unexpected={sorted(unexpected)}"
+            )
+        return cls(
+            generation_type=str(value["generation_type"]),
+            backend_model=str(value["backend_model"]),
+            endpoint_guard=str(value["endpoint_guard"]) if value["endpoint_guard"] is not None else None,
+            prompt=str(value["prompt"]),
+            prompt_sha256=str(value["prompt_sha256"]),
+            duration_seconds=int(value["duration_seconds"]),
+            aspect_ratio=str(value["aspect_ratio"]),
+            resolution=str(value["resolution"]) if value["resolution"] is not None else None,
+            generate_audio=bool(value["generate_audio"]),
+            service_tier=str(value["service_tier"]),
+            seed=int(value["seed"]) if value["seed"] is not None else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -107,8 +202,9 @@ class H3RepairSubmissionCheckpoint:
     provider_prompt_sha256: str | None
     reference_sha256: tuple[str, ...]
     provider_call_ordinal: int
+    provider_request: H3RepairProviderRequestFacts | None = None
 
-    _FIELDS = frozenset(
+    _FIELDS_V1 = frozenset(
         {
             "schema_version",
             "kind",
@@ -128,10 +224,15 @@ class H3RepairSubmissionCheckpoint:
             "provider_call_ordinal",
         }
     )
+    _FIELDS_V2 = _FIELDS_V1 | {"provider_request"}
 
     def __post_init__(self) -> None:
-        if self.schema_version != _CHECKPOINT_VERSION:
+        if self.schema_version not in {_LEGACY_CHECKPOINT_VERSION, _CHECKPOINT_VERSION}:
             raise ValueError("unsupported H3 repair submission checkpoint version")
+        if self.schema_version == _LEGACY_CHECKPOINT_VERSION and self.provider_request is not None:
+            raise ValueError("legacy H3 repair checkpoint cannot carry provider_request")
+        if self.schema_version == _CHECKPOINT_VERSION and self.provider_request is None:
+            raise ValueError("H3 repair checkpoint v2 requires provider_request")
         if self.kind != _CHECKPOINT_KIND:
             raise ValueError("invalid H3 repair submission checkpoint kind")
         if not self.project_name.strip() or not self.task_id.strip() or not self.ticket_id.strip():
@@ -155,7 +256,7 @@ class H3RepairSubmissionCheckpoint:
             raise ValueError("Phase 5 approval permits exactly provider_call_ordinal=1")
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "schema_version": self.schema_version,
             "kind": self.kind,
             "project_name": self.project_name,
@@ -173,6 +274,11 @@ class H3RepairSubmissionCheckpoint:
             "reference_sha256": list(self.reference_sha256),
             "provider_call_ordinal": self.provider_call_ordinal,
         }
+        if self.schema_version == _CHECKPOINT_VERSION:
+            if self.provider_request is None:
+                raise H3RepairExecutionConflict("H3 repair checkpoint v2 is missing provider_request")
+            result["provider_request"] = self.provider_request.to_dict()
+        return result
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -182,14 +288,16 @@ class H3RepairSubmissionCheckpoint:
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise H3RepairExecutionConflict("H3 repair execution checkpoint must be an object")
-        unexpected = set(data) - cls._FIELDS
-        missing = cls._FIELDS - set(data)
+        version = int(data.get("schema_version", 0))
+        fields = cls._FIELDS_V1 if version == _LEGACY_CHECKPOINT_VERSION else cls._FIELDS_V2
+        unexpected = set(data) - fields
+        missing = fields - set(data)
         if unexpected or missing:
             raise H3RepairExecutionConflict(
                 f"H3 repair checkpoint fields mismatch; missing={sorted(missing)} unexpected={sorted(unexpected)}"
             )
         return cls(
-            schema_version=int(data["schema_version"]),
+            schema_version=version,
             kind=str(data["kind"]),
             project_name=str(data["project_name"]),
             task_id=str(data["task_id"]),
@@ -207,6 +315,11 @@ class H3RepairSubmissionCheckpoint:
             ),
             reference_sha256=tuple(str(value) for value in data["reference_sha256"]),
             provider_call_ordinal=int(data["provider_call_ordinal"]),
+            provider_request=(
+                H3RepairProviderRequestFacts.from_dict(data["provider_request"])
+                if version == _CHECKPOINT_VERSION
+                else None
+            ),
         )
 
 
@@ -316,9 +429,10 @@ def _checkpoint_for(
     approval_json: str,
     provider_id: str,
     provider_model: str,
+    provider_request: H3RepairProviderRequestFacts | None,
 ) -> H3RepairSubmissionCheckpoint:
     return H3RepairSubmissionCheckpoint(
-        schema_version=_CHECKPOINT_VERSION,
+        schema_version=_CHECKPOINT_VERSION if provider_request is not None else _LEGACY_CHECKPOINT_VERSION,
         kind=_CHECKPOINT_KIND,
         project_name=project_name,
         task_id=task_id,
@@ -334,6 +448,7 @@ def _checkpoint_for(
         provider_prompt_sha256=binding.provider_prompt_sha256,
         reference_sha256=binding.reference_sha256,
         provider_call_ordinal=1,
+        provider_request=provider_request,
     )
 
 
@@ -635,6 +750,7 @@ class H3RepairQueueService:
         current_facts: H3RepairApprovalFacts,
         provider_id: str,
         provider_model: str,
+        provider_request: H3RepairProviderRequestFacts | None = None,
     ) -> H3RepairSubmissionReservation:
         provider_id = provider_id.strip()
         provider_model = provider_model.strip()
@@ -684,6 +800,7 @@ class H3RepairQueueService:
             approval_json=persisted.approval_json,
             provider_id=provider_id,
             provider_model=provider_model,
+            provider_request=provider_request,
         )
 
         if task.execution_checkpoint_json is not None:
