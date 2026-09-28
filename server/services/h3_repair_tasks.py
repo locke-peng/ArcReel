@@ -17,7 +17,7 @@ from lib.config.service import DEFAULT_VIDEO_POLL_TIMEOUT_SECONDS
 from lib.db import safe_session_factory
 from lib.db.base import DEFAULT_USER_ID, utc_now
 from lib.db.models.h3_repair_ticket import H3RepairTicketRecord
-from lib.generation_queue import get_generation_queue
+from lib.db.repositories.task_repo import TaskRepository
 from lib.path_safety import safe_join
 from lib.project_manager import get_project_manager
 from lib.reference_video.h3_prompt_execution import provider_prompt_sha256
@@ -58,6 +58,11 @@ async def _load_persisted_ticket(project_name: str, ticket_id: str):
     if ticket is None:
         raise KeyError(f"H3 Repair Ticket not found: {project_name}/{ticket_id}")
     return ticket
+
+
+async def _load_task_snapshot(task_id: str) -> dict[str, Any] | None:
+    async with safe_session_factory() as session:
+        return await TaskRepository(session).get(task_id)
 
 
 async def _transition_ticket(
@@ -392,7 +397,7 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("H3 repair task has no project_name")
     ticket_id = _ticket_id_from_task(task)
 
-    latest = await get_generation_queue().get_task(str(task["task_id"]))
+    latest = await _load_task_snapshot(str(task["task_id"]))
     if latest is not None:
         task = latest
 
