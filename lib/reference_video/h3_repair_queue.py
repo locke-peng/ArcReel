@@ -178,7 +178,7 @@ class H3RepairSubmissionCheckpoint:
         return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
     @classmethod
-    def from_json(cls, raw: str) -> "H3RepairSubmissionCheckpoint":
+    def from_json(cls, raw: str) -> H3RepairSubmissionCheckpoint:
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise H3RepairExecutionConflict("H3 repair execution checkpoint must be an object")
