@@ -14,3 +14,5 @@ export * from "./market";
 export * from "./cost";
 export * from "./reference-video";
 export * from "./workflow";
+
+export * from "./h3-studio";
