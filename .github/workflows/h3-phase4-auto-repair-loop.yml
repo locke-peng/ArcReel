@@ -137,9 +137,9 @@ jobs:
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
-            tests/unit/lib/reference_video/test_h3_audio_runtime.py \\
-            tests/unit/lib/reference_video/test_h3_repair_ticket.py \\
-            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \\
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \
             tests/integration/server/services/test_h3_runtime_selection_wiring.py
 
       - name: Ruff
@@ -166,9 +166,9 @@ jobs:
             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
             tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
-            tests/unit/lib/reference_video/test_h3_audio_runtime.py \\
-            tests/unit/lib/reference_video/test_h3_repair_ticket.py \\
-            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \\
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \
             tests/integration/server/services/test_h3_runtime_selection_wiring.py
 
   existing-evidence-e2e:
