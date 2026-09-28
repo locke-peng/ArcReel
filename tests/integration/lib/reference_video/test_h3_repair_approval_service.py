@@ -7,11 +7,11 @@ import pytest
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
 from lib.reference_video.h3_repair_approval_service import (
+    H3ProviderRepairApprovalBinding,
     H3RepairApprovalConflictError,
     H3RepairApprovalFacts,
-    H3RepairApprovalStaleError,
     H3RepairApprovalService,
-    H3ProviderRepairApprovalBinding,
+    H3RepairApprovalStaleError,
 )
 from lib.reference_video.h3_repair_ticket import H3RepairTicketContext, build_h3_repair_ticket
 from lib.reference_video.h3_repair_ticket_store import H3RepairTicketLifecycleState, H3RepairTicketStore
