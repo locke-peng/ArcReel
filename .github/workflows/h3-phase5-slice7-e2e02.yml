@@ -35,6 +35,12 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Show Slice 7 import normalization
+        run: |
+          uv run ruff check --select I --fix --diff \
+            tests/e2e/reference_video/test_h3_phase5_production_lifecycle_e2e.py \
+            tests/e2e/reference_video/test_h3_phase5_interruption_resume_e2e.py || true
+
       - name: Run E2E-02 interruption resume
         run: |
           uv run python -m pytest -q tests/e2e/reference_video/test_h3_phase5_interruption_resume_e2e.py
