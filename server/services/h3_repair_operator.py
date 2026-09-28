@@ -224,7 +224,12 @@ async def cancel_h3_repair(
         queue = get_generation_queue()
         task = await queue.get_task(before.execution_task_id)
         if task is not None and task.get("status") in {"queued", "running", "cancelling"}:
-            task_cancel = await queue.cancel_task(before.execution_task_id)
+            await queue.cancel_task(before.execution_task_id)
+            refreshed_task = await queue.get_task(before.execution_task_id)
+            task_cancel = {
+                "task_id": before.execution_task_id,
+                "status": refreshed_task.get("status") if refreshed_task is not None else None,
+            }
     return {"ticket": _ticket_view(ticket), "task_cancel": task_cancel}
 
 
