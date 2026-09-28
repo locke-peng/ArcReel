@@ -399,3 +399,34 @@ async def test_cancelled_fresh_repair_cancels_ticket_without_spending_allowance(
         assert task is not None
         assert task.provider_job_id is None
         assert task.execution_checkpoint_json is None
+
+
+async def test_restart_from_reqa_running_does_not_replay_provider_repair(
+    db_factory,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project_path = tmp_path / "ai-boss"
+    source_path = project_path / resource_relative_path("reference_videos", "E12U06")
+    source_path.parent.mkdir(parents=True)
+    source_path.write_bytes(b"accepted-source-unit")
+    ticket = _ticket(
+        source_sha=sha256_file(source_path),
+        prompt_sha=provider_prompt_sha256(_accepted_prompt()),
+    )
+    task_id, _execution_identity = await _persist_approve_claim(db_factory, ticket)
+    source = _source(project_path, ticket, source_path)
+    generator = _FakeGenerator(project_path, allow_generate=True)
+    _patch_runtime(monkeypatch, db_factory, project_path, source, generator)
+
+    first = await h3_repair_tasks.execute_h3_repair_task(await _task_snapshot(db_factory, task_id))
+    assert first["lifecycle_state"] == H3RepairTicketLifecycleState.REQA_RUNNING.value
+    assert generator.generate_calls == 1
+    assert generator.resume_calls == 0
+
+    second = await h3_repair_tasks.execute_h3_repair_task(await _task_snapshot(db_factory, task_id))
+
+    assert second["lifecycle_state"] == H3RepairTicketLifecycleState.REQA_RUNNING.value
+    assert second["recovered_reqa"] is True
+    assert generator.generate_calls == 1
+    assert generator.resume_calls == 0
