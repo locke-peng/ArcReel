@@ -2,8 +2,8 @@
 
 This service adapts one persisted/claimed Repair Ticket to ArcReel's existing video backend
 stack, then hands the completed provider shot to the Phase 4 shot-scoped executor for
-scope-locked deterministic reassembly. It never selects a repair action and never performs
-Re-QA/formal Unit selection; those remain owned by the existing planner and Slice 5.
+scope-locked deterministic reassembly. Slice 5 continues from REQA_RUNNING through the trusted
+Phase 4 runtime gate and formal-selection service. This module never selects a repair action.
 """
 
 from __future__ import annotations
@@ -50,6 +50,7 @@ from lib.reference_video.h3_shot_repair_executor import (
 )
 from lib.resource_paths import H3_REPAIR_SHOT_RESOURCE_TYPE, resource_relative_path
 from server.services.generation_context import VideoLaneRequest, resolve_generation_context
+from server.services.h3_repair_reqa import execute_h3_repair_reqa
 
 
 async def _load_persisted_ticket(project_name: str, ticket_id: str):
@@ -101,6 +102,7 @@ async def _mark_human_review_if_active(*, project_name: str, ticket_id: str, rea
             H3RepairTicketLifecycleState.RUNNING,
             H3RepairTicketLifecycleState.PROVIDER_COMPLETED,
             H3RepairTicketLifecycleState.REASSEMBLING,
+            H3RepairTicketLifecycleState.REQA_RUNNING,
         }:
             return
         validate_h3_repair_ticket_transition(current, H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED)
@@ -548,6 +550,11 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
             repair_output_sha256=result.output_media_sha256,
         )
 
+        reqa = await execute_h3_repair_reqa(
+            project_name=project_name,
+            ticket_id=ticket_id,
+            candidate_media=output_media,
+        )
         relative_output = f"repairs/reassembled_units/{persisted.execution_identity}.mp4"
         relative_provider_shot = resource_relative_path(
             H3_REPAIR_SHOT_RESOURCE_TYPE,
@@ -559,7 +566,8 @@ async def execute_h3_repair_task(task: dict[str, Any]) -> dict[str, Any]:
             "provider_shot_path": relative_provider_shot,
             "source_version": source.version,
             "execution_identity": persisted.execution_identity,
-            "lifecycle_state": H3RepairTicketLifecycleState.REQA_RUNNING.value,
+            "lifecycle_state": str(reqa["lifecycle_state"]),
+            "reqa": reqa,
         }
     except asyncio.CancelledError:
         await asyncio.shield(
