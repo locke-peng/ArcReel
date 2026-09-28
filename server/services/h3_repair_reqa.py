@@ -277,17 +277,21 @@ async def _persist_followup_tickets(
 
     async with safe_session_factory() as session:
         store = H3RepairTicketStore(session)
-        persisted_rows = [
-            await store.persist(project_name=project_name, ticket=ticket)
-            for ticket in tickets
-        ]
-        if any(
-            row.approval_json is not None
-            or row.approval_identity is not None
-            or row.max_provider_calls is not None
-            for row in persisted_rows
-        ):
-            raise RuntimeError("follow-up Repair Ticket unexpectedly inherited approval state")
+        for ticket in tickets:
+            existing = await store.load(
+                project_name=project_name,
+                ticket_id=ticket.ticket_id,
+            )
+            row = await store.persist(project_name=project_name, ticket=ticket)
+            # No approval may appear on first creation. On crash recovery an existing
+            # follow-up may already have received a new explicit operator approval;
+            # that is not inheritance from the rejected parent and must remain valid.
+            if existing is None and (
+                row.approval_json is not None
+                or row.approval_identity is not None
+                or row.max_provider_calls is not None
+            ):
+                raise RuntimeError("follow-up Repair Ticket unexpectedly inherited approval state")
         await session.commit()
     return ids
 
