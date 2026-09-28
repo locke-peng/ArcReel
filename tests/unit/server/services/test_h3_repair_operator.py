@@ -200,3 +200,66 @@ async def test_execution_status_does_not_expose_internal_checkpoint(
     assert result["task"]["provider_job_id"] == "job-1"
     assert "execution_checkpoint_json" not in result["task"]
     assert result["provider_call_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_cancel_operator_sanitizes_task_cancel_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    before = _persisted(
+        lifecycle_state=H3RepairTicketLifecycleState.QUEUED,
+        execution_task_id="task-1",
+        max_provider_calls=1,
+    )
+    cancelled = _persisted(
+        lifecycle_state=H3RepairTicketLifecycleState.CANCELLED,
+        execution_task_id="task-1",
+        max_provider_calls=1,
+    )
+    store = SimpleNamespace(load=AsyncMock(return_value=before))
+    approval_service = SimpleNamespace(cancel=AsyncMock(return_value=cancelled))
+
+    class _SessionContext:
+        async def __aenter__(self):
+            return object()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    queue = SimpleNamespace(
+        get_task=AsyncMock(
+            side_effect=[
+                {
+                    "task_id": "task-1",
+                    "status": "queued",
+                    "execution_checkpoint_json": "must-not-leak",
+                },
+                {
+                    "task_id": "task-1",
+                    "status": "cancelled",
+                    "execution_checkpoint_json": "must-not-leak",
+                },
+            ]
+        ),
+        cancel_task=AsyncMock(return_value={"cancelled": [{"execution_checkpoint_json": "must-not-leak"}]}),
+    )
+
+    monkeypatch.setattr(
+        h3_repair_operator,
+        "resolve_h3_repair_project_path",
+        AsyncMock(return_value=Path("/tmp/demo")),
+    )
+    monkeypatch.setattr(h3_repair_operator, "safe_session_factory", lambda: _SessionContext())
+    monkeypatch.setattr(h3_repair_operator, "H3RepairTicketStore", lambda _session: store)
+    monkeypatch.setattr(h3_repair_operator, "H3RepairApprovalService", lambda _session: approval_service)
+    monkeypatch.setattr(h3_repair_operator, "get_generation_queue", lambda: queue)
+
+    result = await h3_repair_operator.cancel_h3_repair(
+        project_name="demo",
+        ticket_id="h3rt_test",
+        cancelled_by="u1",
+    )
+
+    assert result["task_cancel"] == {"task_id": "task-1", "status": "cancelled"}
+    assert "execution_checkpoint_json" not in result["task_cancel"]
+    queue.cancel_task.assert_awaited_once_with("task-1")
