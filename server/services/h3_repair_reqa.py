@@ -8,9 +8,9 @@ submit provider work.
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
 import shutil
 from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
