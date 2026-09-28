@@ -26,7 +26,7 @@ from lib.reference_video.h3_shot_repair_executor import H3ShotRepairRequest
 from lib.resource_paths import resource_relative_path
 from lib.version_manager import VersionManager
 
-_SHOT_HEADER_RE = re.compile(r"^\\[Shot\\s+(\\d+)\\](?:\\s+At\\s+(\\d{2}:\\d{2}\\.\\d{3}))?\\s*$")
+_SHOT_HEADER_RE = re.compile(r"^\[Shot\s+(\d+)\](?:\s+At\s+(\d{2}:\d{2}\.\d{3}))?\s*$")
 
 
 @dataclass(frozen=True)
