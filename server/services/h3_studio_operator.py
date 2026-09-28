@@ -95,6 +95,11 @@ async def get_h3_studio_summary(*, project_name: str) -> dict[str, Any]:
         for item in tickets
         if item["lifecycle"]["state"] == H3RepairTicketLifecycleState.HUMAN_REVIEW_REQUIRED.value
     ]
+    approved_waiting = [
+        item
+        for item in tickets
+        if item["lifecycle"]["state"] == H3RepairTicketLifecycleState.APPROVED.value
+    ]
     active_states = {
         H3RepairTicketLifecycleState.RUNNING.value,
         H3RepairTicketLifecycleState.PROVIDER_COMPLETED.value,
@@ -109,6 +114,7 @@ async def get_h3_studio_summary(*, project_name: str) -> dict[str, Any]:
         "budget": _projection_payload(ledger),
         "queues": {
             "pending_approvals": pending,
+            "approved_waiting": approved_waiting,
             "active_executions": active,
             "human_review_required": human_review,
         },
