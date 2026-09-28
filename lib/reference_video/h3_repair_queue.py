@@ -690,7 +690,19 @@ class H3RepairQueueService:
             checkpoint = H3RepairSubmissionCheckpoint.from_json(task.execution_checkpoint_json)
             if checkpoint != expected_checkpoint:
                 raise H3RepairExecutionConflict("persisted H3 repair checkpoint conflicts with current execution")
-            if persisted.provider_call_count < 1:
+            # The ticket snapshot above may have been read before a concurrent reservation
+            # committed, while the later task read already observes that reservation's
+            # checkpoint. Re-read only the mutable allowance counter from the database so
+            # the committed checkpoint+counter transaction is observed consistently.
+            reserved_call_count = await self.session.scalar(
+                select(H3RepairTicketRecord.provider_call_count).where(
+                    H3RepairTicketRecord.project_name == project_name,
+                    H3RepairTicketRecord.ticket_id == ticket_id,
+                )
+            )
+            if reserved_call_count is None:
+                raise H3RepairExecutionConflict("checkpoint exists for a missing Repair Ticket")
+            if reserved_call_count < 1:
                 raise H3RepairExecutionConflict("checkpoint exists without consumed provider-call allowance")
             return H3RepairSubmissionReservation(
                 disposition=(
@@ -700,7 +712,7 @@ class H3RepairQueueService:
                 ),
                 checkpoint=checkpoint,
                 provider_job_id=task.provider_job_id,
-                provider_call_count=persisted.provider_call_count,
+                provider_call_count=int(reserved_call_count),
                 project_provider_call_count=await self._project_budget_count(project_name),
             )
 
