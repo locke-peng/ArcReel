@@ -18,6 +18,7 @@ from server.services.h3_repair_budget_ledger import resolve_h3_repair_project_le
 from server.services.h3_repair_operator import (
     get_h3_repair_ticket,
     list_h3_repair_tickets,
+    resolve_h3_repair_project_path,
 )
 
 
@@ -26,6 +27,7 @@ def _projection_payload(value: Any) -> dict[str, Any]:
 
 
 async def get_h3_studio_control(*, project_name: str) -> dict[str, Any]:
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         control = await H3RepairQueueService(session).get_project_control(project_name=project_name)
     if control is None:
@@ -44,6 +46,7 @@ async def get_h3_studio_control(*, project_name: str) -> dict[str, Any]:
 
 
 async def set_h3_studio_paused(*, project_name: str, paused: bool) -> dict[str, Any]:
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         control = await H3RepairQueueService(session).set_project_paused(
             project_name=project_name,
@@ -62,6 +65,7 @@ async def set_h3_studio_running_cap(
     project_name: str,
     max_running_tasks: int | None,
 ) -> dict[str, Any]:
+    await resolve_h3_repair_project_path(project_name)
     async with safe_session_factory() as session:
         control = await H3RepairQueueService(session).configure_project_running_cap(
             project_name=project_name,
@@ -117,6 +121,7 @@ async def preview_h3_studio_batch(
     action: H3RepairBatchAction,
     ticket_ids: Iterable[str],
 ) -> dict[str, Any]:
+    await resolve_h3_repair_project_path(project_name)
     normalized_ids = tuple(ticket_id.strip() for ticket_id in ticket_ids)
     if any(not ticket_id for ticket_id in normalized_ids):
         raise ValueError("batch ticket_id is required")
