@@ -917,6 +917,7 @@ class MediaGenerator:
         poll_timeout_seconds: int = DEFAULT_VIDEO_POLL_TIMEOUT_SECONDS,
         task_id: str | None = None,
         before_submit: Callable[[], Awaitable[Mapping[str, object] | None]] | None = None,
+        on_provider_job_id: Callable[[str, str | None, str | None], Awaitable[None]] | None = None,
         formal_output: bool = False,
         before_formal_commit: Callable[[Path, int, Mapping[str, Any]], Awaitable[None]] | None = None,
         commit_formal_output: Callable[[Path, Path, int, Mapping[str, Any]], PaidVersionCommit] | None = None,
@@ -1136,6 +1137,7 @@ class MediaGenerator:
                         project_name=self.project_name,
                         task_id=task_id,
                         on_provider_resubmit_unsafe=_mark_provider_resubmit_unsafe,
+                        on_provider_job_id=on_provider_job_id,
                         on_provider_response=lambda _stage, body: self.ledger.record_provider_response(
                             call_id=call.call_id, body=body
                         ),
