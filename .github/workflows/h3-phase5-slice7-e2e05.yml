@@ -1,0 +1,77 @@
+name: H3 Phase 5 Slice 7 E2E-05
+
+on:
+  pull_request:
+    paths:
+      - "tests/e2e/reference_video/test_h3_phase5_project_isolation_e2e.py"
+      - ".github/workflows/h3-phase5-slice7-e2e05.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  project-isolation-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      H3_PHASE5_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      H3_PHASE5_EVIDENCE_DIR: .artifacts/h3-phase5-slice7-evidence
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E2E-05 project isolation
+        run: |
+          uv run python -m pytest -q tests/e2e/reference_video/test_h3_phase5_project_isolation_e2e.py
+
+      - name: Validate E2E-05 evidence artifact
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["H3_PHASE5_EVIDENCE_DIR"]) / "e2e05-project-isolation.json"
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          assert payload["scenario"] == "E2E-05 Multi Project Isolation"
+          assert payload["project_a"]["approval_identity"] == "operator:a"
+          assert payload["project_b"]["approval_identity"] == "operator:b"
+          assert payload["project_a"]["task_id"] != payload["project_b"]["task_id"]
+          assert payload["project_a"]["execution_identity"] != payload["project_b"]["execution_identity"]
+          assert payload["project_a"]["provider_call_count"] == 1
+          assert payload["project_b"]["provider_call_count"] == 0
+          assert payload["project_a"]["checkpoint_present"] is True
+          assert payload["project_b"]["checkpoint_present"] is False
+          assert payload["isolation"]["same_ticket_id_allowed_across_projects"] is True
+          assert payload["isolation"]["different_task_ids"] is True
+          assert payload["isolation"]["different_execution_identities"] is True
+          assert payload["isolation"]["project_a_reservation_did_not_spend_project_b_allowance"] is True
+          assert payload["isolation"]["project_a_reservation_did_not_create_project_b_checkpoint"] is True
+          assert payload["isolation"]["third_project_lookup_is_none"] is True
+          assert payload["provider"]["paid_minimax_calls"] == 0
+          print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload E2E-05 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase5-slice7-e2e05-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase5-slice7-evidence
+          if-no-files-found: warn
+          retention-days: 30
