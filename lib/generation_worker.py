@@ -842,9 +842,15 @@ class GenerationWorker:
         if self._slots.occupied("h3-repair", H3_REPAIR_MEDIA_TYPE) > 0:
             return False
 
+        session_factory = getattr(self.queue, "session_factory", None)
+        if session_factory is None:
+            # Lightweight/test queue implementations that do not expose database sessions
+            # do not host the H3 repair lane; preserve their existing media-lane behavior.
+            return False
+
         from lib.reference_video.h3_repair_queue import H3RepairQueueService
 
-        async with self.queue.session_factory() as session:
+        async with session_factory() as session:
             claim = await H3RepairQueueService(session).claim_next()
         if claim is None:
             return False
