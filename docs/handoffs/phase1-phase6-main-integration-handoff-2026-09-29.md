@@ -17,6 +17,11 @@ Phase 6 = CLOSED
 
 This handoff does **not** define or start a new Phase.
 
+Post-closure compatibility maintenance has also been integrated without reopening any Phase:
+
+- Canonical Director rich-field compatibility port: `f9a3e9bd64c8b61f5db8630f8406a16b4e513670`
+- source maintenance PR: #18
+
 ## 1. Immutable integration anchors
 
 ### Phase 6 authoritative tested code
@@ -145,12 +150,24 @@ Evidence-only / temporary validation PRs that explicitly were not intended to me
 - #13
 - #14
 
-Two draft PRs are intentionally **retained**, because their branches still contain independent Canonical Director implementation not present in `main`:
+The two remaining Canonical Director legacy drafts have now been resolved:
 
-- #2 — `test: canonical director rich-field integration`
-- #3 — `feat: CanonicalDirectorV1 provider-neutral contract`
+- #3 — closed without merge as **superseded**. Its own Backend unit run had six CanonicalDirectorV1 validation failures, and adopting it would have introduced a second strict internal contract beside the accepted CanonicalDirectorBundle/raw Canonical Shot IR ingress.
+- #2 — closed without merge as **superseded** after its still-valid rich-field rendering behavior was ported onto current `main` through PR #18.
 
-Their existence must not be interpreted as Phase 1–6 being incomplete. They are separate retained work and require an explicit future decision before merge, rewrite, or closure.
+PR #18 acceptance on the current lineage:
+
+- head commit: `b0eaa4fc6de490b0791217254e6de3af1ea00fa4`
+- merge commit: `f9a3e9bd64c8b61f5db8630f8406a16b4e513670`
+- H3 Phase 5 Master Acceptance run `36591052727`: SUCCESS
+- CodeQL run `36591052892`: SUCCESS
+- Backend integration: SUCCESS
+- PostgreSQL compatibility: SUCCESS
+- Backend unit suite: `9305 passed`; only the same two missing-`ffmpeg` failures seen on the accepted integration baseline
+- backend-static: 36 errors, unchanged from PR #16 baseline
+- test-lint: 5 existing violations, unchanged from PR #16 baseline
+
+The compatibility port preserves the existing CanonicalDirectorBundle ingress and only enriches H3 prompt rendering for already-authored Canonical facts such as framing, angle, composition, lighting, color grade, environment, subject state, continuity, transition, negative constraints, SFX/diegetic sound, and authored dialogue delivery state.
 
 No branches were deleted as part of this cleanup.
 
@@ -162,7 +179,7 @@ Do not:
 
 - relabel a documentation-only commit as the Phase 6 tested SHA;
 - reopen closed paid-provider acceptance without an explicit reason;
-- infer that retained PR #2/#3 are part of the Phase 1–6 closure;
+- resurrect legacy PR #2/#3 directly; their resolution is recorded above and #18 is the accepted compatibility port;
 - start a new Phase implicitly.
 
 A new Phase requires an explicit charter before implementation starts.
@@ -172,5 +189,7 @@ A new Phase requires an explicit charter before implementation starts.
 At this handoff boundary:
 
 **Phase 1–6 are CLOSED and integrated into `main`.**
+
+The Canonical Director legacy audit is also CLOSED: #2/#3 are resolved, and the accepted rich-field compatibility port is in `main` at `f9a3e9bd64c8b61f5db8630f8406a16b4e513670`.
 
 No Phase 7 or other new Phase has been opened.
