@@ -1,10 +1,12 @@
-
 from dataclasses import dataclass
 
 import pytest
 
 from lib.reference_video.h3_prompt_execution import compile_reference_video_provider_prompt
-from lib.video_prompt_compilers.h3_director_compiler import compile_h3_director_prompt
+from lib.video_prompt_compilers.h3_director_compiler import (
+    H3DirectorCompileError,
+    compile_h3_director_prompt,
+)
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     H3PromptCompileError,
     compile_h3_ref2va_prompt,
@@ -536,7 +538,10 @@ def test_ref2va_unused_provider_reference_fails_before_submission() -> None:
         },
     }
 
-    with pytest.raises(Exception, match="reference|bound|target shot"):
+    with pytest.raises(
+        H3DirectorCompileError,
+        match="not bound to any target shot or unit fact",
+    ):
         compile_h3_director_prompt(
             canonical_director=_bundle(unit),
             unit_id="E01-U22",
