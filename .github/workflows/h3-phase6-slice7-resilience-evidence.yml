@@ -1,0 +1,83 @@
+name: H3 Phase 6 Slice 7 Resilience Evidence
+
+on:
+  pull_request:
+    paths:
+      - "alembic/versions/c6e2a91f4b70_add_h3_repair_project_control.py"
+      - "lib/db/models/h3_repair_ticket.py"
+      - "lib/reference_video/h3_production_projection.py"
+      - "lib/reference_video/h3_repair_batch.py"
+      - "lib/reference_video/h3_repair_ledger.py"
+      - "lib/reference_video/h3_repair_queue.py"
+      - "server/services/h3_production_control.py"
+      - "server/services/h3_repair_batch_operator.py"
+      - "server/services/h3_repair_budget_ledger.py"
+      - "server/services/h3_studio_evidence.py"
+      - "server/routers/h3_studio.py"
+      - "tests/e2e/reference_video/test_h3_phase6_control_plane_resilience_e2e.py"
+      - ".github/workflows/h3-phase6-slice7-resilience-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resilience-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      H3_PHASE6_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      H3_PHASE6_EVIDENCE_DIR: .artifacts/h3-phase6-slice7-evidence
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Phase 6 cross-slice resilience E2E
+        run: uv run pytest -q tests/e2e/reference_video/test_h3_phase6_control_plane_resilience_e2e.py
+
+      - name: Validate machine-readable evidence
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["H3_PHASE6_EVIDENCE_DIR"]) / "e2e01-control-plane-resilience.json"
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          assert payload["status"] == "PASS"
+          assert payload["restart_rebuild"]["projection_equal_after_restart"] is True
+          assert payload["partial_batch"]["success_count"] == 2
+          assert payload["partial_batch"]["failure_count"] == 1
+          assert payload["stale_approval_in_batch"]["stale_provider_call_count"] == 0
+          assert payload["stale_approval_in_batch"]["valid_sibling_provider_call_count"] == 1
+          assert payload["budget_exhaustion"]["blocked_ticket_provider_call_count"] == 0
+          assert payload["budget_exhaustion"]["project_remaining_provider_calls"] == 0
+          assert payload["multi_project_multi_unit"]["other_second_claim_blocked_by_cap"] is True
+          assert payload["evidence_export"]["checkpoint_digest_present"] is True
+          assert payload["evidence_export"]["raw_checkpoint_exported"] is False
+          assert payload["paid_minimax_calls"] == 0
+          print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload Phase 6 Slice 7 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase6-slice7-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase6-slice7-evidence
+          if-no-files-found: warn
+          retention-days: 30

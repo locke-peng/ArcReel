@@ -60,6 +60,7 @@ from server.routers import (
     generate,
     grids,
     h3_repairs,
+    h3_studio,
     market,
     onboarding,
     presentations,
@@ -670,6 +671,12 @@ app.include_router(
     prefix="/api/v1",
     dependencies=[Depends(get_current_user), Depends(require_project_migration_ok)],
     tags=["H3 修复运营"],
+)
+app.include_router(
+    h3_studio.router,
+    prefix="/api/v1",
+    dependencies=[Depends(get_current_user), Depends(require_project_migration_ok)],
+    tags=["H3 Studio Control"],
 )
 app.include_router(assets.router, prefix="/api/v1", dependencies=[Depends(get_current_user)], tags=["全局资产库"])
 app.include_router(

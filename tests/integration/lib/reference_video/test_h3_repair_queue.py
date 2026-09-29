@@ -581,3 +581,238 @@ async def test_provider_request_checkpoint_v2_freezes_actual_repair_request(db_f
         assert repeated.disposition is H3RepairSubmissionDisposition.RESERVED_WITHOUT_PROVIDER_ID
         assert repeated.provider_call_count == 1
         assert repeated.checkpoint.provider_request == provider_request
+
+
+async def test_project_pause_skips_queued_repairs_without_mutating_them(db_factory) -> None:
+    paused_ticket = await _persist_approve(
+        db_factory,
+        project_name="project-a",
+        unit_id="E1U01",
+        source_digit="5",
+    )
+    active_ticket = await _persist_approve(
+        db_factory,
+        project_name="project-b",
+        unit_id="E2U01",
+        source_digit="6",
+    )
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        await queue.enqueue_approved_ticket(
+            project_name="project-a",
+            ticket_id=paused_ticket.ticket_id,
+        )
+        await queue.enqueue_approved_ticket(
+            project_name="project-b",
+            ticket_id=active_ticket.ticket_id,
+        )
+        control = await queue.set_project_paused(project_name="project-a", paused=True)
+        assert control.paused is True
+
+    async with db_factory() as session:
+        claim = await H3RepairQueueService(session).claim_next()
+        assert claim is not None
+        assert claim.project_name == "project-b"
+        assert claim.ticket_id == active_ticket.ticket_id
+
+        paused = await H3RepairTicketStore(session).load(
+            project_name="project-a",
+            ticket_id=paused_ticket.ticket_id,
+        )
+        assert paused is not None
+        assert paused.lifecycle_state is H3RepairTicketLifecycleState.QUEUED
+        paused_task = await session.get(Task, paused.execution_task_id)
+        assert paused_task is not None
+        assert paused_task.status == "queued"
+
+
+async def test_project_running_cap_blocks_second_claim_until_capacity_is_released(db_factory) -> None:
+    first_ticket = await _persist_approve(
+        db_factory,
+        project_name="project-cap",
+        unit_id="E3U01",
+        source_digit="7",
+    )
+    second_ticket = await _persist_approve(
+        db_factory,
+        project_name="project-cap",
+        unit_id="E3U02",
+        source_digit="8",
+    )
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        await queue.enqueue_approved_ticket(
+            project_name="project-cap",
+            ticket_id=first_ticket.ticket_id,
+        )
+        await queue.enqueue_approved_ticket(
+            project_name="project-cap",
+            ticket_id=second_ticket.ticket_id,
+        )
+        control = await queue.configure_project_running_cap(
+            project_name="project-cap",
+            max_running_tasks=1,
+        )
+        assert control.max_running_tasks == 1
+
+    async with db_factory() as session:
+        first_claim = await H3RepairQueueService(session).claim_next()
+        assert first_claim is not None
+        assert first_claim.project_name == "project-cap"
+
+    async with db_factory() as session:
+        blocked = await H3RepairQueueService(session).claim_next()
+        assert blocked is None
+
+        tickets = await H3RepairTicketStore(session).list_for_project(
+            project_name="project-cap",
+            limit=10,
+        )
+        states = {ticket.ticket.ticket_id: ticket.lifecycle_state for ticket in tickets}
+        queued_ids = [
+            ticket_id
+            for ticket_id, state in states.items()
+            if state is H3RepairTicketLifecycleState.QUEUED
+        ]
+        assert len(queued_ids) == 1
+
+    async with db_factory() as session:
+        first = await H3RepairTicketStore(session).load(
+            project_name="project-cap",
+            ticket_id=first_claim.ticket_id,
+        )
+        assert first is not None
+        task = await session.get(Task, first.execution_task_id)
+        assert task is not None
+        task.status = "succeeded"
+        for state in (
+            H3RepairTicketLifecycleState.PROVIDER_COMPLETED,
+            H3RepairTicketLifecycleState.REASSEMBLING,
+            H3RepairTicketLifecycleState.REQA_RUNNING,
+            H3RepairTicketLifecycleState.ACCEPTED,
+        ):
+            await H3RepairTicketStore(session).transition(
+                project_name="project-cap",
+                ticket_id=first_claim.ticket_id,
+                target=state,
+                reason="release project capacity in test",
+            )
+        await session.commit()
+
+    async with db_factory() as session:
+        second_claim = await H3RepairQueueService(session).claim_next()
+        assert second_claim is not None
+        assert second_claim.project_name == "project-cap"
+        assert second_claim.ticket_id != first_claim.ticket_id
+
+
+async def test_project_control_defaults_to_unpaused_and_unlimited(db_factory) -> None:
+    ticket = await _persist_approve(
+        db_factory,
+        project_name="project-default",
+        unit_id="E4U01",
+        source_digit="9",
+    )
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        assert await queue.get_project_control(project_name="project-default") is None
+        await queue.enqueue_approved_ticket(
+            project_name="project-default",
+            ticket_id=ticket.ticket_id,
+        )
+        claim = await queue.claim_next()
+        assert claim is not None
+        assert claim.project_name == "project-default"
+
+
+async def test_project_running_cap_rejects_zero(db_factory) -> None:
+    async with db_factory() as session:
+        with pytest.raises(ValueError, match="must be >= 1 or null"):
+            await H3RepairQueueService(session).configure_project_running_cap(
+                project_name="project-cap",
+                max_running_tasks=0,
+            )
+
+
+async def test_project_fairness_prefers_project_with_fewer_running_repairs(db_factory) -> None:
+    a1 = await _persist_approve(
+        db_factory,
+        project_name="project-a",
+        unit_id="E5U01",
+        source_digit="a",
+    )
+    a2 = await _persist_approve(
+        db_factory,
+        project_name="project-a",
+        unit_id="E5U02",
+        source_digit="b",
+    )
+    b1 = await _persist_approve(
+        db_factory,
+        project_name="project-b",
+        unit_id="E6U01",
+        source_digit="c",
+    )
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        await queue.enqueue_approved_ticket(project_name="project-a", ticket_id=a1.ticket_id)
+        await queue.enqueue_approved_ticket(project_name="project-a", ticket_id=a2.ticket_id)
+        await queue.enqueue_approved_ticket(project_name="project-b", ticket_id=b1.ticket_id)
+
+    async with db_factory() as session:
+        first = await H3RepairQueueService(session).claim_next()
+        assert first is not None
+        assert first.project_name == "project-a"
+
+    async with db_factory() as session:
+        second = await H3RepairQueueService(session).claim_next()
+        assert second is not None
+        assert second.project_name == "project-b"
+
+
+async def test_project_pause_resume_and_cap_survive_new_sessions(db_factory) -> None:
+    ticket = await _persist_approve(
+        db_factory,
+        project_name="project-persisted-control",
+        unit_id="E7U01",
+        source_digit="d",
+    )
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        await queue.enqueue_approved_ticket(
+            project_name="project-persisted-control",
+            ticket_id=ticket.ticket_id,
+        )
+        await queue.configure_project_running_cap(
+            project_name="project-persisted-control",
+            max_running_tasks=1,
+        )
+        await queue.set_project_paused(
+            project_name="project-persisted-control",
+            paused=True,
+        )
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        control = await queue.get_project_control(project_name="project-persisted-control")
+        assert control is not None
+        assert control.paused is True
+        assert control.max_running_tasks == 1
+        assert await queue.claim_next() is None
+
+    async with db_factory() as session:
+        queue = H3RepairQueueService(session)
+        resumed = await queue.set_project_paused(
+            project_name="project-persisted-control",
+            paused=False,
+        )
+        assert resumed.paused is False
+
+    async with db_factory() as session:
+        claim = await H3RepairQueueService(session).claim_next()
+        assert claim is not None
+        assert claim.project_name == "project-persisted-control"

@@ -26,12 +26,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from lib.db.base import DEFAULT_USER_ID, utc_now
-from lib.db.models.h3_repair_ticket import H3RepairProjectBudget, H3RepairTicketRecord
+from lib.db.models.h3_repair_ticket import H3RepairProjectBudget, H3RepairProjectControl, H3RepairTicketRecord
 from lib.db.models.task import Task
 from lib.db.repositories.base import rowcount
 from lib.reference_video.h3_repair_approval_service import (
@@ -460,6 +461,55 @@ class H3RepairQueueService:
         self.store = H3RepairTicketStore(session)
         self.approvals = H3RepairApprovalService(session)
 
+    async def get_project_control(self, *, project_name: str) -> H3RepairProjectControl | None:
+        project_name = project_name.strip()
+        if not project_name:
+            raise ValueError("project_name is required")
+        return await self.session.get(H3RepairProjectControl, project_name)
+
+    async def set_project_paused(self, *, project_name: str, paused: bool) -> H3RepairProjectControl:
+        project_name = project_name.strip()
+        if not project_name:
+            raise ValueError("project_name is required")
+        row = await self.session.get(H3RepairProjectControl, project_name)
+        if row is None:
+            row = H3RepairProjectControl(
+                project_name=project_name,
+                paused=paused,
+                max_running_tasks=None,
+            )
+            self.session.add(row)
+        else:
+            row.paused = paused
+        await self.session.commit()
+        await self.session.refresh(row)
+        return row
+
+    async def configure_project_running_cap(
+        self,
+        *,
+        project_name: str,
+        max_running_tasks: int | None,
+    ) -> H3RepairProjectControl:
+        project_name = project_name.strip()
+        if not project_name:
+            raise ValueError("project_name is required")
+        if max_running_tasks is not None and max_running_tasks < 1:
+            raise ValueError("project repair running-task cap must be >= 1 or null")
+        row = await self.session.get(H3RepairProjectControl, project_name)
+        if row is None:
+            row = H3RepairProjectControl(
+                project_name=project_name,
+                paused=False,
+                max_running_tasks=max_running_tasks,
+            )
+            self.session.add(row)
+        else:
+            row.max_running_tasks = max_running_tasks
+        await self.session.commit()
+        await self.session.refresh(row)
+        return row
+
     async def configure_project_call_ceiling(self, *, project_name: str, ceiling: int) -> H3RepairProjectBudget:
         project_name = project_name.strip()
         if not project_name:
@@ -643,6 +693,31 @@ class H3RepairQueueService:
         the ticket claim back.
         """
 
+        running_task = aliased(Task)
+        paused = (
+            select(H3RepairProjectControl.paused)
+            .where(H3RepairProjectControl.project_name == H3RepairTicketRecord.project_name)
+            .correlate(H3RepairTicketRecord)
+            .scalar_subquery()
+        )
+        max_running = (
+            select(H3RepairProjectControl.max_running_tasks)
+            .where(H3RepairProjectControl.project_name == H3RepairTicketRecord.project_name)
+            .correlate(H3RepairTicketRecord)
+            .scalar_subquery()
+        )
+        running_count = (
+            select(func.count())
+            .select_from(running_task)
+            .where(
+                running_task.project_name == H3RepairTicketRecord.project_name,
+                running_task.task_type == H3_REPAIR_TASK_TYPE,
+                running_task.status == "running",
+            )
+            .correlate(H3RepairTicketRecord)
+            .scalar_subquery()
+        )
+
         candidate_task_id = (
             select(Task.task_id)
             .join(
@@ -654,8 +729,10 @@ class H3RepairQueueService:
                 Task.media_type == H3_REPAIR_MEDIA_TYPE,
                 Task.status == "queued",
                 H3RepairTicketRecord.lifecycle_state == H3RepairTicketLifecycleState.QUEUED.value,
+                or_(paused.is_(None), paused.is_(False)),
+                or_(max_running.is_(None), running_count < max_running),
             )
-            .order_by(Task.queued_at, Task.task_id)
+            .order_by(running_count, Task.queued_at, Task.task_id)
             .limit(1)
             .scalar_subquery()
         )

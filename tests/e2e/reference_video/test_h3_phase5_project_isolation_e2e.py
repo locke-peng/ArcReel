@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from lib.db.models.task import Task
+from lib.db.models.user import User
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
 from lib.reference_video.h3_repair_approval_service import H3RepairApprovalFacts, H3RepairApprovalService
@@ -80,6 +81,14 @@ async def test_phase5_project_isolation_e2e(session_factory) -> None:
     facts = _facts(ticket)
 
     async with session_factory() as session:
+        session.add_all(
+            (
+                User(id="operator:a", username="operator:a"),
+                User(id="operator:b", username="operator:b"),
+            )
+        )
+        await session.commit()
+
         store = H3RepairTicketStore(session)
         first = await store.persist(project_name=_PROJECT_A, ticket=ticket)
         second = await store.persist(project_name=_PROJECT_B, ticket=ticket)

@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    false,
     Index,
     Integer,
     String,
@@ -100,3 +101,30 @@ class H3RepairProjectBudget(TimestampMixin, Base):
         default=0,
         server_default=text("0"),
     )
+
+
+
+class H3RepairProjectControl(TimestampMixin, Base):
+    """Optional Phase 6 project-level repair admission controls.
+
+    Absence of a row means admission is enabled and no project-specific running-task
+    ceiling is applied. This table coordinates the existing Phase 5 queue; it is not a
+    second queue or execution state machine.
+    """
+
+    __tablename__ = "h3_repair_project_control"
+    __table_args__ = (
+        CheckConstraint(
+            "max_running_tasks IS NULL OR max_running_tasks >= 1",
+            name="ck_h3_repair_project_control_max_running_positive",
+        ),
+    )
+
+    project_name: Mapped[str] = mapped_column(String(200), primary_key=True)
+    paused: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=false(),
+    )
+    max_running_tasks: Mapped[int | None] = mapped_column(Integer)

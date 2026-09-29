@@ -91,6 +91,12 @@ import type {
   NarrationScriptPlanDraft,
   ReferenceScriptPlanDraft,
   VideoCapabilities,
+  H3RepairBatchAction,
+  H3StudioBatchExecution,
+  H3StudioBatchPreview,
+  H3StudioControl,
+  H3StudioRepairTicketView,
+  H3StudioSummary,
 } from "@/types";
 import type { GenerationRoute } from "@/utils/generation-mode";
 import type { GridCapability, GridGeneration } from "@/types/grid";
@@ -3334,6 +3340,70 @@ class API {
     return this.request(`/projects/${encodeURIComponent(projectName)}/cost-estimate${suffix}`, {
       signal: options.signal,
     });
+  }
+
+  // ==================== H3 Studio Control API ====================
+
+  static async getH3StudioSummary(projectName: string): Promise<H3StudioSummary> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/summary`,
+    );
+  }
+
+  static async getH3StudioControl(projectName: string): Promise<H3StudioControl> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/control`,
+    );
+  }
+
+  static async setH3StudioPaused(projectName: string, paused: boolean): Promise<H3StudioControl> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/control/pause`,
+      { method: "PUT", body: JSON.stringify({ paused }) },
+    );
+  }
+
+  static async setH3StudioRunningCap(
+    projectName: string,
+    maxRunningTasks: number | null,
+  ): Promise<H3StudioControl> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/control/running-cap`,
+      { method: "PUT", body: JSON.stringify({ max_running_tasks: maxRunningTasks }) },
+    );
+  }
+
+  static async previewH3StudioBatch(
+    projectName: string,
+    action: H3RepairBatchAction,
+    ticketIds: string[],
+    reason?: string,
+  ): Promise<H3StudioBatchPreview> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/batch/preview`,
+      { method: "POST", body: JSON.stringify({ action, ticket_ids: ticketIds, reason }) },
+    );
+  }
+
+  static async executeH3StudioBatch(
+    projectName: string,
+    action: H3RepairBatchAction,
+    ticketIds: string[],
+    reason?: string,
+  ): Promise<H3StudioBatchExecution> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/batch/execute`,
+      { method: "POST", body: JSON.stringify({ action, ticket_ids: ticketIds, reason }) },
+    );
+  }
+
+  static async getH3StudioEvidence(
+    projectName: string,
+    ticketId: string,
+  ): Promise<H3StudioRepairTicketView> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/reference-videos/studio/evidence/${encodeURIComponent(ticketId)}`,
+    );
   }
 
   // ==================== Grid 图生视频 API ====================

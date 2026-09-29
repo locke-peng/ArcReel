@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   ShoppingBag,
+  Wrench,
 } from "lucide-react";
 import { useProjectsStore } from "@/stores/projects-store";
 import { useCostStore } from "@/stores/cost-store";
@@ -21,6 +22,7 @@ import { API } from "@/api";
 import { useDemoWorkbench } from "@/onboarding/use-demo-workbench";
 import { isDemoProject } from "@/onboarding/demo-project";
 import { normalizeRoute } from "@/utils/generation-mode";
+import { WORKSPACE_ROUTE_STUDIO_CONTROL } from "@/app-routes";
 import { EpisodeCard } from "./EpisodeCard";
 
 interface AssetSidebarProps {
@@ -125,6 +127,16 @@ export function AssetSidebar({ className }: AssetSidebarProps) {
       icon: Package,
       meta: propCount,
     },
+    ...(demoMode
+      ? []
+      : [
+          {
+            key: "studio-control",
+            path: `/${WORKSPACE_ROUTE_STUDIO_CONTROL}`,
+            label: t("dashboard:h3_studio_nav"),
+            icon: Wrench,
+          },
+        ]),
     // 商品资产仅广告/短片项目使用（v1 单商品设定），其余模式隐藏入口
     ...(isAd
       ? [

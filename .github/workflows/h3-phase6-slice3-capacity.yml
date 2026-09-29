@@ -1,0 +1,46 @@
+name: H3 Phase 6 Slice 3 Capacity Control
+
+on:
+  pull_request:
+    paths:
+      - "lib/db/models/h3_repair_ticket.py"
+      - "lib/db/models/__init__.py"
+      - "lib/reference_video/h3_repair_queue.py"
+      - "alembic/versions/c6e2a91f4b70_add_h3_repair_project_control.py"
+      - "tests/integration/lib/reference_video/test_h3_repair_queue.py"
+      - ".github/workflows/h3-phase6-slice3-capacity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capacity-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Verify Alembic single head
+        run: |
+          test "$(uv run alembic heads | wc -l)" -eq 1
+          uv run alembic heads
+
+      - name: Run Phase 6 Slice 3 capacity tests
+        run: |
+          uv run pytest -q tests/integration/lib/reference_video/test_h3_repair_queue.py
