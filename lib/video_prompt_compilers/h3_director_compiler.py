@@ -47,6 +47,9 @@ _LEGACY_MENTION_RE = re.compile(r"@\[(?P<name>[^\]\r\n]+)\]")
 _H3_SECTION_RE = re.compile(
     r"(?m)^(subject_definitions|summary|retention_analysis|detailed_description|overall_soundscape|non_diegetic_music):\s*$"
 )
+_T2VA_SECTION_RE = re.compile(
+    r"(?m)^(integrated_multimodal_description|overall_soundscape|non_diegetic_music):\s*$"
+)
 
 
 def _legacy_inline_body(text: str) -> str:
@@ -85,32 +88,19 @@ def compile_h3_text_t2va_prompt(
             f"H3 prompt duration must be {H3_MIN_DURATION_SECONDS}-{H3_MAX_DURATION_SECONDS}s; got {duration}s"
         )
     required = {
-        "subject_definitions",
-        "summary",
-        "retention_analysis",
-        "detailed_description",
+        "integrated_multimodal_description",
         "overall_soundscape",
         "non_diegetic_music",
     }
-    found = {m.group(1) for m in _H3_SECTION_RE.finditer(source_prompt)}
-    if required.issubset(found):
+    found = {m.group(1) for m in _T2VA_SECTION_RE.finditer(source_prompt)}
+    if required.issubset(found) and not _H3_SECTION_RE.search(source_prompt):
         prompt = source_prompt.strip()
     else:
         body = _legacy_inline_body(source_prompt)
         detailed = body if re.search(r"(?m)^\[Shot\s+\d+\]", body) else f"[Shot 1] {body}"
         prompt = "\n".join(
             [
-                "subject_definitions:",
-                "T2VA mode: no provider reference image is attached; do not invent Picture/Subject bindings.",
-                "",
-                "summary:",
-                f"[T2VA] Create one continuous {duration}-second target video and follow the authored shot timing, "
-                "actions, camera instructions, performance, and dialogue exactly.",
-                "",
-                "retention_analysis:",
-                "T2VA: no visual reference retention requirement.",
-                "",
-                "detailed_description:",
+                "integrated_multimodal_description:",
                 detailed,
                 "",
                 "overall_soundscape:",
@@ -357,7 +347,7 @@ def _dialogue_groups(unit: Mapping[str, Any]) -> tuple[dict[str, str], set[tuple
 
 
 def _speaker_map(unit: Mapping[str, Any]) -> dict[str, str]:
-    order = [str(x) for x in _list(unit.get("speaker_semantic_order")) if str(x)]
+    order: list[str] = []
     for shot in _list(unit.get("shots")):
         if not isinstance(shot, Mapping):
             continue
@@ -367,6 +357,10 @@ def _speaker_map(unit: Mapping[str, Any]) -> dict[str, str]:
             sid = str(item.get("speaker_id") or "")
             if sid and sid not in order:
                 order.append(sid)
+    for value in _list(unit.get("speaker_semantic_order")):
+        sid = str(value)
+        if sid and sid not in order:
+            order.append(sid)
     return {entity_id: f"S{i}" for i, entity_id in enumerate(order, start=1)}
 
 
@@ -413,6 +407,53 @@ def _subject_for_entity(
         ):
             return ref.subject
     return None
+
+
+def _reference_tokens(
+    ref: DirectorReference,
+    registries: Mapping[str, Any],
+) -> set[str]:
+    tokens = {
+        ref.source_name.casefold(),
+        ref.label.casefold(),
+        ref.source_name.casefold().split("/", 1)[0],
+        ref.label.casefold().split("/", 1)[0],
+    }
+    for registry_name in ("characters", "scenes"):
+        registry = _mapping(registries.get(registry_name))
+        for entity_id, raw_entry in registry.items():
+            entry = _mapping(raw_entry)
+            name = str(entry.get("name") or entity_id).strip()
+            normalized = {str(entity_id).casefold(), name.casefold()}
+            if tokens & normalized:
+                tokens.update(normalized)
+    return {token for token in tokens if token}
+
+
+def _value_contains_reference(value: object, tokens: set[str]) -> bool:
+    if isinstance(value, str):
+        normalized = value.casefold()
+        return any(token == normalized or token in normalized for token in tokens)
+    if isinstance(value, Mapping):
+        return any(_value_contains_reference(item, tokens) for item in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return any(_value_contains_reference(item, tokens) for item in value)
+    return False
+
+
+def _validate_reference_targets(
+    unit: Mapping[str, Any],
+    registries: Mapping[str, Any],
+    references: Sequence[DirectorReference],
+) -> None:
+    for ref in references:
+        if ref.kind not in {"character", "scene", "object", "prop", "product"}:
+            continue
+        tokens = _reference_tokens(ref, registries)
+        if not _value_contains_reference(unit, tokens):
+            raise H3DirectorCompileError(
+                f"provider reference {ref.source_name!r} is not bound to any target shot or unit fact"
+            )
 
 
 def _subject_definitions(
@@ -651,6 +692,8 @@ def compile_h3_director_prompt(
         kinds=reference_kinds,
     )
     mode: GenerationMode = "ref2va" if refs else "t2va"
+    if refs:
+        _validate_reference_targets(unit, registries, refs)
 
     subject_definitions = _subject_definitions(unit, registries, refs)
     active = _entity_names(_list(unit.get("active_subject_ids")), registries)
@@ -694,27 +737,54 @@ def compile_h3_director_prompt(
         or "N/A"
     ).strip() or "N/A"
 
-    prompt = "\n".join(
-        [
-            "subject_definitions:",
-            subject_definitions,
-            "",
-            "summary:",
-            summary,
-            "",
-            "retention_analysis:",
-            retention,
-            "",
-            "detailed_description:",
-            "\n".join(detailed),
-            "",
-            "overall_soundscape:",
-            ambience,
-            "",
-            "non_diegetic_music:",
-            music,
-        ]
-    ).strip()
+    if mode == "t2va":
+        integrated = [summary]
+        integrated.extend(_role_constraints(unit, registries))
+        if retention != "T2VA: no visual reference retention requirement.":
+            integrated.append(retention)
+        if audio_track is not None:
+            integrated.append(
+                "ArcReel post-production owns the full-unit Canonical soundtrack; "
+                f"contract_sha256={audio_track.contract_sha256}. "
+                "Provider audio is non-authoritative and will be replaced deterministically. "
+                "Do not convert or visualize any spoken soundtrack content as subtitles, "
+                "captions, labels, or readable text."
+            )
+        integrated.extend(_shot_lines(unit=unit, registries=registries, references=refs))
+        prompt = "\n".join(
+            [
+                "integrated_multimodal_description:",
+                "\n".join(integrated),
+                "",
+                "overall_soundscape:",
+                ambience,
+                "",
+                "non_diegetic_music:",
+                music,
+            ]
+        ).strip()
+    else:
+        prompt = "\n".join(
+            [
+                "subject_definitions:",
+                subject_definitions,
+                "",
+                "summary:",
+                summary,
+                "",
+                "retention_analysis:",
+                retention,
+                "",
+                "detailed_description:",
+                "\n".join(detailed),
+                "",
+                "overall_soundscape:",
+                ambience,
+                "",
+                "non_diegetic_music:",
+                music,
+            ]
+        ).strip()
     if len(prompt) > int(max_prompt_chars):
         raise H3DirectorCompileError(
             f"compiled H3 prompt is {len(prompt)} characters; limit is {max_prompt_chars}"
