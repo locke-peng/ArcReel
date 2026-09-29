@@ -12,6 +12,8 @@ from lib.video_prompt_compilers.h3_director_compiler import compile_h3_text_t2va
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     H3PromptCompileError,
     compile_h3_ref2va_prompt,
+    validate_h3_native_ref2va_structure,
+    validate_h3_native_t2va_structure,
 )
 
 
@@ -196,4 +198,72 @@ def test_freeform_t2va_uses_official_three_field_native_shape() -> None:
     assert prompt.count("non_diegetic_music:") == 1
     assert "[Shot 1] At " not in prompt
     assert "[Shot 2] At 00:04.000" in prompt
+
+def test_multiple_pictures_can_define_one_logical_subject() -> None:
+    prompt = compile_h3_ref2va_prompt(
+        source_prompt=(
+            "[Shot 1] A close shot shows @[Woman] turning from front view "
+            "toward profile."
+        ),
+        duration_seconds=5,
+        reference_count=2,
+        reference_source_names=["Woman", "Woman"],
+        reference_image_labels=["front-view", "profile-view"],
+        options={"reference_kinds": {"Woman": "character"}},
+    )
+
+    assert "<Subject 1> is the character defined by <Picture 1> and <Picture 2>" in prompt
+    assert "<Subject 2>" not in prompt
+    assert validate_h3_native_ref2va_structure(
+        prompt,
+        duration_seconds=5,
+        reference_count=2,
+    ) == prompt
+
+
+def test_native_ref2va_structure_rejects_defined_but_unused_subject() -> None:
+    prompt = """subject_definitions:
+<Subject 1> is the character defined by <Picture 1>, corresponding to Hero.
+
+summary:
+[reference generation] Create one five-second target video.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - preserve identity.
+
+detailed_description:
+[Shot 1] A medium shot shows an empty room.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    with pytest.raises(
+        H3PromptCompileError,
+        match="defined but never applied",
+    ):
+        validate_h3_native_ref2va_structure(
+            prompt,
+            duration_seconds=5,
+            reference_count=1,
+        )
+
+
+def test_native_t2va_structure_rejects_full_reference_labels() -> None:
+    prompt = """integrated_multimodal_description:
+[Shot 1] <Subject 1> waits by the window.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    with pytest.raises(H3PromptCompileError, match="full-reference labels"):
+        validate_h3_native_t2va_structure(
+            prompt,
+            duration_seconds=5,
+        )
 
