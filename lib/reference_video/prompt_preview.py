@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from lib.reference_video.h3_prompt_execution import (
     ProviderPromptCompilation,
     provider_prompt_sha256,
 )
+
+
+def _subject_label_for_picture(prompt: str, index: int) -> str:
+    picture = f"<Picture {index}>"
+    for line in prompt.splitlines():
+        if picture not in line:
+            continue
+        match = re.search(r"<Subject\s+(\d+)>", line)
+        if match is not None:
+            return f"<Subject {match.group(1)}>"
+    return f"<Subject {index}>"
 
 
 def build_reference_prompt_preview_payload(
@@ -29,7 +41,7 @@ def build_reference_prompt_preview_payload(
             {
                 "index": index,
                 "picture": f"<Picture {index}>",
-                "subject": f"<Subject {index}>",
+                "subject": _subject_label_for_picture(prompt, index),
                 "label": label,
                 "source_name": source_name,
             }

@@ -284,3 +284,20 @@ N/A"""
         duration_seconds=8,
     ) == native
 
+def test_preview_mapping_tracks_multi_picture_logical_subject() -> None:
+    compilation = compile_reference_video_provider_prompt(
+        source_prompt="[Shot 1] A close shot shows @[Woman] turning toward profile.",
+        fallback_prompt="legacy",
+        model_name="MiniMax-H3",
+        duration_seconds=5,
+        request_assets=[
+            Entry(Ref("character", "Woman")),
+            Entry(Ref("character", "Woman")),
+        ],
+        payload={"reference_image_labels": ["front-view", "profile-view"]},
+    )
+    preview = build_reference_prompt_preview_payload(compilation)
+
+    assert preview["reference_mapping"][0]["subject"] == "<Subject 1>"
+    assert preview["reference_mapping"][1]["subject"] == "<Subject 1>"
+
