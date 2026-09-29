@@ -8,6 +8,7 @@ from lib.reference_video.prompt_compiler_options import (
     resolve_reference_image_labels,
 )
 from lib.reference_video.prompt_preview import build_reference_prompt_preview_payload
+from lib.video_prompt_compilers.h3_director_compiler import compile_h3_text_t2va_prompt
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     H3PromptCompileError,
     compile_h3_ref2va_prompt,
@@ -172,4 +173,27 @@ def test_docpack_contract_accepts_15_second_upper_bound_with_stable_labels() -> 
     assert "<Subject 1>" in result
     assert "<Subject 2>" in result
     assert "[Shot 1]" in result
+
+def test_freeform_t2va_uses_official_three_field_native_shape() -> None:
+    prompt = compile_h3_text_t2va_prompt(
+        source_prompt=(
+            "[Shot 1] A medium shot shows the character waiting by the window.\n"
+            "[Shot 2] At 00:04.000\n"
+            "The character turns toward the doorway."
+        ),
+        duration_seconds=8,
+        overall_soundscape="Quiet room tone.",
+        non_diegetic_music="N/A",
+    )
+
+    assert prompt.startswith("integrated_multimodal_description:")
+    assert "subject_definitions:" not in prompt
+    assert "summary:" not in prompt
+    assert "retention_analysis:" not in prompt
+    assert "detailed_description:" not in prompt
+    assert prompt.count("integrated_multimodal_description:") == 1
+    assert prompt.count("overall_soundscape:") == 1
+    assert prompt.count("non_diegetic_music:") == 1
+    assert "[Shot 1] At " not in prompt
+    assert "[Shot 2] At 00:04.000" in prompt
 
