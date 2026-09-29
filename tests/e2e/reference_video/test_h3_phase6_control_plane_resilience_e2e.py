@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from lib.db.models.task import Task
+from lib.db.models.user import User
 from lib.project_manager import ProjectManager
 from lib.reference_video.h3_auto_repair_loop import plan_h3_auto_repair
 from lib.reference_video.h3_production_policy import H3FailureClass
@@ -142,6 +143,10 @@ async def test_phase6_control_plane_resilience_and_evidence_e2e(
     _write_project(projects, _MAIN, ("E12U06", "E13U03", "E4U02", "E11U02"))
     _write_project(projects, _OTHER, ("E13U01", "E15U03"))
     manager = ProjectManager(projects)
+
+    async with session_factory() as session:
+        session.add(User(id="slice7:e2e", username="slice7:e2e"))
+        await session.commit()
 
     tickets = {
         "stale": _ticket("E12U06", "1"),
