@@ -144,8 +144,24 @@ export function H3StudioDashboard({ projectName }: H3StudioDashboardProps) {
   };
 
   useEffect(() => {
-    void refresh();
-  }, [projectName]);
+    let active = true;
+    void API.getH3StudioSummary(projectName)
+      .then((next) => {
+        if (!active) return;
+        setSummary(next);
+        setCapDraft(next.control.max_running_tasks == null ? "" : String(next.control.max_running_tasks));
+      })
+      .catch((err) => {
+        if (!active) return;
+        useAppStore.getState().pushToast(t("h3_studio_load_failed", { message: errMsg(err) }), "error");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectName, t]);
 
   const costText = useMemo(() => {
     if (!summary) return "—";

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from lib.api_errors import BadRequestError, ConflictError, NotFoundError
 from lib.reference_video.h3_repair_batch import H3RepairBatchAction
 from server.auth import CurrentUser
+from server.services.h3_studio_evidence import get_h3_studio_evidence_bundle
 from server.services.h3_studio_operator import (
     execute_h3_studio_batch,
     get_h3_studio_control,
@@ -113,6 +114,16 @@ async def execute_studio_batch(project_name: str, body: H3StudioBatchRequest, us
         raise _not_found(project_name) from exc
     except ValueError as exc:
         raise BadRequestError("h3_repair_bad_request") from exc
+    except RuntimeError as exc:
+        raise ConflictError("h3_repair_state_conflict") from exc
+
+
+@router.get("/evidence-bundle")
+async def get_studio_evidence_bundle(project_name: str):
+    try:
+        return await get_h3_studio_evidence_bundle(project_name=project_name)
+    except FileNotFoundError as exc:
+        raise _not_found(project_name) from exc
     except RuntimeError as exc:
         raise ConflictError("h3_repair_state_conflict") from exc
 

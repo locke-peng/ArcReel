@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict
-from typing import Any, Iterable
+from typing import Any
 
 from lib.db import safe_session_factory
 from lib.reference_video.h3_repair_batch import H3RepairBatchAction, build_h3_repair_batch_preview

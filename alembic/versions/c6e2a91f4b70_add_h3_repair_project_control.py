@@ -20,7 +20,7 @@ def upgrade() -> None:
     op.create_table(
         "h3_repair_project_control",
         sa.Column("project_name", sa.String(length=200), nullable=False),
-        sa.Column("paused", sa.Boolean(), server_default=sa.text("0"), nullable=False),
+        sa.Column("paused", sa.Boolean(), server_default=sa.false(), nullable=False),
         sa.Column("max_running_tasks", sa.Integer(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),

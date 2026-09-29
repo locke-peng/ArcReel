@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    false,
     Index,
     Integer,
     String,
@@ -124,6 +125,6 @@ class H3RepairProjectControl(TimestampMixin, Base):
         Boolean,
         nullable=False,
         default=False,
-        server_default=text("0"),
+        server_default=false(),
     )
     max_running_tasks: Mapped[int | None] = mapped_column(Integer)

@@ -183,3 +183,29 @@ def test_studio_request_validation_rejects_invalid_batch_and_cap(
 
     assert empty_batch.status_code == 422
     assert zero_cap.status_code == 422
+
+
+def test_project_evidence_bundle_route_delegates_sanitized_export(
+    studio_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence_mock = AsyncMock(
+        return_value={
+            "schema_version": 1,
+            "kind": "h3_phase6_project_evidence",
+            "project_name": "demo",
+            "tested_sha": "a" * 40,
+            "tickets": [],
+            "bundle_sha256": "b" * 64,
+        }
+    )
+    monkeypatch.setattr(h3_studio, "get_h3_studio_evidence_bundle", evidence_mock)
+
+    response = studio_client.get(
+        "/api/v1/projects/demo/reference-videos/studio/evidence-bundle"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["kind"] == "h3_phase6_project_evidence"
+    assert response.json()["bundle_sha256"] == "b" * 64
+    evidence_mock.assert_awaited_once_with(project_name="demo")

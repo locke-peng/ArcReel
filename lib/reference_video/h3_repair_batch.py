@@ -6,10 +6,9 @@ module does not create approvals, queue identities, repair policy, or provider c
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Iterable
-
 from lib.reference_video.h3_repair_ticket_store import (
     H3RepairTicketLifecycleState,
     PersistedH3RepairTicket,

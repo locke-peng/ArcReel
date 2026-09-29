@@ -8,10 +8,9 @@ Tickets. It owns no repair policy and persists no shadow lifecycle state.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Iterable, Mapping, Sequence
-
 from lib.reference_video.h3_repair_ticket_store import (
     H3RepairTicketLifecycleState,
     PersistedH3RepairTicket,

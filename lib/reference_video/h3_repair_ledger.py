@@ -6,9 +6,8 @@ identity, and authoritative api_calls settlements. It never invents provider cos
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Mapping, Sequence
-
 from lib.reference_video.h3_repair_ticket_store import PersistedH3RepairTicket
 
 

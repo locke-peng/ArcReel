@@ -6,8 +6,9 @@ queue, or provider submission boundary.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Iterable
+from typing import Any
 
 from lib.reference_video.h3_repair_batch import H3RepairBatchAction
 from server.services.h3_repair_operator import (
