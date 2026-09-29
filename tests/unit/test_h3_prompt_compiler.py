@@ -8,9 +8,12 @@ from lib.reference_video.prompt_compiler_options import (
     resolve_reference_image_labels,
 )
 from lib.reference_video.prompt_preview import build_reference_prompt_preview_payload
+from lib.video_prompt_compilers.h3_director_compiler import compile_h3_text_t2va_prompt
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     H3PromptCompileError,
     compile_h3_ref2va_prompt,
+    validate_h3_native_ref2va_structure,
+    validate_h3_native_t2va_structure,
 )
 
 
@@ -172,4 +175,129 @@ def test_docpack_contract_accepts_15_second_upper_bound_with_stable_labels() -> 
     assert "<Subject 1>" in result
     assert "<Subject 2>" in result
     assert "[Shot 1]" in result
+
+def test_freeform_t2va_uses_official_three_field_native_shape() -> None:
+    prompt = compile_h3_text_t2va_prompt(
+        source_prompt=(
+            "[Shot 1] A medium shot shows the character waiting by the window.\n"
+            "[Shot 2] At 00:04.000\n"
+            "The character turns toward the doorway."
+        ),
+        duration_seconds=8,
+        overall_soundscape="Quiet room tone.",
+        non_diegetic_music="N/A",
+    )
+
+    assert prompt.startswith("integrated_multimodal_description:")
+    assert "subject_definitions:" not in prompt
+    assert "summary:" not in prompt
+    assert "retention_analysis:" not in prompt
+    assert "detailed_description:" not in prompt
+    assert prompt.count("integrated_multimodal_description:") == 1
+    assert prompt.count("overall_soundscape:") == 1
+    assert prompt.count("non_diegetic_music:") == 1
+    assert "[Shot 1] At " not in prompt
+    assert "[Shot 2] At 00:04.000" in prompt
+
+def test_multiple_pictures_can_define_one_logical_subject() -> None:
+    prompt = compile_h3_ref2va_prompt(
+        source_prompt=(
+            "[Shot 1] A close shot shows @[Woman] turning from front view "
+            "toward profile."
+        ),
+        duration_seconds=5,
+        reference_count=2,
+        reference_source_names=["Woman", "Woman"],
+        reference_image_labels=["front-view", "profile-view"],
+        options={"reference_kinds": {"Woman": "character"}},
+    )
+
+    assert "<Subject 1> is the character defined by <Picture 1> and <Picture 2>" in prompt
+    assert "<Subject 2>" not in prompt
+    assert validate_h3_native_ref2va_structure(
+        prompt,
+        duration_seconds=5,
+        reference_count=2,
+    ) == prompt
+
+
+def test_native_ref2va_structure_rejects_defined_but_unused_subject() -> None:
+    prompt = """subject_definitions:
+<Subject 1> is the character defined by <Picture 1>, corresponding to Hero.
+
+summary:
+[reference generation] Create one five-second target video.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - preserve identity.
+
+detailed_description:
+[Shot 1] A medium shot shows an empty room.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    with pytest.raises(
+        H3PromptCompileError,
+        match="defined but never applied",
+    ):
+        validate_h3_native_ref2va_structure(
+            prompt,
+            duration_seconds=5,
+            reference_count=1,
+        )
+
+
+def test_native_t2va_structure_rejects_full_reference_labels() -> None:
+    prompt = """integrated_multimodal_description:
+[Shot 1] <Subject 1> waits by the window.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    with pytest.raises(H3PromptCompileError, match="full-reference labels"):
+        validate_h3_native_t2va_structure(
+            prompt,
+            duration_seconds=5,
+        )
+
+def test_existing_native_t2va_prompt_is_idempotent() -> None:
+    native = """integrated_multimodal_description:
+[Shot 1] A medium shot shows the character waiting by the window.
+[Shot 2] At 00:04.000
+The character turns toward the doorway.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    assert compile_h3_text_t2va_prompt(
+        source_prompt=native,
+        duration_seconds=8,
+    ) == native
+
+def test_preview_mapping_tracks_multi_picture_logical_subject() -> None:
+    compilation = compile_reference_video_provider_prompt(
+        source_prompt="[Shot 1] A close shot shows @[Woman] turning toward profile.",
+        fallback_prompt="legacy",
+        model_name="MiniMax-H3",
+        duration_seconds=5,
+        request_assets=[
+            Entry(Ref("character", "Woman")),
+            Entry(Ref("character", "Woman")),
+        ],
+        payload={"reference_image_labels": ["front-view", "profile-view"]},
+    )
+    preview = build_reference_prompt_preview_payload(compilation)
+
+    assert preview["reference_mapping"][0]["subject"] == "<Subject 1>"
+    assert preview["reference_mapping"][1]["subject"] == "<Subject 1>"
 

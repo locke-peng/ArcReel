@@ -1,10 +1,12 @@
-
 from dataclasses import dataclass
 
 import pytest
 
 from lib.reference_video.h3_prompt_execution import compile_reference_video_provider_prompt
-from lib.video_prompt_compilers.h3_director_compiler import compile_h3_director_prompt
+from lib.video_prompt_compilers.h3_director_compiler import (
+    H3DirectorCompileError,
+    compile_h3_director_prompt,
+)
 from lib.video_prompt_compilers.h3_prompt_compiler import (
     H3PromptCompileError,
     compile_h3_ref2va_prompt,
@@ -408,4 +410,150 @@ def test_rich_canonical_director_fields_render_without_replacing_core_contract()
     assert "SFX: system confirmation tone" in prompt
     assert "Constraints: no readable text" in prompt
     assert "<Subject 1> (S1) says" in prompt
+    detailed = prompt.split("detailed_description:", 1)[1].split(
+        "overall_soundscape:",
+        1,
+    )[0]
+    assert "<Subject 1>" in detailed
+    assert "<Subject 2>" in detailed
+
+def test_canonical_t2va_uses_official_three_field_native_shape() -> None:
+    unit = {
+        "unit_id": "E01-U20",
+        "duration_sec": 8,
+        "scene_id": "SC-ROOM",
+        "continuity_level": "hard",
+        "active_subject_ids": ["CHAR-A"],
+        "depicted_subject_ids": [],
+        "referenced_entity_ids": [],
+        "speaker_semantic_order": ["CHAR-A"],
+        "shots": [
+            _shot(
+                "E01-U20-S01",
+                0,
+                4,
+                action="Character A raises their eyes toward the doorway.",
+                dialogue=[{"speaker_id": "CHAR-A", "text": "你好，"}],
+            ),
+            _shot(
+                "E01-U20-S02",
+                4,
+                8,
+                action="Character A turns slightly and continues speaking.",
+                dialogue=[{"speaker_id": "CHAR-A", "text": "继续说。"}],
+            ),
+        ],
+        "cross_shot_dialogue": [
+            {
+                "dialogue_group_id": "D1",
+                "speaker_id": "CHAR-A",
+                "shot_ids": ["E01-U20-S01", "E01-U20-S02"],
+                "continuous": True,
+            }
+        ],
+        "director_notes": {
+            "ambience": "Quiet indoor room tone.",
+            "music": "N/A",
+        },
+    }
+
+    prompt, mode = compile_h3_director_prompt(
+        canonical_director=_bundle(unit),
+        unit_id="E01-U20",
+        duration_seconds=8,
+    )
+
+    assert mode == "t2va"
+    assert prompt.startswith("integrated_multimodal_description:")
+    assert "subject_definitions:" not in prompt
+    assert "summary:" not in prompt
+    assert "retention_analysis:" not in prompt
+    assert "detailed_description:" not in prompt
+    assert prompt.count("integrated_multimodal_description:") == 1
+    assert prompt.count("overall_soundscape:") == 1
+    assert prompt.count("non_diegetic_music:") == 1
+    assert "[Shot 1] At " not in prompt
+    assert "[Shot 2] At 00:04.000" in prompt
+
+
+def test_speaker_ids_follow_first_actual_vocal_appearance() -> None:
+    unit = {
+        "unit_id": "E01-U21",
+        "duration_sec": 8,
+        "scene_id": "SC-ROOM",
+        "continuity_level": "hard",
+        "active_subject_ids": ["CHAR-A", "CHAR-B"],
+        "depicted_subject_ids": [],
+        "referenced_entity_ids": [],
+        "speaker_semantic_order": ["CHAR-B", "CHAR-A"],
+        "shots": [
+            _shot(
+                "E01-U21-S01",
+                0,
+                4,
+                action="Character A speaks first.",
+                dialogue=[{"speaker_id": "CHAR-A", "text": "第一句。"}],
+            ),
+            _shot(
+                "E01-U21-S02",
+                4,
+                8,
+                action="Character B answers.",
+                dialogue=[{"speaker_id": "CHAR-B", "text": "第二句。"}],
+            ),
+        ],
+        "cross_shot_dialogue": [],
+        "director_notes": {
+            "ambience": "Quiet indoor room tone.",
+            "music": "N/A",
+        },
+    }
+
+    prompt, _ = compile_h3_director_prompt(
+        canonical_director=_bundle(unit),
+        unit_id="E01-U21",
+        duration_seconds=8,
+    )
+
+    assert "甲 (S1) says" in prompt
+    assert "乙 (S2) says" in prompt
+
+
+def test_ref2va_unused_provider_reference_fails_before_submission() -> None:
+    unit = {
+        "unit_id": "E01-U22",
+        "duration_sec": 8,
+        "scene_id": "SC-ROOM",
+        "continuity_level": "hard",
+        "active_subject_ids": ["CHAR-A"],
+        "depicted_subject_ids": [],
+        "referenced_entity_ids": [],
+        "speaker_semantic_order": ["CHAR-A"],
+        "shots": [
+            _shot(
+                "E01-U22-S01",
+                0,
+                8,
+                action="Character A waits alone.",
+            )
+        ],
+        "cross_shot_dialogue": [],
+        "director_notes": {
+            "ambience": "Quiet indoor room tone.",
+            "music": "N/A",
+        },
+    }
+
+    with pytest.raises(
+        H3DirectorCompileError,
+        match="not bound to any target shot or unit fact",
+    ):
+        compile_h3_director_prompt(
+            canonical_director=_bundle(unit),
+            unit_id="E01-U22",
+            duration_seconds=8,
+            reference_source_names=["乙"],
+            reference_image_labels=["乙"],
+            reference_kinds={"乙": "character"},
+        )
 
