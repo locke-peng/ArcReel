@@ -1,0 +1,8 @@
+unit=E13U01
+attempt=7
+scope=E13U01 only
+purpose=paid E13U01 acceptance retry after lint-only import ordering; prompt and 10s post-mux architecture unchanged
+duration_seconds=10
+resolution=480p横
+aspect_ratio=16:9
+next_gate=E13U03 only after E13U01 content PASS

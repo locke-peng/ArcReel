@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcreel.local/schemas/h3_exact_text_plate.schema.json",
+  "title": "ArcReel H3 Deterministic Exact-Text Plate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ownership",
+    "compositing",
+    "asset_path",
+    "asset_sha256",
+    "region",
+    "typography"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "ownership": {
+      "const": "deterministic_plate"
+    },
+    "compositing": {
+      "const": "full_frame_replace"
+    },
+    "asset_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Project-relative trusted plate asset path. Absolute paths and parent traversal are forbidden by runtime validation."
+    },
+    "asset_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "x", "y", "width", "height"],
+      "properties": {
+        "unit": {"const": "normalized"},
+        "x": {"const": 0},
+        "y": {"const": 0},
+        "width": {"const": 1},
+        "height": {"const": 1}
+      },
+      "description": "v1 intentionally supports only full-frame deterministic plate ownership."
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["authority"],
+      "properties": {
+        "authority": {
+          "const": "asset_pixels",
+          "description": "Glyphs, font, line breaks, alignment and color are authoritative in the SHA-pinned plate pixels, not delegated to the video provider."
+        }
+      }
+    },
+    "ssim_threshold": {
+      "type": "number",
+      "minimum": 0.98,
+      "maximum": 1.0,
+      "default": 0.99
+    }
+  }
+}

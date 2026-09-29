@@ -1,0 +1,10 @@
+unit=E13U01
+attempt=2
+repair=v2_deterministic_screen_h3_entry
+scope=E13U01 only
+purpose=paid E13U01 v2 retry after identity-contract assertion cleanup; deterministic screen + H3 entrance architecture unchanged
+duration_seconds=10
+resolution=480p横
+aspect_ratio=16:9
+content_gates=exact screen text; exact 5s+5s timing; C01 identity; E12U06 stage continuity; no extra readable text; dialogue not visualized
+next_gate=E13U03 only after E13U01 content PASS

@@ -1,0 +1,10 @@
+unit=E11U02
+attempt=2
+scope=E11U02 only
+purpose=paid supplier acceptance retry after static fixture-hash and assertion alignment; production prompts and architecture unchanged
+duration_seconds=15
+shot_structure=5s+5s+5s
+provider_resolution=480p横
+final_resolution=864x480
+content_gates=lab model stabilizes; guest badge placement; summit media entry; no invented C01/C06/C02/C04 faces; all dialogue audio-only; zero readable text; exact three-shot timing
+next_gate=E15U03 only after E11U02 content PASS

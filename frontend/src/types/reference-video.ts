@@ -77,9 +77,39 @@ export interface ReferenceRequestOptions {
   narration_delivery?: "post_production" | "use_tts";
 }
 
+export type ReferencePromptCompiler = "auto" | "h3_ref2va" | "raw";
+
 export interface ReferenceGenerationRequestOptions extends ReferenceRequestOptions {
   /** Exact video tier accepted for this request; omitted when no cross-tier confirmation is needed. */
   confirmed_request_duration_seconds?: number | null;
+  /** One label per actual transmitted provider reference image; omitted = derive at execution time. */
+  reference_image_labels?: string[];
+  /** auto = detect H3; h3_ref2va = force H3 compiler; raw = bypass compiler. */
+  prompt_compiler?: ReferencePromptCompiler;
+  /** Request-scoped structured director data; not persisted to the script. */
+  canonical_director?: Record<string, unknown>;
+  /** Lock generation to the exact provider_prompt returned by Preview. */
+  expected_provider_prompt_sha256?: string;
+}
+
+export interface ReferencePromptPreview {
+  provider_prompt: string;
+  provider_prompt_sha256: string;
+  rendered_prompt: string;
+  model_id: string | null;
+  prompt_compiler: ReferencePromptCompiler;
+  compiler_applied: boolean;
+  generation_mode: "raw" | "t2va" | "ref2va";
+  duration_seconds: number;
+  prompt_chars: number;
+  max_prompt_chars: number | null;
+  reference_mapping: Array<{
+    index: number;
+    picture: string;
+    subject: string;
+    label: string;
+    source_name: string;
+  }>;
 }
 
 export interface ReferenceProjectionLocation {

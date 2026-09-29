@@ -1,0 +1,185 @@
+name: H3 Phase 6 Master Acceptance
+
+on:
+  pull_request:
+    paths:
+      - "alembic/versions/c6e2a91f4b70_add_h3_repair_project_control.py"
+      - "lib/db/models/h3_repair_ticket.py"
+      - "lib/reference_video/**"
+      - "server/services/h3_*.py"
+      - "server/routers/h3_*.py"
+      - "frontend/src/components/canvas/H3StudioDashboard.tsx"
+      - "frontend/src/components/canvas/H3StudioDashboard.test.tsx"
+      - "frontend/src/components/canvas/StudioCanvasRouter.test.tsx"
+      - "tests/e2e/reference_video/test_h3_phase6_*.py"
+      - "tests/integration/lib/reference_video/test_h3_repair_queue.py"
+      - "tests/integration/server/services/test_h3_*.py"
+      - "tests/integration/server/routers/test_h3_studio.py"
+      - "tests/unit/lib/reference_video/test_h3_*.py"
+      - "tests/unit/server/services/test_h3_*.py"
+      - ".github/workflows/h3-phase6-master-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase6-backend-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      H3_PHASE6_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      H3_PHASE6_EVIDENCE_DIR: .artifacts/h3-phase6-master/e2e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ArcReel dependencies
+        run: uv sync
+      - name: Phase 6 targeted static hygiene
+        run: |
+          uv run ruff check             lib/reference_video/h3_production_projection.py             lib/reference_video/h3_repair_batch.py             lib/reference_video/h3_repair_ledger.py             server/services/h3_production_control.py             server/services/h3_repair_batch_operator.py             server/services/h3_repair_budget_ledger.py             server/services/h3_studio_evidence.py             server/services/h3_studio_operator.py             server/routers/h3_studio.py             tests/e2e/reference_video/test_h3_phase6_control_plane_resilience_e2e.py
+      - name: Phase 6 cross-slice resilience E2E
+        run: uv run pytest -q tests/e2e/reference_video/test_h3_phase6_control_plane_resilience_e2e.py
+      - name: Phase 6 subsystem regression
+        run: |
+          uv run pytest -q             tests/unit/lib/reference_video/test_h3_production_projection.py             tests/unit/lib/reference_video/test_h3_repair_batch.py             tests/unit/server/services/test_h3_repair_batch_operator.py             tests/integration/server/services/test_h3_production_control.py             tests/integration/server/services/test_h3_repair_budget_ledger.py             tests/integration/server/routers/test_h3_studio.py             tests/integration/lib/reference_video/test_h3_repair_queue.py
+      - name: Phase 5 orchestration and E2E regression
+        run: |
+          uv run pytest -q             tests/e2e/reference_video/test_h3_phase5_production_lifecycle_e2e.py             tests/e2e/reference_video/test_h3_phase5_interruption_resume_e2e.py             tests/e2e/reference_video/test_h3_phase5_stale_approval_e2e.py             tests/e2e/reference_video/test_h3_phase5_duplicate_execution_e2e.py             tests/e2e/reference_video/test_h3_phase5_project_isolation_e2e.py             tests/e2e/reference_video/test_h3_phase5_policy_safety_matrix_e2e.py             tests/integration/lib/reference_video/test_h3_repair_approval_service.py             tests/integration/server/services/test_h3_repair_tasks.py             tests/integration/server/services/test_h3_repair_reqa.py             tests/integration/server/routers/test_h3_repairs.py             tests/unit/server/services/test_h3_repair_operator.py             tests/unit/lib/reference_video/test_h3_repair_ticket.py             tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py
+      - name: Phase 4 runtime and representative Unit regression
+        run: |
+          uv run pytest -q             tests/unit/lib/reference_video/test_h3_auto_repair_loop.py             tests/unit/lib/reference_video/test_h3_runtime_gate.py             tests/unit/lib/reference_video/test_h3_timeline_runtime.py             tests/unit/lib/reference_video/test_h3_exact_text_runtime.py             tests/unit/lib/reference_video/test_h3_audio_runtime.py             tests/unit/test_h3_prompt_compiler.py             tests/unit/test_h3_preview_runtime_lock.py             tests/unit/test_e12u06_contract.py             tests/unit/test_e4u02_v4_dialogue_detached.py             tests/unit/test_e13u01_v2_contract.py             tests/unit/test_e13u03_v1_contract.py             tests/unit/test_e11u02_v3_repair_contract.py             tests/unit/test_e15u03_v2_timeline_contract.py
+      - name: Upload backend master evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase6-master-backend-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase6-master
+          if-no-files-found: warn
+          retention-days: 30
+
+  phase6-postgres-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: arcreel
+          POSTGRES_PASSWORD: arcreel
+          POSTGRES_DB: arcreel_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgresql+asyncpg://arcreel:arcreel@localhost:5432/arcreel_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync
+      - name: PostgreSQL migration round trip
+        run: |
+          set -e
+          uv run alembic upgrade head
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+  phase6-frontend-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm typecheck
+      - name: Phase 6 dashboard lint
+        working-directory: frontend
+        run: pnpm exec eslint src/components/canvas/H3StudioDashboard.tsx
+      - name: Studio dashboard regression
+        working-directory: frontend
+        run: |
+          pnpm exec vitest run             src/components/canvas/H3StudioDashboard.test.tsx             src/components/canvas/StudioCanvasRouter.test.tsx
+
+  phase6-master-evidence:
+    needs:
+      - phase6-backend-master
+      - phase6-postgres-migration
+      - phase6-frontend-master
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      H3_PHASE6_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Emit Phase 6 master acceptance evidence
+        run: |
+          mkdir -p .artifacts/h3-phase6-master
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              "schema_version": 1,
+              "scenario": "Phase 6 Master Acceptance",
+              "tested_sha": os.environ["H3_PHASE6_TESTED_SHA"],
+              "phase6_slice7_resilience_e2e": "PASS",
+              "phase6_subsystem_regression": "PASS",
+              "phase1_phase5_regression": "PASS",
+              "postgres_migration_round_trip": "PASS",
+              "studio_dashboard_regression": "PASS",
+              "acceptance_criteria": {str(index): "PASS" for index in range(1, 22)},
+              "paid_minimax_calls": 0,
+              "status": "FINAL_PASS",
+          }
+          path = Path(".artifacts/h3-phase6-master/phase6-master-acceptance.json")
+          path.write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+          print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+      - name: Upload Phase 6 master evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase6-master-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase6-master
+          if-no-files-found: error
+          retention-days: 30

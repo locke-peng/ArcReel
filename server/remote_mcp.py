@@ -849,11 +849,26 @@ def build_remote_mcp_server(
         )
 
     @server.tool(name="get_prompt_preview", structured_output=False)
-    async def remote_prompt_preview(project: str, script: str, item_id: str) -> CallToolResult:  # pyright: ignore[reportUnusedFunction]
-        """Return one shot's final image and video prompts, verbatim as generation would send them."""
+    async def remote_prompt_preview(
+        project: str,
+        script: str,
+        item_id: str,
+        prompt: str | None = None,
+        reference_image_labels: list[str] | None = None,
+        prompt_compiler: str | None = None,
+        canonical_director: dict[str, Any] | None = None,
+    ) -> CallToolResult:  # pyright: ignore[reportUnusedFunction]
+        """Return the final storyboard or reference-video provider prompt without generation."""
         try:
             scope = _project_scope(project, projects)
-            request = PromptPreviewRequest(script=script, item_id=item_id)
+            request = PromptPreviewRequest(
+                script=script,
+                item_id=item_id,
+                prompt=prompt,
+                reference_image_labels=reference_image_labels,
+                prompt_compiler=prompt_compiler,
+                canonical_director=canonical_director,
+            )
         except (FileNotFoundError, ValueError) as exc:
             return _to_mcp_result("prompt_preview", ToolOutcome(problem=ToolProblem("invalid_request", str(exc))))
         return _to_mcp_result(

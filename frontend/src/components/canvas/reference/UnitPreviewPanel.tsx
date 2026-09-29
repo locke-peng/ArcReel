@@ -8,7 +8,8 @@ import { NarrationAudioCard } from "@/components/canvas/timeline/NarrationAudioC
 import { UPLOAD_VIDEO_ACCEPT, UploadIconButton } from "@/components/ui/UploadIconButton";
 import { formatCost } from "@/utils/cost-format";
 import { StatusBadge, resolveUnitStatus } from "./unit-status";
-import type { CostBreakdown, ReferenceVideoUnit, UnitStatus } from "@/types";
+import { H3GenerationOptions } from "./H3GenerationOptions";
+import type { CostBreakdown, ReferencePromptCompiler, ReferenceVideoUnit, UnitStatus } from "@/types";
 
 export interface UnitPreviewPanelProps {
   unit: ReferenceVideoUnit | null;
@@ -31,6 +32,12 @@ export interface UnitPreviewPanelProps {
   /** Actual already-spent cost; rendered in the metadata block. */
   actualCost?: CostBreakdown;
   onGenerate?: (unitId: string) => void;
+  referenceImageLabels?: string;
+  promptCompiler?: ReferencePromptCompiler;
+  onReferenceImageLabelsChange?: (value: string) => void;
+  onPromptCompilerChange?: (value: ReferencePromptCompiler) => void;
+  promptPreviewing?: boolean;
+  onPreviewPrompt?: () => void;
   narrationText?: string;
   narrationGenerating?: boolean;
   narrationEstimatedCost?: CostBreakdown;
@@ -74,6 +81,12 @@ export function UnitPreviewPanel({
   estimatedCost,
   actualCost,
   onGenerate,
+  referenceImageLabels = "",
+  promptCompiler = "auto",
+  onReferenceImageLabelsChange,
+  onPromptCompilerChange,
+  promptPreviewing = false,
+  onPreviewPrompt,
   narrationText,
   narrationGenerating,
   narrationEstimatedCost,
@@ -225,6 +238,18 @@ export function UnitPreviewPanel({
           </div>
         )}
       </div>
+
+      {onGenerate && onReferenceImageLabelsChange && onPromptCompilerChange && (
+        <H3GenerationOptions
+          referenceImageLabels={referenceImageLabels}
+          promptCompiler={promptCompiler}
+          disabled={inFlight || busy || restoring}
+          previewing={promptPreviewing}
+          onReferenceImageLabelsChange={onReferenceImageLabelsChange}
+          onPromptCompilerChange={onPromptCompilerChange}
+          onPreviewPrompt={onPreviewPrompt}
+        />
+      )}
 
       {onGenerate && (
         <button

@@ -1,0 +1,526 @@
+name: H3 Phase 4 Auto Repair Loop
+
+on:
+  push:
+    branches:
+      - phase4/h3-auto-repair-loop
+    paths:
+      - "lib/reference_video/media_qa_schema.py"
+      - "lib/reference_video/h3_failure_classifier.py"
+      - "lib/reference_video/h3_repair_executor.py"
+      - "lib/reference_video/h3_auto_repair_loop.py"
+      - "lib/reference_video/h3_runtime_gate.py"
+      - "lib/reference_video/h3_timeline_runtime.py"
+      - "lib/reference_video/h3_exact_text_contract.py"
+      - "lib/reference_video/h3_exact_text_runtime.py"
+      - "lib/reference_video/h3_audio_contract.py"
+      - "lib/reference_video/h3_audio_runtime.py"
+      - "lib/reference_video/h3_repair_ticket.py"
+      - "lib/reference_video/h3_shot_repair_executor.py"
+      - "docs/schemas/h3_canonical_audio_track.schema.json"
+      - "lib/video_prompt_compilers/h3_director_compiler.py"
+      - "docs/schemas/h3_exact_text_plate.schema.json"
+      - "docs/schemas/h3_repair_ticket.schema.json"
+      - "lib/reference_video/cut_detector.py"
+      - "server/services/reference_video_tasks.py"
+      - "server/services/video_artifact_currency.py"
+      - "lib/reference_video/evidence_schema.py"
+      - "lib/reference_video/h3_production_policy.py"
+      - "scripts/experiments/run_phase4_auto_repair_e2e.py"
+      - "scripts/experiments/run_phase4_e13u01_exact_text_replay.py"
+      - "scripts/experiments/run_phase4_e13u01_audio_repair_replay.py"
+      - "scripts/experiments/run_phase4_safe_escalation_e2e.py"
+      - "tests/unit/lib/reference_video/test_h3_auto_repair_loop.py"
+      - "tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py"
+      - "tests/unit/lib/reference_video/test_h3_runtime_gate.py"
+      - "tests/unit/lib/reference_video/test_h3_timeline_runtime.py"
+      - "tests/unit/lib/reference_video/test_h3_exact_text_runtime.py"
+      - "tests/unit/lib/reference_video/test_h3_audio_runtime.py"
+      - "tests/unit/lib/reference_video/test_h3_repair_ticket.py"
+      - "tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py"
+      - "tests/integration/server/services/test_h3_runtime_selection_wiring.py"
+      - ".github/workflows/h3-phase4-auto-repair-loop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  software-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Phase 4 auto-repair primitive tests
+        run: |
+          uv run pytest -q \
+            tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
+            tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
+            tests/unit/lib/reference_video/test_h3_runtime_gate.py \
+            tests/unit/lib/reference_video/test_h3_timeline_runtime.py \
+            tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \
+            tests/integration/server/services/test_h3_runtime_selection_wiring.py
+
+      - name: Phase 3 repair planner regression
+        run: uv run pytest -q tests/unit/lib/reference_video/test_h3_production_policy.py
+
+      - name: Six representative Unit joint regression
+        run: |
+          uv run pytest -q \
+            tests/unit/test_e12u06_contract.py \
+            tests/unit/test_e4u02_v4_dialogue_detached.py \
+            tests/unit/test_e13u01_v2_contract.py \
+            tests/unit/test_e13u03_v1_contract.py \
+            tests/unit/test_e11u02_v3_repair_contract.py \
+            tests/unit/test_e15u03_v2_timeline_contract.py
+
+      - name: H3 compiler and preview/runtime regression
+        run: |
+          uv run pytest -q \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Reference Video and H3 subsystem regression
+        run: |
+          uv run pytest -q \
+            tests/unit/lib/reference_video \
+            tests/integration/lib/reference_video \
+            tests/unit/test_h3_v6_director.py \
+            tests/unit/test_h3_prompt_compiler.py \
+            tests/unit/test_h3_preview_runtime_lock.py
+
+      - name: Compile
+        run: |
+          uv run python -m py_compile \
+            lib/reference_video/media_qa_schema.py \
+            lib/reference_video/h3_failure_classifier.py \
+            lib/reference_video/h3_repair_executor.py \
+            lib/reference_video/h3_auto_repair_loop.py \
+            lib/reference_video/h3_runtime_gate.py \
+            lib/reference_video/h3_timeline_runtime.py \
+            lib/reference_video/h3_exact_text_contract.py \
+            lib/reference_video/h3_exact_text_runtime.py \
+            lib/reference_video/h3_audio_contract.py \
+            lib/reference_video/h3_audio_runtime.py \
+            lib/reference_video/h3_repair_ticket.py \
+            lib/reference_video/h3_shot_repair_executor.py \
+            lib/video_prompt_compilers/h3_director_compiler.py \
+            lib/reference_video/cut_detector.py \
+            lib/reference_video/evidence_schema.py \
+            server/services/reference_video_tasks.py \
+            server/services/video_artifact_currency.py \
+            scripts/experiments/run_phase4_auto_repair_e2e.py \
+            scripts/experiments/run_phase4_e13u01_exact_text_replay.py \
+            scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
+            scripts/experiments/run_phase4_safe_escalation_e2e.py \
+            tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
+            tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
+            tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \
+            tests/integration/server/services/test_h3_runtime_selection_wiring.py
+
+      - name: Ruff
+        run: |
+          uv run ruff check \
+            lib/reference_video/media_qa_schema.py \
+            lib/reference_video/h3_failure_classifier.py \
+            lib/reference_video/h3_repair_executor.py \
+            lib/reference_video/h3_auto_repair_loop.py \
+            lib/reference_video/h3_runtime_gate.py \
+            lib/reference_video/h3_exact_text_contract.py \
+            lib/reference_video/h3_exact_text_runtime.py \
+            lib/reference_video/h3_audio_contract.py \
+            lib/reference_video/h3_audio_runtime.py \
+            lib/reference_video/h3_repair_ticket.py \
+            lib/reference_video/h3_shot_repair_executor.py \
+            lib/reference_video/cut_detector.py \
+            lib/reference_video/evidence_schema.py \
+            server/services/reference_video_tasks.py \
+            scripts/experiments/run_phase4_auto_repair_e2e.py \
+            scripts/experiments/run_phase4_e13u01_exact_text_replay.py \
+            scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
+            scripts/experiments/run_phase4_safe_escalation_e2e.py \
+            tests/unit/lib/reference_video/test_h3_auto_repair_loop.py \
+            tests/unit/lib/reference_video/test_h3_phase4_six_unit_routing.py \
+            tests/unit/lib/reference_video/test_h3_exact_text_runtime.py \
+            tests/unit/lib/reference_video/test_h3_audio_runtime.py \
+            tests/unit/lib/reference_video/test_h3_repair_ticket.py \
+            tests/unit/lib/reference_video/test_h3_safe_escalation_loop.py \
+            tests/integration/server/services/test_h3_runtime_selection_wiring.py
+
+  existing-evidence-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download latest accepted E11U02 + E15U03 Phase 4 evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: phase4-auto-repair-loop-e2e-evidence
+          path: accepted_phase4
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36287909253
+
+      - name: Revalidate accepted deterministic evidence under current code
+        run: |
+          uv run python - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path("accepted_phase4")
+          summary = json.loads(
+              (root / "phase4_auto_repair_e2e_summary.json").read_text()
+          )
+          assert summary["status"] == "FINAL_PASS"
+          assert summary["tested_sha"] == "f0e66262c312c02b9ebeae03b61c33586da668e1"
+          assert summary["provider_recalled"] is False
+
+          expected = {
+              "E11U02": "7ef19e68dbf5b14defc3b68886768424e7814f6017badc7cfb6fa94650270949",
+              "E15U03": "607f3ac349f9fa9e5871fc45b825208ff6434fd4bb83fc4ad1fd19d24de3d23b",
+          }
+          for unit_id, expected_sha in expected.items():
+              media = root / unit_id / "project" / "reference_videos" / f"{unit_id}.mp4"
+              actual_sha = hashlib.sha256(media.read_bytes()).hexdigest()
+              assert actual_sha == expected_sha
+              probe = json.loads(
+                  subprocess.check_output(
+                      [
+                          "ffprobe", "-v", "error",
+                          "-show_entries", "format=duration",
+                          "-show_entries", "stream=codec_name,width,height,r_frame_rate,sample_rate,channels",
+                          "-of", "json", str(media),
+                      ],
+                      text=True,
+                  )
+              )
+              assert abs(float(probe["format"]["duration"]) - 15.0) <= 0.02
+
+          units = {unit["unit_id"]: unit for unit in summary["units"]}
+          assert units["E11U02"]["repair_action"] == "deterministic_surface_repair"
+          assert units["E11U02"]["provider_recalled"] is False
+          assert units["E15U03"]["repair_action"] == "deterministic_av_retime"
+          assert units["E15U03"]["provider_recalled"] is False
+          assert [
+              item["actual_cut_frame"] for item in units["E15U03"]["final_detected_cuts"]
+          ] == [120, 240]
+
+          out = {
+              "status": "FINAL_PASS",
+              "tested_sha": __import__("os").environ["GITHUB_SHA"],
+              "source_acceptance_run": 36287909253,
+              "source_acceptance_tested_sha": summary["tested_sha"],
+              "provider_recalled": False,
+              "paid_provider_calls": 0,
+              "e11u02_final_sha256": expected["E11U02"],
+              "e15u03_final_sha256": expected["E15U03"],
+              "e15u03_final_cut_frames": [120, 240],
+          }
+          evidence = Path("phase4_existing_evidence_regression")
+          evidence.mkdir()
+          (evidence / "phase4_existing_evidence_regression.json").write_text(
+              json.dumps(out, ensure_ascii=False, indent=2)
+          )
+          print(json.dumps(out, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload current-code existing-evidence regression
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-existing-evidence-regression
+          path: phase4_existing_evidence_regression
+          if-no-files-found: error
+          retention-days: 30
+
+  exact-text-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E13U01 accepted evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e13u01-v2-deterministic-screen-identity-continuity-evidence
+          path: upstream_e13u01
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36098803663
+
+      - name: Run E13U01 exact-text auto-repair replay
+        run: |
+          uv run python scripts/experiments/run_phase4_e13u01_exact_text_replay.py \
+            --upstream-dir upstream_e13u01 \
+            --output-dir phase4_exact_text_evidence
+
+      - name: Assert exact-text replay FINAL PASS without provider recall
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path(
+                  "phase4_exact_text_evidence/E13U01/"
+                  "phase4_e13u01_exact_text_replay.json"
+              ).read_text()
+          )
+          assert data["status"] == "FINAL_PASS"
+          assert data["repair_action"] == "deterministic_text_plate"
+          assert data["provider_recalled"] is False
+          assert data["final_detected_cuts"][0]["actual_cut_frame"] == 120
+          assert data["accepted_vs_replay_video_ssim"] >= 0.99
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload E13U01 exact-text Phase 4 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-e13u01-exact-text-e2e-evidence
+          path: phase4_exact_text_evidence
+          if-no-files-found: error
+          retention-days: 14
+
+
+  audio-only-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E13U01 accepted evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e13u01-v2-deterministic-screen-identity-continuity-evidence
+          path: upstream_e13u01_audio
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36098803663
+
+      - name: Run E13U01 canonical-audio auto-repair replay
+        run: |
+          uv run python scripts/experiments/run_phase4_e13u01_audio_repair_replay.py \
+            --upstream-dir upstream_e13u01_audio \
+            --output-dir phase4_audio_evidence
+
+      - name: Assert audio-only replay FINAL PASS without provider recall
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path(
+                  "phase4_audio_evidence/E13U01/"
+                  "phase4_e13u01_audio_repair_replay.json"
+              ).read_text()
+          )
+          assert data["status"] == "FINAL_PASS"
+          assert data["failure_class"] == "audio_only_failure"
+          assert data["repair_action"] == "audio_repair_remux"
+          assert data["provider_recalled"] is False
+          assert data["runtime_gate"]["repair_passes"] == 1
+          assert data["accepted_video_framemd5_sha256"] == data["final_video_framemd5_sha256"]
+          assert data["accepted_audio_framemd5_sha256"] == data["final_audio_framemd5_sha256"]
+          assert data["accepted_vs_replay_video_ssim"] >= 0.999
+          assert data["final_detected_cuts"][0]["actual_cut_frame"] == 120
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload E13U01 canonical-audio Phase 4 evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-e13u01-audio-repair-e2e-evidence
+          path: phase4_audio_evidence
+          if-no-files-found: error
+          retention-days: 14
+
+
+  safe-escalation-e2e:
+    needs: software-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ArcReel dependencies
+        run: uv sync
+
+      - name: Download E12U06 historical supplier evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e12u06-h3-live-evidence
+          path: upstream_e12u06
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36013839904
+
+      - name: Download E13U03 accepted multi-shot evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e13u03-v1-multiscene-identity-logguard-evidence
+          path: upstream_e13u03
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: locke-peng/ArcReel
+          run-id: 36128343054
+
+      - name: Run safe escalation replay without provider calls
+        run: |
+          uv run python scripts/experiments/run_phase4_safe_escalation_e2e.py \
+            --e12-upstream-dir upstream_e12u06 \
+            --e13-upstream-dir upstream_e13u03 \
+            --output-dir phase4_safe_escalation_evidence
+
+      - name: Assert shot-scoped tickets and zero paid provider calls
+        run: |
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path("phase4_safe_escalation_evidence/phase4_safe_escalation_e2e.json").read_text()
+          )
+          assert data["status"] == "FINAL_PASS"
+          assert data["provider_recalled"] is False
+          assert data["paid_provider_calls"] == 0
+          assert data["e12u06"]["runtime_gate_status"] == "PROVIDER_REPAIR_REQUIRED"
+          assert len(data["e12u06"]["repair_tickets"]) == 1
+          assert data["e12u06"]["repair_tickets"][0]["shot_id"] == "E12U06-S02"
+          assert data["e12u06"]["repair_tickets"][0]["approval_eligible"] is True
+          assert data["e13u03"]["runtime_gate_status"] == "PROVIDER_REPAIR_REQUIRED"
+          assert data["e13u03"]["ticket_count"] == 2
+          assert set(data["e13u03"]["shot_scopes"]) == {"E13U03-S07", "E13U03-S08"}
+          assert all(
+              ticket["approval_eligible"] is True
+              for ticket in data["e13u03"]["repair_tickets"]
+          )
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload safe escalation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-safe-escalation-e2e-evidence
+          path: phase4_safe_escalation_evidence
+          if-no-files-found: error
+          retention-days: 14
+
+  phase4-master-gate:
+    needs:
+      - software-gates
+      - existing-evidence-e2e
+      - exact-text-e2e
+      - audio-only-e2e
+      - safe-escalation-e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record Phase 4 master gate
+        run: |
+          mkdir -p phase4_master_gate
+          cat > phase4_master_gate/phase4_master_gate.json <<JSON
+          {
+            "status": "FINAL_PASS",
+            "tested_sha": "${GITHUB_SHA}",
+            "provider_recalled_by_master_gate": false,
+            "paid_provider_calls_by_master_gate": 0,
+            "phase": 4,
+            "gate": "auto_repair_loop_master"
+          }
+          JSON
+          cat phase4_master_gate/phase4_master_gate.json
+
+      - name: Upload Phase 4 master gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase4-master-gate
+          path: phase4_master_gate
+          if-no-files-found: error
+          retention-days: 30

@@ -9,10 +9,10 @@ import asyncio
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, PositiveInt, field_validator
 
 from lib.api_errors import ApiError, BadRequestError, NotFoundError
 from lib.artifact_activation import resolve_artifact_episode
@@ -72,6 +72,7 @@ from server.services.reference_video_tasks import (
     default_unit_duration,
     resolve_project_duration_context,
 )
+from server.services.reference_video_prompt_preview import preview_reference_video_provider_prompt
 from server.services.upload_finalize import (
     UploadValidationError,
     commit_manual_video_upload,
@@ -120,12 +121,40 @@ class GenerateUnitRequest(BaseModel):
     # 与时长基准的入口（``GenerateUnitsBatchRequest``）与由模型推断参数的 Agent 视频工具上。
     narration_delivery: NarrationDelivery = POST_PRODUCTION
     confirmed_request_duration_seconds: int | None = Field(default=None, gt=0)
+    reference_image_labels: list[str] | None = None
+    prompt_compiler: Literal["auto", "h3_ref2va", "raw"] = "auto"
+    # Request-scoped Canonical Director input. It may be a full episode payload,
+    # {unit, registries} bundle, or one unit object. It is never persisted into the script.
+    canonical_director: dict[str, Any] | None = None
+    # If supplied, worker must prove that the exact prompt submitted to the provider
+    # is byte-for-byte identical (UTF-8 text) to the previewed provider_prompt.
+    expected_provider_prompt_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
+
+    @field_validator("reference_image_labels")
+    @classmethod
+    def _reference_image_labels_are_nonblank(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        labels = [item.strip() for item in value]
+        if not labels:
+            return None
+        if any(not item for item in labels):
+            raise ValueError("reference_image_labels must not contain blank labels")
+        return labels
 
     def projection_options(self) -> ReferenceRequestOptions:
         return ReferenceRequestOptions(
             narration_delivery=self.narration_delivery,
             confirmed_request_duration_seconds=self.confirmed_request_duration_seconds,
         )
+
+
+class ProviderPromptPreviewRequest(GenerateUnitRequest):
+    # Current unsaved editor text; preview only, never persisted.
+    prompt: str | None = None
 
 
 class GenerateUnitsBatchRequest(BaseModel):
@@ -567,6 +596,35 @@ async def preview_script(
     }
 
 
+@router.post("/episodes/{episode}/units/{unit_id}/prompt-preview")
+async def preview_provider_prompt(
+    project_name: str,
+    episode: int,
+    unit_id: str,
+    user: CurrentUser,
+    _t: Translator,
+    req: ProviderPromptPreviewRequest,
+) -> dict[str, Any]:
+    """Read-only final provider prompt preview: no queue, provider call or checkpoint."""
+    _project, _script, script_file = _load_episode_script(project_name, episode, _t)
+    try:
+        return await preview_reference_video_provider_prompt(
+            project_name=project_name,
+            script_file=script_file,
+            unit_id=unit_id,
+            prompt_override=req.prompt,
+            reference_image_labels=req.reference_image_labels,
+            prompt_compiler=req.prompt_compiler,
+            canonical_director=req.canonical_director,
+            narration_delivery=req.narration_delivery,
+            confirmed_request_duration_seconds=req.confirmed_request_duration_seconds,
+            user_id=user.id,
+            queue=get_generation_queue(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post(
     "/episodes/{episode}/units/{unit_id}/generate",
     status_code=status.HTTP_202_ACCEPTED,
@@ -583,7 +641,8 @@ async def generate_unit(
     unit = _find_unit(script, unit_id, _t)  # raises 404 if missing
     _require_unit_ready(unit)
     guard_prompt = str(unit.get("text") or "")
-    request_options = (req or GenerateUnitRequest()).projection_options()
+    request_body = req or GenerateUnitRequest()
+    request_options = request_body.projection_options()
     queue = get_generation_queue()
     tts_in_progress = (
         await tts_task_in_progress(
@@ -634,7 +693,29 @@ async def generate_unit(
             resource_id=unit_id,
             prompt=guard_prompt,
             script_file=script_file,
-            extra_payload={"reference_request_options": request_options.to_payload()},
+            extra_payload={
+                "reference_request_options": request_options.to_payload(),
+                **(
+                    {"reference_image_labels": request_body.reference_image_labels}
+                    if request_body.reference_image_labels
+                    else {}
+                ),
+                **(
+                    {"prompt_compiler": request_body.prompt_compiler}
+                    if request_body.prompt_compiler != "auto"
+                    else {}
+                ),
+                **(
+                    {"canonical_director": request_body.canonical_director}
+                    if request_body.canonical_director is not None
+                    else {}
+                ),
+                **(
+                    {"expected_provider_prompt_sha256": request_body.expected_provider_prompt_sha256.lower()}
+                    if request_body.expected_provider_prompt_sha256 is not None
+                    else {}
+                ),
+            },
         )
     except TaskSpecValidationError as exc:
         raise HTTPException(status_code=400, detail=_t(exc.code, **exc.params)) from exc

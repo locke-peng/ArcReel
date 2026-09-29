@@ -8,6 +8,7 @@ from lib.db.models.config import ProviderConfig, SystemSetting
 from lib.db.models.credential import ProviderCredential
 from lib.db.models.custom_endpoint import CustomEndpoint
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
+from lib.db.models.h3_repair_ticket import H3RepairProjectBudget, H3RepairProjectControl, H3RepairTicketRecord
 from lib.db.models.market_installation import MarketInstallation
 from lib.db.models.market_source import MarketSource
 from lib.db.models.session import AgentSession
@@ -30,6 +31,9 @@ __all__ = [
     "CustomProvider",
     "CustomProviderModel",
     "GenerationBatch",
+    "H3RepairProjectBudget",
+    "H3RepairProjectControl",
+    "H3RepairTicketRecord",
     "MarketInstallation",
     "MarketSource",
     "ProviderConfig",
@@ -43,7 +47,7 @@ __all__ = [
 
 
 def register_models() -> None:
-    """把本包内全部 ORM 模型登记到 ``Base.metadata``。
+    """把本包内全部 ORM 模型登记到 Base.metadata。
 
     登记发生在 import 本模块时（模型类定义即注册），本函数不做额外工作；
     调用它是为了让「因副作用而 import」在调用点显式可见。

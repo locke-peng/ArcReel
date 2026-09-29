@@ -1,0 +1,74 @@
+name: H3 Phase 5 Slice 7 E2E-03
+
+on:
+  pull_request:
+    paths:
+      - "tests/e2e/reference_video/test_h3_phase5_stale_approval_e2e.py"
+      - ".github/workflows/h3-phase5-slice7-e2e03.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale-approval-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      H3_PHASE5_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      H3_PHASE5_EVIDENCE_DIR: .artifacts/h3-phase5-slice7-evidence
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E2E-03 stale approval rejection
+        run: |
+          uv run python -m pytest -q tests/e2e/reference_video/test_h3_phase5_stale_approval_e2e.py
+
+      - name: Validate E2E-03 evidence artifact
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["H3_PHASE5_EVIDENCE_DIR"]) / "e2e03-stale-approval.json"
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          assert payload["scenario"] == "E2E-03 Stale Approval Rejection"
+          assert payload["approval"]["stale_field"] == "source_media_sha256"
+          assert payload["approval"]["approved_source_media_sha256"] != payload["approval"]["current_source_media_sha256"]
+          assert payload["ticket"]["lifecycle_state"] == "expired"
+          assert payload["execution"]["task_status"] == "failed"
+          assert payload["execution"]["task_error_message"] == "h3_repair_stale_approval_pre_submit"
+          assert payload["execution"]["provider_call_count"] == 0
+          assert payload["execution"]["checkpoint_present"] is False
+          assert payload["execution"]["provider_job_id_present"] is False
+          assert payload["provider"]["submit_calls"] == 0
+          assert payload["provider"]["resume_calls"] == 0
+          assert payload["provider"]["paid_minimax_calls"] == 0
+          assert payload["fail_closed"] is True
+          print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload E2E-03 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase5-slice7-e2e03-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase5-slice7-evidence
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,88 @@
+name: H3 Phase 5 Slice 7 E2E-02
+
+on:
+  pull_request:
+    paths:
+      - "tests/e2e/reference_video/test_h3_phase5_interruption_resume_e2e.py"
+      - ".github/workflows/h3-phase5-slice7-e2e02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  interruption-resume-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      H3_PHASE5_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      H3_PHASE5_EVIDENCE_DIR: .artifacts/h3-phase5-slice7-evidence
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E2E-02 interruption resume
+        run: |
+          uv run python -m pytest -q tests/e2e/reference_video/test_h3_phase5_interruption_resume_e2e.py
+
+      - name: Validate E2E-02 evidence artifact
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["H3_PHASE5_EVIDENCE_DIR"]) / "e2e02-interruption-resume.json"
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          assert payload["scenario"] == "E2E-02 Interruption Resume"
+          assert payload["provider"]["generate_calls"] == 1
+          assert payload["provider"]["resume_calls"] == 1
+          assert payload["provider"]["paid_minimax_calls"] == 0
+          assert payload["execution"]["provider_call_count"] == 1
+          assert payload["execution"]["task_id_before"] == payload["execution"]["task_id_after"]
+          assert payload["execution"]["execution_identity_before"] == payload["execution"]["execution_identity_after"]
+          assert payload["execution"]["provider_job_id_before"] == payload["execution"]["provider_job_id_after"]
+          assert payload["execution"]["new_task_created"] is False
+          assert payload["execution"]["new_execution_identity"] is False
+          assert payload["execution"]["checkpoint_stable"] is True
+          assert payload["ticket"]["ticket_id_before"] == payload["ticket"]["ticket_id_after"]
+          assert payload["ticket"]["new_ticket_created"] is False
+          assert payload["recovery"]["interrupted_lifecycle_state"] == "running"
+          assert payload["recovery"]["resumed_existing_job"] is True
+          assert payload["reqa"]["outcome"] == "PASS"
+          assert payload["reqa"]["selected_current"] is True
+          assert payload["lifecycle"] == [
+              "awaiting_approval",
+              "approved",
+              "queued",
+              "running",
+              "provider_completed",
+              "reassembling",
+              "reqa_running",
+              "accepted",
+          ]
+          print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload E2E-02 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: h3-phase5-slice7-e2e02-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .artifacts/h3-phase5-slice7-evidence
+          if-no-files-found: warn
+          retention-days: 30

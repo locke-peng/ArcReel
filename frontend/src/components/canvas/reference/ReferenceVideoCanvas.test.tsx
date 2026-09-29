@@ -178,7 +178,7 @@ describe("ReferenceVideoCanvas", () => {
     vi.spyOn(API, "deleteReferenceVideoUnit").mockResolvedValue(undefined);
     vi.spyOn(API, "addReferenceVideoUnit").mockResolvedValue({ unit: mkUnit("E1U1", "fresh unit") });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
-    const textarea = (await screen.findByRole("combobox")) as HTMLTextAreaElement;
+    const textarea = (await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ })) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "unsaved edit" } });
 
     fireEvent.click(screen.getByRole("button", { name: /^(Remove unit|移除单元)$/ }));
@@ -192,7 +192,7 @@ describe("ReferenceVideoCanvas", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /New Unit|新建 Unit/ }));
-    await waitFor(() => expect((screen.getByRole("combobox") as HTMLTextAreaElement).value).toContain("fresh unit"));
+    await waitFor(() => expect((screen.getByRole("combobox", { name: /Unit prompt|Unit 提示词/ }) as HTMLTextAreaElement).value).toContain("fresh unit"));
   });
 
   it("keeps request controls outside the tablist semantics", async () => {
@@ -227,15 +227,15 @@ describe("ReferenceVideoCanvas", () => {
     });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
 
-    await screen.findByRole("combobox");
+    await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ });
     fireEvent.click(await screen.findByRole("tab", { name: /Parse preview|解析预览/ }));
 
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Unit prompt|Unit 提示词/ })).not.toBeInTheDocument();
     await waitFor(() => expect(previewSpy).toHaveBeenCalledWith("proj", 1, "中景。", expect.anything()));
     expect(await screen.findByText("@[王五] 未在角色/场景/道具中登记")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: /^(Script|文稿)$/ }));
-    expect(await screen.findByRole("combobox")).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ })).toBeInTheDocument();
   });
 
   // 两个 tabpanel 同时刻只挂载一个，共用静态 id 会让未选中 tab 的 aria-controls
@@ -289,7 +289,7 @@ describe("ReferenceVideoCanvas", () => {
     });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
 
-    await screen.findByRole("combobox");
+    await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ });
     fireEvent.click(await screen.findByRole("tab", { name: /Parse preview|解析预览/ }));
 
     // 只看解析预览面板内的高亮，避开单元列表卡片里的同名文本
@@ -305,7 +305,7 @@ describe("ReferenceVideoCanvas", () => {
       units: [mkUnit("E1U1")],
     });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
-    const ta = await screen.findByRole("combobox");
+    const ta = await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ });
     expect((ta as HTMLTextAreaElement).value).toContain("x");
   });
 
@@ -349,7 +349,7 @@ describe("ReferenceVideoCanvas", () => {
       .mockResolvedValue({ unit: { ...unit, text: "@[张三] 推门而入。" } });
 
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
-    const ta = await screen.findByRole("combobox");
+    const ta = await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ });
     fireEvent.change(ta, { target: { value: "@[张三] 推门而入。" } });
 
     fireEvent.click(await screen.findByRole("button", { name: /^(Save|保存)$/ }));
@@ -363,7 +363,7 @@ describe("ReferenceVideoCanvas", () => {
     const unit = mkUnit("E1U1", "推门。");
     vi.spyOn(API, "listReferenceVideoUnits").mockResolvedValue({ units: [unit] });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
-    const ta = await screen.findByRole("combobox");
+    const ta = await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ });
     fireEvent.change(ta, { target: { value: "@[查无此人] 推门而入。" } });
 
     expect(await screen.findByRole("button", { name: /^(Save|保存)$/ })).toBeEnabled();
@@ -523,11 +523,11 @@ describe("ReferenceVideoCanvas", () => {
       units: [mkUnit("E1U1", "hello from A"), mkUnit("E1U2", "hello from B")],
     });
     render(<ReferenceVideoCanvas projectName="proj" episode={1} />);
-    const taA = (await screen.findByRole("combobox")) as HTMLTextAreaElement;
+    const taA = (await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ })) as HTMLTextAreaElement;
     expect(taA.value).toContain("hello from A");
     fireEvent.click(screen.getByTestId("unit-row-E1U2"));
     await waitFor(() => {
-      expect((screen.getByRole("combobox") as HTMLTextAreaElement).value).toContain("hello from B");
+      expect((screen.getByRole("combobox", { name: /Unit prompt|Unit 提示词/ }) as HTMLTextAreaElement).value).toContain("hello from B");
     });
   });
 
@@ -581,7 +581,7 @@ describe("ReferenceVideoCanvas", () => {
     await waitFor(() => {
       expect(useReferenceVideoStore.getState().selectedUnitId).toBe("E1U1");
     });
-    const ta = (await screen.findByRole("combobox")) as HTMLTextAreaElement;
+    const ta = (await screen.findByRole("combobox", { name: /Unit prompt|Unit 提示词/ })) as HTMLTextAreaElement;
     expect(ta.value).toContain("first");
   });
 

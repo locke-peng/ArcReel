@@ -877,7 +877,23 @@ class PromptPreviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     script: str = Field(min_length=1, description="剧本文件名（纯文件名）")
-    item_id: str = Field(min_length=1, description="分镜条目 id")
+    item_id: str = Field(min_length=1, description="分镜条目 / reference-video unit id")
+    prompt: str | None = None
+    reference_image_labels: list[str] | None = None
+    prompt_compiler: Literal["auto", "h3_ref2va", "raw"] | None = None
+    canonical_director: dict[str, Any] | None = None
+
+    @field_validator("reference_image_labels")
+    @classmethod
+    def _preview_labels_nonblank(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        labels = [item.strip() for item in value]
+        if not labels:
+            return None
+        if any(not item for item in labels):
+            raise ValueError("reference_image_labels must not contain blank labels")
+        return labels
 
 
 async def get_prompt_preview(
@@ -899,11 +915,39 @@ async def get_prompt_preview(
         failure = await asyncio.to_thread(project_migration_failure, scope.project_name, services.projects)
         if failure is not None:
             return ToolOutcome(problem=ToolProblem(MIGRATION_FAILURE_CODE, failure.reason))
+        force_reference_video = (
+            request.value.prompt is not None
+            or request.value.reference_image_labels is not None
+            or request.value.prompt_compiler is not None
+            or request.value.canonical_director is not None
+        )
+        if force_reference_video:
+            raise ScriptItemNotFound(request.value.item_id)
         preview = await preview_item_prompts(
             scope.project_name, filename, request.value.item_id, projects=services.projects
         )
     except ScriptItemNotFound:
-        return ToolOutcome(problem=ToolProblem("item_not_found", f"剧本中不存在分镜 {request.value.item_id}"))
+        try:
+            from server.services.reference_video_prompt_preview import preview_reference_video_provider_prompt
+
+            preview = await preview_reference_video_provider_prompt(
+                project_name=scope.project_name,
+                script_file=filename,
+                unit_id=request.value.item_id,
+                prompt_override=request.value.prompt,
+                reference_image_labels=request.value.reference_image_labels,
+                prompt_compiler=request.value.prompt_compiler or "auto",
+                canonical_director=request.value.canonical_director,
+                user_id=_caller.user_id,
+                projects=services.projects,
+                queue=services.queue,
+            )
+        except ValueError as exc:
+            if str(exc).startswith("unit not found:"):
+                return ToolOutcome(
+                    problem=ToolProblem("item_not_found", f"剧本中不存在分镜 {request.value.item_id}")
+                )
+            return ToolOutcome(problem=ToolProblem("invalid_request", str(exc)))
     except FileNotFoundError as exc:
         return ToolOutcome(problem=ToolProblem("file_not_found", str(exc)))
     except (TypeError, ValueError) as exc:

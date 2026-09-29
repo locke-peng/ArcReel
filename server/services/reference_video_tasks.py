@@ -41,6 +41,23 @@ from lib.reference_video.execution_checkpoint import (
     stage_provider_media,
     stage_provider_media_for_task,
 )
+from lib.reference_video.h3_audio_runtime import build_h3_canonical_audio_runtime_bundle
+from lib.reference_video.h3_exact_text_runtime import build_h3_exact_text_runtime_bundle
+from lib.reference_video.h3_production_policy import H3RepairAction
+from lib.reference_video.h3_prompt_execution import (
+    assert_provider_prompt_matches_preview,
+    compile_reference_video_provider_prompt,
+    should_compile_reference_video_h3,
+)
+from lib.reference_video.h3_repair_executor import sha256_file
+from lib.reference_video.h3_repair_ticket import H3RepairTicketContext
+from lib.reference_video.h3_runtime_gate import (
+    H3DeterministicRepairHandler,
+    H3MediaQAEvaluator,
+    run_h3_runtime_selection_gate,
+)
+from lib.reference_video.h3_timeline_runtime import build_h3_timeline_runtime_bundle
+from lib.reference_video.media_qa_schema import MediaQAFinding
 from lib.reference_video.prompt_render import (
     RenderedUnitPrompt,
     render_video_unit_prompt,
@@ -100,6 +117,154 @@ async def _stage_provider_media_for_task(
     """Bind the shared cancellation-safe staging operation to this module's patchable sync seam."""
 
     return await stage_provider_media_for_task(project_path, task_id, inputs, stage=stage_provider_media)
+
+
+def _resolve_trusted_h3_runtime_bundle(
+    *,
+    canonical_director: Mapping[str, Any] | None,
+    unit_id: str,
+    project_path: Path,
+    prompt_lock_verified: bool,
+    h3_compiler_applied: bool,
+    evaluator: H3MediaQAEvaluator | None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+) -> tuple[
+    H3MediaQAEvaluator | None,
+    Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+]:
+    """Resolve trusted automatic H3 QA only from prompt-locked Canonical facts.
+
+    Explicitly injected evaluator/handlers remain the highest-priority trusted seam.
+    Automatic producers may inspect Canonical timeline boundaries and SHA-pinned
+    deterministic exact-text plate contracts. They never consume request-provided failure
+    classes or repair decisions.
+    """
+
+    if evaluator is not None:
+        return evaluator, repair_handlers
+
+    if (
+        canonical_director is None
+        or not prompt_lock_verified
+        or not h3_compiler_applied
+    ):
+        return None, repair_handlers
+
+    evaluators: list[H3MediaQAEvaluator] = []
+    handlers: dict[H3RepairAction, H3DeterministicRepairHandler] = {}
+
+    timeline_evaluator, timeline_handlers = build_h3_timeline_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+    )
+    evaluators.append(timeline_evaluator)
+    handlers.update(timeline_handlers)
+
+    exact_evaluator, exact_handlers = build_h3_exact_text_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+    )
+    if exact_evaluator is not None:
+        evaluators.append(exact_evaluator)
+    for action, handler in exact_handlers.items():
+        if action in handlers and handlers[action] is not handler:
+            raise RuntimeError(f"duplicate H3 deterministic handler for {action.value}")
+        handlers[action] = handler
+
+    audio_evaluator, audio_handlers = build_h3_canonical_audio_runtime_bundle(
+        canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+    )
+    if audio_evaluator is not None:
+        evaluators.append(audio_evaluator)
+    for action, handler in audio_handlers.items():
+        if action in handlers and handlers[action] is not handler:
+            raise RuntimeError(f"duplicate H3 deterministic handler for {action.value}")
+        handlers[action] = handler
+
+    async def _composite(media_path: Path) -> tuple[MediaQAFinding, ...]:
+        findings: list[MediaQAFinding] = []
+        for producer in evaluators:
+            findings.extend(await producer(media_path))
+        return tuple(findings)
+
+    return _composite, handlers
+
+
+def resolve_trusted_h3_runtime_bundle(
+    *,
+    canonical_director: Mapping[str, Any] | None,
+    unit_id: str,
+    project_path: Path,
+    prompt_lock_verified: bool,
+    h3_compiler_applied: bool,
+    evaluator: H3MediaQAEvaluator | None = None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None = None,
+) -> tuple[
+    H3MediaQAEvaluator | None,
+    Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+]:
+    """Public trusted Re-QA seam shared by initial H3 selection and Phase 5 repairs."""
+
+    return _resolve_trusted_h3_runtime_bundle(
+        canonical_director=canonical_director,
+        unit_id=unit_id,
+        project_path=project_path,
+        prompt_lock_verified=prompt_lock_verified,
+        h3_compiler_applied=h3_compiler_applied,
+        evaluator=evaluator,
+        repair_handlers=repair_handlers,
+    )
+
+
+def _build_h3_preselection_media_gate(
+    *,
+    payload: Mapping[str, Any],
+    model_name: str | None,
+    has_references: bool,
+    evaluator: H3MediaQAEvaluator | None,
+    repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None,
+    repair_ticket_context: H3RepairTicketContext | None = None,
+) -> Callable[[Path, int, Mapping[str, Any]], Awaitable[Mapping[str, Any]]] | None:
+    """Build the trusted internal H3 QA hook; never derive findings from request payload."""
+
+    if evaluator is None or not should_compile_reference_video_h3(
+        payload=payload,
+        model_name=model_name,
+        has_references=has_references,
+    ):
+        return None
+
+    handlers = repair_handlers or {}
+
+    async def _gate(
+        staged_file: Path,
+        _duration_seconds: int,
+        _version_metadata: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        ticket_context = repair_ticket_context
+        provider_task_id = _version_metadata.get("provider_task_id")
+        if (
+            ticket_context is not None
+            and ticket_context.provider_task_id is None
+            and isinstance(provider_task_id, str)
+            and provider_task_id.strip()
+        ):
+            ticket_context = replace(
+                ticket_context,
+                provider_task_id=provider_task_id.strip(),
+            )
+        result = await run_h3_runtime_selection_gate(
+            staged_file,
+            evaluator=evaluator,
+            repair_handlers=handlers,
+            repair_ticket_context=ticket_context,
+        )
+        return result.to_dict()
+
+    return _gate
 
 
 def _render_unit_prompt(
@@ -299,6 +464,8 @@ async def execute_reference_video_task(
         [Path, str, tuple[ProviderMediaInput, ...]], Awaitable[tuple[StagedProviderMedia, ...]]
     ]
     | None = None,
+    h3_media_qa_evaluator: H3MediaQAEvaluator | None = None,
+    h3_repair_handlers: Mapping[H3RepairAction, H3DeterministicRepairHandler] | None = None,
 ) -> dict[str, Any]:
     """处理一个 reference_video unit 的生成。
 
@@ -496,7 +663,13 @@ async def execute_reference_video_task(
     if duration_warning is not None:
         warnings.append(duration_warning)
 
-    if request_options.narration_delivery == USE_TTS:
+    h3_compilation_applies = should_compile_reference_video_h3(
+        payload=payload,
+        model_name=model_name,
+        has_references=bool(constrained_entries),
+    )
+
+    if request_options.narration_delivery == USE_TTS and not h3_compilation_applies:
         narration = options.narration_preparation
         if narration is None or narration.actual_duration_seconds is None:
             raise RuntimeError("allowed TTS reference request is missing actual narration duration")
@@ -539,6 +712,49 @@ async def execute_reference_video_task(
         request_references=[entry.reference for entry in constrained_entries],
     )
     rendered_prompt = rendered.prompt
+    prompt_compilation = compile_reference_video_provider_prompt(
+        source_prompt=str(unit.get("text") or ""),
+        fallback_prompt=rendered_prompt,
+        model_name=model_name,
+        duration_seconds=effective_duration,
+        request_assets=constrained_entries,
+        payload=payload,
+        max_prompt_chars=video.max_prompt_chars,
+        unit_id=resource_id,
+    )
+    provider_prompt = prompt_compilation.provider_prompt
+    # Hard pre-provider invariant: a preview-locked generation may never silently
+    # submit different text. Any script/asset/model/compiler drift becomes a free
+    # pre-submit failure instead of a paid generation with an unseen prompt.
+    assert_provider_prompt_matches_preview(
+        provider_prompt=provider_prompt,
+        expected_sha256=payload.get("expected_provider_prompt_sha256"),
+    )
+    expected_provider_prompt_sha256 = payload.get("expected_provider_prompt_sha256")
+    prompt_lock_verified = isinstance(expected_provider_prompt_sha256, str) and bool(
+        expected_provider_prompt_sha256.strip()
+    )
+    h3_repair_ticket_context = H3RepairTicketContext(
+        provider_prompt_sha256=(
+            expected_provider_prompt_sha256.strip()
+            if prompt_lock_verified and isinstance(expected_provider_prompt_sha256, str)
+            else None
+        ),
+        reference_sha256=tuple(sha256_file(path) for path in constrained_refs),
+    )
+    canonical_director = payload.get("canonical_director")
+    trusted_canonical_director = (
+        canonical_director if isinstance(canonical_director, Mapping) else None
+    )
+    h3_media_qa_evaluator, h3_repair_handlers = _resolve_trusted_h3_runtime_bundle(
+        canonical_director=trusted_canonical_director,
+        unit_id=resource_id,
+        project_path=project_path,
+        prompt_lock_verified=prompt_lock_verified,
+        h3_compiler_applied=prompt_compilation.compiler_applied,
+        evaluator=h3_media_qa_evaluator,
+        repair_handlers=h3_repair_handlers,
+    )
     reference_audio_files, reference_audio_targets = _build_reference_audio_wiring(
         rendered, audio_paths, reference_audio_per_image=voice_settings.requires_reference_image
     )
@@ -627,7 +843,7 @@ async def execute_reference_video_task(
             provider_audio = staged_audio_paths or None
             visual_basis_digest = await asyncio.to_thread(
                 materialized_reference_video_visual_basis_digest,
-                rendered_prompt=rendered_prompt,
+                rendered_prompt=provider_prompt,
                 aspect_ratio=aspect_ratio,
                 reference_images=provider_refs,
                 request_assets=constrained_entries,
@@ -684,7 +900,7 @@ async def execute_reference_video_task(
                     provider_model_id=video.provider_model.model_id,
                     backend_model_id=video.backend_model,
                     endpoint_guard=video.endpoint,
-                    prompt=rendered_prompt,
+                    prompt=provider_prompt,
                     duration_seconds=effective_duration,
                     aspect_ratio=aspect_ratio,
                     resolution=resolution,
@@ -721,6 +937,19 @@ async def execute_reference_video_task(
             )
             raise
 
+    h3_preselection_media_gate = (
+        _build_h3_preselection_media_gate(
+            payload=payload,
+            model_name=model_name,
+            has_references=bool(provider_refs),
+            evaluator=h3_media_qa_evaluator,
+            repair_handlers=h3_repair_handlers,
+            repair_ticket_context=h3_repair_ticket_context,
+        )
+        if task_id is not None
+        else None
+    )
+
     artifact_committer = (
         VideoArtifactCommitter(
             project_manager=get_project_manager(),
@@ -729,7 +958,8 @@ async def execute_reference_video_task(
             versions=generator.versions,
             resource_type="reference_videos",
             resource_id=resource_id,
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
+            preselection_media_gate=h3_preselection_media_gate,
         )
         if task_id is not None
         else None
@@ -743,7 +973,7 @@ async def execute_reference_video_task(
         # MediaGenerator compresses only transient derivatives of the immutable staged images. A 413 retry keeps
         # the same high-level media identities and cannot rewrite the once-only checkpoint.
         output_path, version, _, video_uri = await generator.generate_video_async(
-            prompt=rendered_prompt,
+            prompt=provider_prompt,
             resource_type="reference_videos",
             resource_id=resource_id,
             reference_images=provider_refs,

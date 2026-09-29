@@ -236,6 +236,8 @@ class VideoLaneResult:
     # 自定义供应商解析出的 endpoint（ENDPOINT_REGISTRY 键）；内置供应商无该维度，为 None。
     # 续跑据此与提交时持久化的 endpoint 比对，见 server.services.resume_executor。
     endpoint: str | None = None
+    # Provider/model prompt 字符上限；None 表示未声明。追加在 dataclass 尾部，避免破坏旧位置参数。
+    max_prompt_chars: int | None = None
 
     @property
     def is_silent(self) -> bool:
@@ -377,6 +379,7 @@ async def resolve_generation_context(
             voice_consistency: VoiceConsistency = "soft"
             max_reference_audio_count = 0
             reference_audio_per_image = False
+            max_prompt_chars: int | None = None
             # 独立于能力解析：这是用户在 project.json / 全局设置里的无声意图，不来自 provider
             # 能力接口，能力解析失败不得连带把它冲回默认值 True（会静默重新允许参考音频上传）。
             requested_generate_audio = await r.video_generate_audio_for_project(project)
@@ -394,6 +397,14 @@ async def resolve_generation_context(
                 voice_consistency = caps.get("voice_consistency") or "soft"
                 max_reference_audio_count = int(caps.get("max_reference_audio_count") or 0)
                 reference_audio_per_image = bool(caps.get("reference_audio_per_image") or False)
+                raw_prompt_limit = caps.get("max_prompt_chars")
+                max_prompt_chars = (
+                    int(raw_prompt_limit)
+                    if isinstance(raw_prompt_limit, int)
+                    and not isinstance(raw_prompt_limit, bool)
+                    and raw_prompt_limit > 0
+                    else None
+                )
             except Exception as exc:
                 logger.info(
                     "无法解析 video capabilities（%s/%s），能力值降级为空：%s",
@@ -416,6 +427,7 @@ async def resolve_generation_context(
                 requested_generate_audio=requested_generate_audio,
                 max_reference_audio_count=max_reference_audio_count,
                 reference_audio_per_image=reference_audio_per_image,
+                max_prompt_chars=max_prompt_chars,
                 # 显式按类型分流而非 getattr 探测：endpoint 为 None 恰好是「跳过续跑比对」
                 # 这条最宽松分支，属性一旦改名，探测式取值会静默失效且无任何信号。
                 endpoint=video_backend.endpoint if isinstance(video_backend, CustomVideoBackend) else None,

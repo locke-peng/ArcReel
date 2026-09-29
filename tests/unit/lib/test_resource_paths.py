@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from lib.resource_paths import (
+    H3_REPAIR_SHOT_RESOURCE_TYPE,
     RESOURCE_TYPES,
     resource_extension,
     resource_relative_path,
@@ -31,6 +32,7 @@ class TestResourceRelativePath:
             ("props", "玉佩", "props/玉佩.png"),
             ("grids", "grid_abc", "grids/grid_abc.png"),
             ("reference_videos", "E1U1", "reference_videos/E1U1.mp4"),
+            (H3_REPAIR_SHOT_RESOURCE_TYPE, "h3rx_abc", "repairs/provider_shots/h3rx_abc.mp4"),
         ],
     )
     def test_canonical_paths(self, resource_type: str, resource_id: str, expected: str) -> None:
@@ -63,6 +65,7 @@ class TestResourceExtension:
             ("props", ".png"),
             ("grids", ".png"),
             ("reference_videos", ".mp4"),
+            (H3_REPAIR_SHOT_RESOURCE_TYPE, ".mp4"),
             ("audio", ".wav"),
         ],
     )
@@ -87,5 +90,6 @@ class TestResourceTypes:
             "products",
             "grids",
             "reference_videos",
+            H3_REPAIR_SHOT_RESOURCE_TYPE,
             "character_derivatives",
         }

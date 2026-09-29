@@ -1,0 +1,10 @@
+unit=E11U02
+attempt=1
+scope=E11U02 only
+purpose=paid supplier acceptance for v2 zero-text repair: physical hardware stability instead of monitor UI, face-down blank badge with plain cord, and black-drape media corridor with no signage
+duration_seconds=15
+shot_structure=5s+5s+5s
+provider_resolution=480p横
+final_resolution=864x480
+content_gates=lab physical green stable state; no visible screens/text; face-down blank guest badge; plain lanyard; summit black-drape media entry; no invented principal faces; dialogue audio-only; exact three-shot timing
+next_gate=E15U03 only after E11U02 content PASS

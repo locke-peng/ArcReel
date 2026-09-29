@@ -1,0 +1,88 @@
+name: H3 E13U03 v1 Live Supplier Test
+
+on:
+  push:
+    branches:
+      - fix/e13u03-h3-v1-multiscene-identity-logguard
+    paths:
+      - .github/live-tests/e13u03-v1-request.txt
+
+permissions:
+  contents: read
+
+jobs:
+  e13u03-v1-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      MINIMAX_LIVE_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY || secrets.MINIMAX_API_KEY }}
+      MINIMAX_LIVE_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL || 'https://autodl.art' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run E13U03 deterministic contract gates
+        run: uv run pytest -q tests/unit/test_e13u03_v1_contract.py
+
+      - name: Compile changed Python
+        run: uv run python -m py_compile scripts/experiments/run_e13u03_minimax_h3_live.py tests/unit/test_e13u03_v1_contract.py
+
+      - name: Ruff E13U03 delta
+        run: |
+          uv run ruff check --ignore UP037 \
+            scripts/experiments/run_e13u03_minimax_h3_live.py \
+            tests/unit/test_e13u03_v1_contract.py
+
+      - name: Credential preflight
+        run: |
+          if [ -z "$MINIMAX_LIVE_API_KEY" ]; then
+            echo "NO_MINIMAX_API_KEY_SECRET"
+            exit 2
+          fi
+          echo "MiniMax/AutoDL credential present; value is not printed."
+
+      - name: Run paid E13U03 four-stage supplier acceptance
+        run: uv run python scripts/experiments/run_e13u03_minimax_h3_live.py
+
+      - name: Probe final E13U03 artifact and extract dense review frames
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p live_artifacts/E13U03/review_frames
+          VIDEO="live_artifacts/E13U03/project/reference_videos/E13U03.mp4"
+          test -s "$VIDEO"
+
+          ffprobe -v error \
+            -show_entries format=duration,size \
+            -show_entries stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels \
+            -of json "$VIDEO" > live_artifacts/E13U03/ffprobe_final.json
+
+          for T in 0.25 0.75 1.25 1.75 2.25 2.75 3.25 3.75 4.25 4.75 5.25 5.75 6.25 6.75 7.25 7.75 8.25 8.75 9.25 9.75 10.25 10.75 11.25 11.75 12.25 12.75 13.25 13.75 14.25 14.75; do
+            ffmpeg -hide_banner -loglevel error -ss "$T" -i "$VIDEO" -frames:v 1 \
+              "live_artifacts/E13U03/review_frames/frame_${T}.png"
+          done
+
+      - name: Upload E13U03 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e13u03-v1-multiscene-identity-logguard-evidence
+          path: live_artifacts/E13U03
+          if-no-files-found: warn
+          retention-days: 14

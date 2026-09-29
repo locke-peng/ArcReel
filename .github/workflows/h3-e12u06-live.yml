@@ -1,0 +1,57 @@
+name: H3 E12U06 Live Supplier Test
+
+on:
+  push:
+    branches:
+      - experiment/h3-docpack-v1-3b3bc527
+    paths:
+      - .github/live-tests/e12u06-request.txt
+
+permissions:
+  contents: read
+
+jobs:
+  e12u06-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MINIMAX_LIVE_API_KEY: ${{ secrets.MINIMAX_H3_API_KEY || secrets.MINIMAX_API_KEY }}
+      MINIMAX_LIVE_BASE_URL: ${{ secrets.MINIMAX_H3_BASE_URL || 'https://api.minimaxi.com/v1' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Credential preflight
+        run: |
+          if [ -z "$MINIMAX_LIVE_API_KEY" ]; then
+            echo "NO_MINIMAX_API_KEY_SECRET"
+            exit 2
+          fi
+          echo "MiniMax credential present; value is not printed."
+
+      - name: Run paid E12U06 supplier test through ArcReel MediaGenerator
+        run: uv run python scripts/experiments/run_e12u06_minimax_h3_live.py
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e12u06-h3-live-evidence
+          path: live_artifacts/E12U06
+          if-no-files-found: warn
+          retention-days: 14

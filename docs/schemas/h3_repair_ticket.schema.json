@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcreel.local/schemas/h3_repair_ticket.schema.json",
+  "title": "ArcReel H3 Repair Ticket v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ticket_id",
+    "ticket_sha256",
+    "status",
+    "approval_eligible",
+    "unit_id",
+    "shot_id",
+    "scope_kind",
+    "start_seconds",
+    "end_seconds",
+    "failure_class",
+    "repair_action",
+    "provider_recall_required",
+    "canonical_violation",
+    "planner_reason",
+    "source_media_sha256",
+    "provider_prompt_sha256",
+    "reference_sha256",
+    "evidence_frames",
+    "tags"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "ticket_id": {"type": "string", "pattern": "^h3rt_[0-9a-f]{24}$"},
+    "ticket_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {
+      "enum": ["awaiting_approval", "human_review_required"]
+    },
+    "approval_eligible": {"type": "boolean"},
+    "unit_id": {"type": "string", "minLength": 1},
+    "shot_id": {"type": ["string", "null"]},
+    "scope_kind": {"enum": ["shot", "unresolved"]},
+    "start_seconds": {"type": ["number", "null"], "minimum": 0},
+    "end_seconds": {"type": ["number", "null"], "minimum": 0},
+    "region": {"type": ["string", "null"]},
+    "failure_class": {"type": "string", "minLength": 1},
+    "repair_action": {"type": "string", "minLength": 1},
+    "provider_recall_required": {"type": "boolean"},
+    "canonical_violation": {"type": "string", "minLength": 1},
+    "planner_reason": {"type": "string", "minLength": 1},
+    "source_media_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_prompt_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reference_sha256": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+      "uniqueItems": true
+    },
+    "evidence_frames": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "provider_task_id": {"type": ["string", "null"]},
+    "provider_run_id": {"type": ["integer", "null"]},
+    "provider_artifact_id": {"type": ["integer", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "approval_eligible": {"const": true}
+        },
+        "required": ["approval_eligible"]
+      },
+      "then": {
+        "properties": {
+          "status": {"const": "awaiting_approval"},
+          "scope_kind": {"const": "shot"},
+          "provider_recall_required": {"const": true},
+          "shot_id": {"type": "string", "minLength": 1},
+          "start_seconds": {"type": "number", "minimum": 0},
+          "end_seconds": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    }
+  ]
+}

@@ -122,13 +122,16 @@ class ProviderJobIdPersistenceMixin:
         保持现有 fail-fast 语义（ADR 0007）。
         """
         if request.task_id is not None:
-            await persist_provider_job_id(
-                request.task_id,
-                job_id,
-                provider=provider,
-                endpoint=request.execution_endpoint,
-                base_url=endpoint,
-            )
+            if request.on_provider_job_id is not None:
+                await request.on_provider_job_id(job_id, request.execution_endpoint, endpoint)
+            else:
+                await persist_provider_job_id(
+                    request.task_id,
+                    job_id,
+                    provider=provider,
+                    endpoint=request.execution_endpoint,
+                    base_url=endpoint,
+                )
         if request.on_provider_resubmit_unsafe is not None:
             request.on_provider_resubmit_unsafe()
 
@@ -1185,6 +1188,10 @@ class VideoGenerationRequest:
     # after the provider job handle is durable; an opaque submit-and-wait backend must signal before entering a
     # call whose failure cannot prove that the provider rejected the request before accepting a paid job.
     on_provider_resubmit_unsafe: Callable[[], None] | None = None
+
+    # Repair/orchestration callers may replace only the job-id persistence sink while keeping
+    # the same backend submit/poll implementation. Ordinary generation leaves this None.
+    on_provider_job_id: Callable[[str, str | None, str | None], Awaitable[None]] | None = None
 
     # 收到供应商 JSON 响应时携阶段写入诊断留痕。非账本调用保持 None。
     on_provider_response: Callable[[ProviderResponseStage, object], Awaitable[None]] | None = None

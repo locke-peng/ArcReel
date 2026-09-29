@@ -72,6 +72,7 @@ from lib.reference_video.execution_checkpoint import (
     classify_video_resume_state,
     cleanup_staged_provider_media,
 )
+from lib.reference_video.h3_repair_queue import H3_REPAIR_MEDIA_TYPE, H3_REPAIR_TASK_TYPE
 from lib.reference_video.request_projection import ReferenceProjectionBlockedError
 from lib.script_editor import ScriptEditError
 from lib.task_failure import encode_failure
@@ -519,6 +520,11 @@ async def _extract_provider(task: dict[str, Any]) -> str:
 
 
 async def _execute_task(task: dict[str, Any], *, claimed_provider_id: str | None = None) -> dict[str, Any]:
+    if task.get("task_type") == H3_REPAIR_TASK_TYPE:
+        from server.services.h3_repair_tasks import execute_h3_repair_task
+
+        return await execute_h3_repair_task(task)
+
     from server.services.generation_tasks import execute_generation_task
 
     if task.get("task_type") in ("video", "reference_video"):
@@ -820,7 +826,47 @@ class GenerationWorker:
                 if media_type == "text":
                     break
 
+        if await self._claim_h3_repair_task():
+            claimed_any = True
         return claimed_any
+
+    async def _claim_h3_repair_task(self) -> bool:
+        """Claim at most one fresh H3 repair while a prior fresh repair is active.
+
+        Repair Tickets use their own atomic ticket+task claim, so they must never pass
+        through GenerationQueue.claim_next_task().  They still run under this worker's
+        single lease and SlotTable so shutdown/cancellation/self-preemption semantics stay
+        identical to ordinary generation tasks.
+        """
+
+        if self._slots.occupied("h3-repair", H3_REPAIR_MEDIA_TYPE) > 0:
+            return False
+
+        session_factory = getattr(self.queue, "session_factory", None)
+        if session_factory is None:
+            # Lightweight/test queue implementations that do not expose database sessions
+            # do not host the H3 repair lane; preserve their existing media-lane behavior.
+            return False
+
+        from lib.reference_video.h3_repair_queue import H3RepairQueueService
+
+        async with session_factory() as session:
+            claim = await H3RepairQueueService(session).claim_next()
+        if claim is None:
+            return False
+
+        task = await self.queue.get_task(claim.task_id)
+        if task is None:
+            logger.error("claimed H3 repair task disappeared: %s", claim.task_id)
+            return False
+        task["video_poll_timeout_seconds"] = await _read_video_poll_timeout_seconds()
+        process = asyncio.create_task(
+            self._process_task(task, claimed_provider_id="h3-repair"),
+            name=f"h3-repair-{claim.task_id}",
+        )
+        self._slots.register("h3-repair", H3_REPAIR_MEDIA_TYPE, claim.task_id, process)
+        logger.info("已派发 H3 repair task: %s", claim.task_id)
+        return True
 
     async def _requeue_single_task(self, task_id: str) -> bool:
         """Put a claimed (running) task back to queued status.
@@ -1262,6 +1308,18 @@ class GenerationWorker:
 
             # status == "running"
             task_type = task.get("task_type")
+            # Phase 5 repair tasks own a stricter ticket+approval+allowance resume protocol.
+            # Dispatch the persisted RUNNING task directly: the repair runtime decides from
+            # checkpoint + provider_job_id whether it may submit once, resume, or fail closed.
+            if task_type == H3_REPAIR_TASK_TYPE:
+                task["video_poll_timeout_seconds"] = await _read_video_poll_timeout_seconds()
+                process = asyncio.create_task(
+                    self._process_task(task, claimed_provider_id="h3-repair"),
+                    name=f"h3-repair-orphan-{task_id}",
+                )
+                self._slots.register("h3-repair", H3_REPAIR_MEDIA_TYPE, task_id, process)
+                logger.info("已派发 H3 repair orphan: %s", task_id)
+                continue
             if task.get("media_type"):
                 media_type = task["media_type"]
             elif task_type in ("video", "reference_video"):

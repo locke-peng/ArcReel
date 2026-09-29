@@ -792,3 +792,81 @@ async def test_legacy_video_materializes_after_the_provenance_backfill_migration
         "videos",
         "episode_1.json",
     )
+
+async def test_video_duration_probe_falls_back_to_provider_result_metadata(tmp_path: Path) -> None:
+    pm, project_path, settings = _setup_narrator_project(tmp_path)
+    versions_path = project_path / "versions" / "versions.json"
+    versions_value = json.loads(versions_path.read_text(encoding="utf-8"))
+    record = versions_value["videos"]["E1S01"]["versions"][0]
+    record["duration_seconds"] = 8
+    record["provider_duration_seconds"] = 6.25
+    _write_json(versions_path, versions_value)
+
+    async def unavailable_probe(_path: Path) -> float | None:
+        return None
+
+    result = await PresentationReadModelService(
+        pm,
+        settings_resolver_factory=lambda _project_name, _project_path: _SettingsResolver(settings),
+        video_duration_probe=unavailable_probe,
+    ).materialize_unit(
+        project_name="demo",
+        resource_type="videos",
+        resource_id="E1S01",
+        variant="post_production",
+    )
+
+    assert result.presentation.video.duration_microseconds == 6_250_000
+
+
+async def test_video_duration_probe_uses_legacy_requested_duration_only_as_fallback(tmp_path: Path) -> None:
+    pm, project_path, settings = _setup_narrator_project(tmp_path)
+    versions_path = project_path / "versions" / "versions.json"
+    versions_value = json.loads(versions_path.read_text(encoding="utf-8"))
+    record = versions_value["videos"]["E1S01"]["versions"][0]
+    record["duration_seconds"] = 8
+    record.pop("provider_duration_seconds", None)
+    _write_json(versions_path, versions_value)
+
+    async def unavailable_probe(_path: Path) -> float | None:
+        return None
+
+    result = await PresentationReadModelService(
+        pm,
+        settings_resolver_factory=lambda _project_name, _project_path: _SettingsResolver(settings),
+        video_duration_probe=unavailable_probe,
+    ).materialize_unit(
+        project_name="demo",
+        resource_type="videos",
+        resource_id="E1S01",
+        variant="post_production",
+    )
+
+    assert result.presentation.video.duration_microseconds == 8_000_000
+
+
+async def test_video_duration_probe_rejects_invalid_recorded_fallback(tmp_path: Path) -> None:
+    pm, project_path, settings = _setup_narrator_project(tmp_path)
+    versions_path = project_path / "versions" / "versions.json"
+    versions_value = json.loads(versions_path.read_text(encoding="utf-8"))
+    record = versions_value["videos"]["E1S01"]["versions"][0]
+    record["provider_duration_seconds"] = False
+    record["duration_seconds"] = 0
+    _write_json(versions_path, versions_value)
+
+    async def unavailable_probe(_path: Path) -> float | None:
+        return None
+
+    service = PresentationReadModelService(
+        pm,
+        settings_resolver_factory=lambda _project_name, _project_path: _SettingsResolver(settings),
+        video_duration_probe=unavailable_probe,
+    )
+    with pytest.raises(PresentationUnavailableError, match="duration is unavailable"):
+        await service.materialize_unit(
+            project_name="demo",
+            resource_type="videos",
+            resource_id="E1S01",
+            variant="post_production",
+        )
+

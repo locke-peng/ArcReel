@@ -10,6 +10,7 @@ import {
   WORKSPACE_ROUTE_PROPS,
   WORKSPACE_ROUTE_PRODUCTS,
   WORKSPACE_ROUTE_EPISODES,
+  WORKSPACE_ROUTE_STUDIO_CONTROL,
 } from "@/app-routes";
 import { useTranslation } from "react-i18next";
 import { useProjectsStore } from "@/stores/projects-store";
@@ -30,6 +31,7 @@ import { ProductsPage } from "./lorebook/ProductsPage";
 import { ReferenceVideoCanvas } from "./reference/ReferenceVideoCanvas";
 import { GridImageToVideoCanvas } from "./grid/GridImageToVideoCanvas";
 import { EpisodeSourceReview } from "./EpisodeSourceReview";
+import { H3StudioDashboard } from "./H3StudioDashboard";
 import { WorkflowPanel } from "@/components/workflow/WorkflowPanel";
 import { API, NarratedVideoDurationError } from "@/api";
 import {
@@ -689,6 +691,14 @@ export function StudioCanvasRouter() {
           onRefreshProject={refreshProject}
           generatingPropNames={generatingPropNames}
         />
+      </Route>
+
+      <Route path={`/${WORKSPACE_ROUTE_STUDIO_CONTROL}`}>
+        {demoMode ? (
+          <Redirect to="/" />
+        ) : (
+          <H3StudioDashboard projectName={currentProjectName} />
+        )}
       </Route>
 
       <Route path={`/${WORKSPACE_ROUTE_PRODUCTS}`}>

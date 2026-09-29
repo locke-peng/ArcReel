@@ -38,6 +38,7 @@ END_FRAME_RESOURCE_TYPE = "end_frames"
 #: 与 END_FRAME_RESOURCE_TYPE 同理导出到这个无反向依赖的模块，供写侧、版本管理与
 #: 产物规划共用一个字面量。
 CHARACTER_DERIVATIVE_RESOURCE_TYPE = "character_derivatives"
+H3_REPAIR_SHOT_RESOURCE_TYPE = "h3_repair_shots"
 
 _PATTERNS: dict[str, ResourcePattern] = {
     "storyboards": ResourcePattern("storyboards", ".png", prefix="scene_"),
@@ -50,6 +51,7 @@ _PATTERNS: dict[str, ResourcePattern] = {
     "products": ResourcePattern("products", ".png"),
     "grids": ResourcePattern("grids", ".png"),
     "reference_videos": ResourcePattern("reference_videos", ".mp4"),
+    H3_REPAIR_SHOT_RESOURCE_TYPE: ResourcePattern("repairs/provider_shots", ".mp4"),
     "audio": ResourcePattern("audio", ".wav", prefix="segment_"),
     CHARACTER_DERIVATIVE_RESOURCE_TYPE: ResourcePattern("characters/derivatives", ".png", id_segments=2),
 }

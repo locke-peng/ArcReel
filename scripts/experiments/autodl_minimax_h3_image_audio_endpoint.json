@@ -1,0 +1,95 @@
+{
+  "kind": "declarative",
+  "schema_version": "1.0.0",
+  "meta": {
+    "name": "AutoDL MiniMax H3 multi-image multi-audio",
+    "author": "ArcReel E4U02 acceptance",
+    "version": "1.0.0",
+    "description": "E4U02 acceptance endpoint for MiniMax H3 multi-image + multi-audio, with dialogue detached from the visual prompt.",
+    "homepage": "https://autodl.art/large-model/comfyui/minimax_h3_image_audio_to_video_v2_15s",
+    "hints": {
+      "base_url": "https://autodl.art",
+      "suggested_models": [
+        {
+          "id": "minimax_h3_image_audio_to_video_v2_15s",
+          "label": "MiniMax H3 multi-image multi-audio 15s"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "headers": {
+      "Authorization": "{{ api_key }}"
+    }
+  },
+  "inputs": {
+    "phone_image": {
+      "source": "start_image",
+      "encoding": "data_uri",
+      "required": true
+    },
+    "identity_bridge": {
+      "source": "end_image",
+      "encoding": "data_uri",
+      "required": true
+    },
+    "reference_audio": {
+      "source": "reference_audio_files",
+      "encoding": "data_uri",
+      "required": true
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "url": "{{ base_url }}/api/v1/comfyui/comfyui_workflow/minimax_h3_image_audio_to_video_v2_15s",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "prompt": "{{ prompt }}",
+      "duration": "{{ duration }}",
+      "resolution": "{{ resolution }}",
+      "ref_image_0": "{{ inputs.phone_image }}",
+      "ref_image_1": "{{ inputs.identity_bridge }}",
+      "$each": {
+        "in": "inputs.reference_audio",
+        "as": "audio",
+        "key": "ref_audio_{{ index }}",
+        "value": "{{ audio }}"
+      }
+    },
+    "extract": {
+      "task_id": ["$.data.task_id"],
+      "error": ["$.msg"]
+    }
+  },
+  "poll": {
+    "method": "GET",
+    "url": "{{ base_url }}/api/v1/comfyui/comfyui_workflow/result/{{ task_id }}",
+    "extract": {
+      "status": ["$.data.status"],
+      "video_url": [
+        "$.data.results[?(@.type == 'video')].url",
+        "$.data.results[0].url"
+      ],
+      "error": ["$.data.message", "$.msg"]
+    }
+  },
+  "status_map": {
+    "queued": "queued",
+    "running": "running",
+    "success": "succeeded",
+    "completed": "succeeded",
+    "failed": "failed"
+  },
+  "capabilities": {
+    "text_to_video": false,
+    "first_frame": true,
+    "last_frame": true,
+    "reference_audio_mode": "direct",
+    "max_reference_audio_count": 3,
+    "max_reference_audio_total_seconds": 15,
+    "max_prompt_chars": 10000,
+    "audio_track": "always_on"
+  }
+}
