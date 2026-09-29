@@ -410,6 +410,12 @@ def test_rich_canonical_director_fields_render_without_replacing_core_contract()
     assert "SFX: system confirmation tone" in prompt
     assert "Constraints: no readable text" in prompt
     assert "<Subject 1> (S1) says" in prompt
+    detailed = prompt.split("detailed_description:", 1)[1].split(
+        "overall_soundscape:",
+        1,
+    )[0]
+    assert "<Subject 1>" in detailed
+    assert "<Subject 2>" in detailed
 
 def test_canonical_t2va_uses_official_three_field_native_shape() -> None:
     unit = {

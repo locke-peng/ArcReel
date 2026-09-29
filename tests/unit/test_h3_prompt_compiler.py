@@ -267,3 +267,20 @@ N/A"""
             duration_seconds=5,
         )
 
+def test_existing_native_t2va_prompt_is_idempotent() -> None:
+    native = """integrated_multimodal_description:
+[Shot 1] A medium shot shows the character waiting by the window.
+[Shot 2] At 00:04.000
+The character turns toward the doorway.
+
+overall_soundscape:
+Quiet room tone.
+
+non_diegetic_music:
+N/A"""
+
+    assert compile_h3_text_t2va_prompt(
+        source_prompt=native,
+        duration_seconds=8,
+    ) == native
+

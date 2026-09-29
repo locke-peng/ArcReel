@@ -26,6 +26,11 @@ from lib.video_prompt_compilers.h3_director_enrichment import (
     shot_post_lines,
     shot_setup_lines,
 )
+from lib.video_prompt_compilers.h3_prompt_compiler import (
+    H3PromptCompileError,
+    validate_h3_native_ref2va_structure,
+    validate_h3_native_t2va_structure,
+)
 
 H3_MIN_DURATION_SECONDS = 4
 H3_MAX_DURATION_SECONDS = 15
@@ -49,6 +54,9 @@ _H3_SECTION_RE = re.compile(
 )
 _T2VA_SECTION_RE = re.compile(
     r"(?m)^(integrated_multimodal_description|overall_soundscape|non_diegetic_music):\s*$"
+)
+_REF2VA_ONLY_SECTION_RE = re.compile(
+    r"(?m)^(subject_definitions|summary|retention_analysis|detailed_description):\s*$"
 )
 
 
@@ -93,7 +101,7 @@ def compile_h3_text_t2va_prompt(
         "non_diegetic_music",
     }
     found = {m.group(1) for m in _T2VA_SECTION_RE.finditer(source_prompt)}
-    if required.issubset(found) and not _H3_SECTION_RE.search(source_prompt):
+    if required.issubset(found) and not _REF2VA_ONLY_SECTION_RE.search(source_prompt):
         prompt = source_prompt.strip()
     else:
         body = _legacy_inline_body(source_prompt)
@@ -114,7 +122,13 @@ def compile_h3_text_t2va_prompt(
         raise H3DirectorCompileError(
             f"compiled H3 prompt is {len(prompt)} characters; limit is {max_prompt_chars}"
         )
-    return prompt
+    try:
+        return validate_h3_native_t2va_structure(
+            prompt,
+            duration_seconds=duration,
+        )
+    except H3PromptCompileError as exc:
+        raise H3DirectorCompileError(str(exc)) from exc
 
 
 @dataclass(frozen=True)
@@ -522,6 +536,23 @@ def _role_constraints(unit: Mapping[str, Any], registries: Mapping[str, Any]) ->
     return lines
 
 
+def _reference_application_lines(
+    references: Sequence[DirectorReference],
+) -> list[str]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for ref in references:
+        if ref.subject in seen:
+            continue
+        seen.add(ref.subject)
+        lines.append(
+            f"{ref.subject} is the bound provider reference for {ref.label}; "
+            "apply it wherever that canonical entity or environment appears "
+            "in the authored shots below."
+        )
+    return lines
+
+
 def _retention_analysis(
     unit: Mapping[str, Any],
     registries: Mapping[str, Any],
@@ -706,6 +737,7 @@ def compile_h3_director_prompt(
 
     detailed: list[str] = []
     detailed.extend(_role_constraints(unit, registries))
+    detailed.extend(_reference_application_lines(refs))
     try:
         audio_track = parse_canonical_audio_track_spec(unit)
     except ValueError as exc:
@@ -789,4 +821,18 @@ def compile_h3_director_prompt(
         raise H3DirectorCompileError(
             f"compiled H3 prompt is {len(prompt)} characters; limit is {max_prompt_chars}"
         )
+    try:
+        if mode == "ref2va":
+            prompt = validate_h3_native_ref2va_structure(
+                prompt,
+                duration_seconds=duration,
+                reference_count=len(refs),
+            )
+        else:
+            prompt = validate_h3_native_t2va_structure(
+                prompt,
+                duration_seconds=duration,
+            )
+    except H3PromptCompileError as exc:
+        raise H3DirectorCompileError(str(exc)) from exc
     return prompt, mode
