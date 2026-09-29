@@ -62,7 +62,7 @@ describe("H3StudioDashboard", () => {
     expect(await screen.findByText("H3 生产控制台")).toBeInTheDocument();
     expect(screen.getByText("E12U06")).toBeInTheDocument();
     expect(screen.getByText("E13U03")).toBeInTheDocument();
-    expect(screen.getByText("CNY 4.50")).toBeInTheDocument();
+    expect(screen.getAllByText("CNY 4.50")).toHaveLength(2);
     expect(API.getH3StudioSummary).toHaveBeenCalledWith("demo");
   });
 

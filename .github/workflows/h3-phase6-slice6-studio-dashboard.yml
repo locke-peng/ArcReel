@@ -70,6 +70,6 @@ jobs:
       - name: Run Studio dashboard tests
         working-directory: frontend
         run: |
-          pnpm test -- \
+          pnpm exec vitest run \
             src/components/canvas/H3StudioDashboard.test.tsx \
             src/components/canvas/StudioCanvasRouter.test.tsx
