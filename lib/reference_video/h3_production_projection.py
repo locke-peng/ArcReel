@@ -11,6 +11,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+
 from lib.reference_video.h3_repair_ticket_store import (
     H3RepairTicketLifecycleState,
     PersistedH3RepairTicket,

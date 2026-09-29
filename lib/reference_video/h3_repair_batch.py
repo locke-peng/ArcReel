@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
+
 from lib.reference_video.h3_repair_ticket_store import (
     H3RepairTicketLifecycleState,
     PersistedH3RepairTicket,

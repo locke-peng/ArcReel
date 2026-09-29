@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+
 from lib.reference_video.h3_repair_ticket_store import PersistedH3RepairTicket
 
 
